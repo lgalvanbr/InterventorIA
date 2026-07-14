@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Acta de Recibo Parcial de Obra | CivicSupervise</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed": "#131b2e",
+                        "on-secondary-fixed-variant": "#3a485b",
+                        "on-tertiary-fixed-variant": "#3f465c",
+                        "on-background": "#191c1e",
+                        "surface-variant": "#e0e3e5",
+                        "error-container": "#ffdad6",
+                        "primary-fixed-dim": "#b6c4ff",
+                        "on-primary-container": "#90a8ff",
+                        "outline-variant": "#c5c5d3",
+                        "on-secondary-fixed": "#0d1c2e",
+                        "on-primary": "#ffffff",
+                        "primary-fixed": "#dce1ff",
+                        "surface-container-highest": "#e0e3e5",
+                        "primary": "#00236f",
+                        "tertiary-fixed": "#dae2fd",
+                        "secondary-fixed": "#d5e3fc",
+                        "on-surface": "#191c1e",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-container": "#1e3a8a",
+                        "on-secondary": "#ffffff",
+                        "surface-container": "#eceef0",
+                        "tertiary-fixed-dim": "#bec6e0",
+                        "secondary": "#515f74",
+                        "error": "#ba1a1a",
+                        "surface-tint": "#4059aa",
+                        "tertiary": "#222a3e",
+                        "on-primary-fixed": "#00164e",
+                        "on-secondary-container": "#57657a",
+                        "surface-dim": "#d8dadc",
+                        "tertiary-container": "#384055",
+                        "on-primary-fixed-variant": "#264191",
+                        "surface": "#f7f9fb",
+                        "on-tertiary-container": "#a4acc5",
+                        "secondary-container": "#d5e3fc",
+                        "surface-bright": "#f7f9fb",
+                        "surface-container-low": "#f2f4f6",
+                        "on-tertiary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "outline": "#757682",
+                        "on-surface-variant": "#444651",
+                        "inverse-surface": "#2d3133",
+                        "surface-container-high": "#e6e8ea"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "stack-md": "16px",
+                        "stack-lg": "32px",
+                        "container-max": "1440px",
+                        "unit": "4px",
+                        "stack-sm": "8px",
+                        "gutter": "24px",
+                        "margin-mobile": "16px",
+                        "margin-desktop": "40px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Inter"],
+                        "data-mono": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "label-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "body-md": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fb; color: #191c1e; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .sidebar-active { background-color: rgba(30, 58, 138, 0.08); }
+        .metric-card { border: 1px solid #e2e8f0; background: #ffffff; }
+        .signature-line { border-bottom: 1px solid #757682; }
+        .stamp-approved {
+            border: 4px double #16a34a;
+            color: #16a34a;
+            padding: 8px 16px;
+            font-weight: 800;
+            text-transform: uppercase;
+            transform: rotate(-12deg);
+            opacity: 0.8;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-background">
+<!-- SideNavBar -->
+<aside class="flex flex-col h-screen fixed left-0 top-0 overflow-y-auto bg-surface dark:bg-inverse-surface border-r border-outline-variant dark:border-outline w-64 z-50">
+<div class="p-gutter">
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-inverse-primary">CivicSupervise</h1>
+<p class="font-label-md text-label-md text-on-surface-variant">Portal de Infraestructura</p>
+</div>
+<nav class="flex-1 px-4 space-y-1">
+<a class="flex items-center px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-secondary-container transition-colors" href="#">
+<span class="material-symbols-outlined mr-3">assignment</span>
+<span class="font-label-md text-label-md">Proyectos</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-secondary-container transition-colors" href="#">
+<span class="material-symbols-outlined mr-3">map</span>
+<span class="font-label-md text-label-md">Mapa</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-secondary-container transition-colors" href="#">
+<span class="material-symbols-outlined mr-3">notifications_active</span>
+<span class="font-label-md text-label-md">Alertas</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-lg text-primary dark:text-inverse-primary font-bold border-r-4 border-primary bg-surface-container-high" href="#">
+<span class="material-symbols-outlined mr-3">description</span>
+<span class="font-label-md text-label-md">Actas y Reportes</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-secondary-container transition-colors" href="#">
+<span class="material-symbols-outlined mr-3">settings</span>
+<span class="font-label-md text-label-md">Configuración</span>
+</a>
+</nav>
+<div class="p-4 border-t border-outline-variant">
+<div class="flex items-center gap-3">
+<img alt="J. Harrison - Supervisor Jefe" class="w-10 h-10 rounded-full bg-surface-container-highest object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBoAY7gGb0WN1znEU8ABgn883cc9viX5C8q4neTENAfM2DM2OWmjUwJHse0Il4QsFAtvVfbJ6fVQiuEnjMkNk46hVX9ngT9NjCh7W_T_xiHqTLmSiZGXmhYqrWMS2CQGJLbo7hKsGC3MdC2E8sOFhnEWjNKdiEQb0NME0N-ZImzannQIEXRMtXbY8sH5-I-70W5ulGB435lwcHHcxmcM4NQ-M3UKEwrLiSK0GAzxi6X68yNTRBbrljWoQBiap19RcF7X8IR-CLtnc_y"/>
+<div>
+<p class="font-label-md text-label-md font-bold">J. Harrison</p>
+<p class="text-xs text-on-surface-variant">Supervisor Jefe</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopAppBar -->
+<header class="flex justify-between items-center h-16 px-gutter sticky top-0 z-40 ml-64 bg-surface dark:bg-inverse-surface border-b border-outline-variant dark:border-outline">
+<div class="flex items-center bg-surface-container rounded-full px-4 py-1.5 w-96">
+<span class="material-symbols-outlined text-on-surface-variant text-sm mr-2">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-full" placeholder="Buscar frente de obra o acta..." type="text"/>
+</div>
+<div class="flex items-center gap-4">
+<div class="stamp-approved hidden md:block">Aprobado para Pago</div>
+<button class="p-2 hover:text-primary dark:hover:text-primary-fixed-dim transition-colors scale-95 duration-100">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="bg-primary text-on-primary px-4 py-2 rounded font-label-md text-label-md hover:opacity-90 active:scale-95 transition-all">
+            Selector de Proyecto
+        </button>
+</div>
+</header>
+<!-- Main Content -->
+<main class="ml-64 p-margin-desktop space-y-gutter max-w-container-max mx-auto">
+<!-- Header & Status -->
+<section class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div class="space-y-1">
+<span class="bg-primary-container text-on-primary-container px-3 py-1 rounded-full font-label-md text-label-md uppercase tracking-wider">Documento Oficial</span>
+<h2 class="font-headline-lg text-headline-lg text-primary">Acta de Recibo Parcial de Obra N° 042</h2>
+<p class="font-body-md text-body-md text-secondary">Proyecto: Modernización de Puentes - Sector 4G | Frente: Estribo Norte</p>
+</div>
+<div class="flex gap-2">
+<button class="flex items-center gap-2 border border-outline px-4 py-2 rounded text-on-surface-variant hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined">download</span>
+<span class="font-label-md text-label-md">Exportar PDF</span>
+</button>
+<button class="flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded font-label-md text-label-md shadow-sm">
+<span class="material-symbols-outlined">print</span>
+<span class="font-label-md text-label-md">Imprimir Acta</span>
+</button>
+</div>
+</section>
+<!-- Financial & Progress Summary -->
+<section class="grid grid-cols-1 md:grid-cols-4 gap-gutter">
+<!-- Progress Card -->
+<div class="md:col-span-2 bg-surface-container-lowest border border-outline-variant p-gutter rounded shadow-sm flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase">Avance de Ejecución Físico</h3>
+<span class="text-primary font-bold text-headline-md">78.4%</span>
+</div>
+<div class="mt-8 space-y-4">
+<div class="w-full bg-surface-container-high rounded-full h-4 relative overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 78.4%;"></div>
+<div class="absolute top-0 bottom-0 w-0.5 bg-error z-10" style="left: 85%;" title="Meta Programada"></div>
+</div>
+<div class="flex justify-between font-label-md text-label-md text-on-surface-variant">
+<span>Ejecutado: 78.4%</span>
+<span class="text-error font-bold">Programado: 85.0% (-6.6%)</span>
+</div>
+</div>
+</div>
+<!-- Financial Balance Card -->
+<div class="md:col-span-2 bg-surface-container-lowest border border-outline-variant p-gutter rounded shadow-sm">
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase mb-4">Balance Financiero del Contrato</h3>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<p class="text-xs text-on-surface-variant">Valor Total Contrato</p>
+<p class="font-headline-md text-headline-md text-primary">$1.200.000</p>
+</div>
+<div>
+<p class="text-xs text-on-surface-variant">Valor Ejecutado Acumulado</p>
+<p class="font-headline-md text-headline-md text-secondary">$940.000</p>
+</div>
+<div class="pt-2 border-t border-outline-variant">
+<p class="text-xs text-on-surface-variant">Amortización Anticipo (20%)</p>
+<p class="font-body-md font-bold text-on-surface">$188.000</p>
+</div>
+<div class="pt-2 border-t border-outline-variant">
+<p class="text-xs text-on-surface-variant">Saldo por Ejecutar</p>
+<p class="font-body-md font-bold text-emerald-600">$260.000</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Table of Executed Quantities -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded shadow-sm overflow-hidden">
+<div class="px-gutter py-4 border-b border-outline-variant bg-surface-container-low">
+<h3 class="font-label-md text-label-md text-on-surface font-bold uppercase">Cantidades de Obra Ejecutadas - Periodo Actual</h3>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container text-on-surface-variant font-label-md text-xs uppercase">
+<th class="px-gutter py-3 border-b border-outline-variant">Ítem</th>
+<th class="px-gutter py-3 border-b border-outline-variant">Descripción</th>
+<th class="px-gutter py-3 border-b border-outline-variant text-center">Unidad</th>
+<th class="px-gutter py-3 border-b border-outline-variant text-right">Cantidad</th>
+<th class="px-gutter py-3 border-b border-outline-variant text-right">Valor Unit.</th>
+<th class="px-gutter py-3 border-b border-outline-variant text-right">Total Ítem</th>
+</tr>
+</thead>
+<tbody class="text-body-sm">
+<tr class="hover:bg-surface-container-low border-b border-outline-variant">
+<td class="px-gutter py-3 font-medium">1.1</td>
+<td class="px-gutter py-3">Acero de refuerzo 60,000 PSI (Estribo Norte)</td>
+<td class="px-gutter py-3 text-center">KG</td>
+<td class="px-gutter py-3 text-right">4.500</td>
+<td class="px-gutter py-3 text-right">$5.20</td>
+<td class="px-gutter py-3 text-right font-bold">$23.400</td>
+</tr>
+<tr class="hover:bg-surface-container-low border-b border-outline-variant">
+<td class="px-gutter py-3 font-medium">1.2</td>
+<td class="px-gutter py-3">Concreto estructural 4000 PSI</td>
+<td class="px-gutter py-3 text-center">M3</td>
+<td class="px-gutter py-3 text-right">120</td>
+<td class="px-gutter py-3 text-right">$185.00</td>
+<td class="px-gutter py-3 text-right font-bold">$22.200</td>
+</tr>
+<tr class="hover:bg-surface-container-low">
+<td class="px-gutter py-3 font-medium">1.3</td>
+<td class="px-gutter py-3">Excavación mecánica en material común</td>
+<td class="px-gutter py-3 text-center">M3</td>
+<td class="px-gutter py-3 text-right">350</td>
+<td class="px-gutter py-3 text-right">$12.50</td>
+<td class="px-gutter py-3 text-right font-bold">$4.375</td>
+</tr>
+</tbody>
+<tfoot>
+<tr class="bg-surface-container-low font-bold">
+<td class="px-gutter py-3 text-right" colspan="5">SUBTOTAL EJECUTADO EN PERIODO:</td>
+<td class="px-gutter py-3 text-right text-primary text-body-md">$49.975</td>
+</tr>
+</tfoot>
+</table>
+</div>
+</section>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
+<!-- Technical & Compliance -->
+<section class="lg:col-span-2 space-y-gutter">
+<!-- Certification Section -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded shadow-sm p-gutter">
+<div class="flex items-center gap-3 mb-4 text-primary">
+<span class="material-symbols-outlined">verified_user</span>
+<h3 class="font-label-md text-label-md font-bold uppercase">Certificación de Aportes Parafiscales y Seguridad Social</h3>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
+                    El Contratista certifica mediante la presente que se encuentra al día en el pago de aportes al sistema de seguridad social integral (Salud, Pensión, ARL) y aportes parafiscales (SENA, ICBF, Cajas de Compensación), correspondientes al personal vinculado a la ejecución de la obra durante el periodo reportado, en cumplimiento de la Ley 789 de 2002.
+                </p>
+<div class="mt-4 flex items-center gap-4">
+<span class="flex items-center gap-1 text-emerald-600 font-label-md text-xs">
+<span class="material-symbols-outlined text-sm">check_circle</span> Verificado por Auditoría
+                    </span>
+<span class="text-xs text-secondary">Planilla No. 8832199-0</span>
+</div>
+</div>
+<!-- Inspections Gallery -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded shadow-sm overflow-hidden">
+<div class="px-gutter py-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
+<h3 class="font-label-md text-label-md text-on-surface font-bold uppercase">Registro Fotográfico de Inspección</h3>
+<button class="text-primary font-label-md text-label-md hover:underline">Ver Todo</button>
+</div>
+<div class="p-gutter">
+<div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+<div class="group relative cursor-pointer overflow-hidden rounded-lg">
+<img alt="Inspección de refuerzo de acero" class="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDRTpB_68em4YxR2Ht8zt06gUnMhu25waLWnukquEbxxwm7ylRJmYHqjScLEaUSUKhj0vCz-fYG-a3zfKgzL650XE5IXbcn15V_KDCorfjCyLMPPHjUouWSp6ABc_F5bERJRHfTb3BRxPgievaPKrDOwEu4Is_IHzSG9Y2_pVarYepNPn7gBVdQGLcH3m-GEKPzd2AZb9vhmU8Z9Znl6f4tLvgQKVxVINZUTdWYEpDrxlkjP0VPU-OIaYr6Zs41kw3FjhToJh4wvY5I"/>
+<div class="absolute bottom-0 inset-x-0 bg-black/60 p-2 text-white text-[10px]">
+<p class="font-bold">24 OCT - Verificación Rebar</p>
+</div>
+</div>
+<div class="group relative cursor-pointer overflow-hidden rounded-lg">
+<img alt="Vista aérea de cimentación" class="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBni1oA4LYbNPfau-ujYKdbU-A7uF4vE48YBQ5WWXskUFnz3GhZvF5Xi-XE-hCaCcFvOiW9Q4VeG_57G-l85paIRp-slCi2fu8yIYcI1zGj5-KF6JcE4nBqUAjIK_W6Z5dIXk92_9bx4Q1kMtt9zoXDt3dDDIYj8-l7nx4ywJksWlir1X3B1DIGUC913kHvOuibxn7LnzV2SZrkzVX8N6qD42TlQrlB1alDBsA6LuxIzvsKace28V9FK0K2eJnA1uX-rxlQ1yPSR0yJ"/>
+<div class="absolute bottom-0 inset-x-0 bg-black/60 p-2 text-white text-[10px]">
+<p class="font-bold">22 OCT - Vista de Cimentación</p>
+</div>
+</div>
+<div class="group relative cursor-pointer overflow-hidden rounded-lg">
+<img alt="Acabado de concreto" class="w-full h-40 object-cover group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDo7hUrZHZyeCkfHPjt9L4EfekcPB5cSbRiV6vkMkHvJRLWCuiOV9w7XkvMmL-4tueZTGD6Dz9sIOYgJIL830FZCwX5kwSf_dsePHFkjpHIlewKG8yJ7WsWbLha8QzxsM83t-iA-SC_qCHbcoFNL2XK5bAJ0VdlqJYJkdBFqNHkvr68MIbL-sFLZi_6dC9kIqUlK3iK14OMOdmuPlPmoBbsi7caofl_M-ZtOSZEDrr7Kz8imva0B_y6OsZB7EetUQDrDqcl1PT-33yJ"/>
+<div class="absolute bottom-0 inset-x-0 bg-black/60 p-2 text-white text-[10px]">
+<p class="font-bold">20 OCT - Acabado de Vaciado</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Remarks & Observations -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded shadow-sm">
+<div class="px-gutter py-4 border-b border-outline-variant bg-surface-container-low">
+<h3 class="font-label-md text-label-md text-on-surface font-bold uppercase">Observaciones de Supervisión</h3>
+</div>
+<div class="p-gutter space-y-6">
+<div class="space-y-2">
+<label class="font-label-md text-label-md text-secondary block uppercase">Estado Actual</label>
+<p class="font-body-md text-body-md text-on-surface leading-relaxed">
+                        El armado del Estribo Norte alcanza el 95%. Se reporta un retraso de 48h por problemas logísticos del proveedor de concreto. Se ha autorizado un plan de choque para vaciado el fin de semana.
+                    </p>
+</div>
+<div class="space-y-4">
+<label class="font-label-md text-label-md text-secondary block uppercase">Control de Cumplimiento</label>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-emerald-500">task_alt</span>
+<span class="font-body-sm text-body-sm">Permisos Ambientales: Vigentes</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-emerald-500">task_alt</span>
+<span class="font-body-sm text-body-sm">SST / OSHA: Cumplimiento 100%</span>
+</div>
+<div class="flex items-center gap-3 text-error">
+<span class="material-symbols-outlined">warning</span>
+<span class="font-body-sm text-body-sm">Calidad: Pendiente Resultados Laboratorio</span>
+</div>
+</div>
+<!-- Mini Stamp -->
+<div class="pt-6 border-t border-outline-variant flex justify-center">
+<div class="stamp-approved scale-75">Aprobado para Pago</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Signatures Section -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded shadow-sm p-gutter">
+<h3 class="font-label-md text-label-md text-on-surface font-bold uppercase mb-stack-lg">Firmas de Aprobación y Verificación</h3>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12">
+<!-- Interventor Signature -->
+<div class="space-y-6">
+<div class="h-20 signature-line flex items-end pb-2 relative">
+<div class="italic font-serif text-2xl text-secondary opacity-40 select-none">Sarah Vance</div>
+</div>
+<div>
+<p class="font-label-md text-label-md font-bold">Ing. Sarah Vance</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Interventor Externo</p>
+<p class="text-[10px] font-mono text-secondary">Matrícula Profesional: MP-11022-ANT</p>
+<p class="text-[9px] text-secondary italic mt-1">Firmado digitalmente: 25/10/2023 10:45 AM</p>
+</div>
+</div>
+<!-- Supervisor Signature -->
+<div class="space-y-6">
+<div class="h-20 signature-line flex items-end pb-2">
+<div class="italic font-serif text-2xl text-secondary opacity-40 select-none">John Harrison</div>
+</div>
+<div>
+<p class="font-label-md text-label-md font-bold">John Harrison</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Supervisor de Obra</p>
+<p class="text-[10px] font-mono text-secondary">ID de Funcionario: CS-9921</p>
+<p class="text-[9px] text-secondary italic mt-1">Firmado digitalmente: 25/10/2023 09:12 AM</p>
+</div>
+</div>
+<!-- Contratista Signature -->
+<div class="space-y-6">
+<div class="h-20 signature-line flex items-end pb-2 relative">
+<button class="absolute inset-0 flex items-center justify-center bg-surface-container/30 hover:bg-surface-container transition-colors rounded border border-dashed border-outline">
+<span class="font-label-md text-label-md text-primary">Firmar Representante Legal</span>
+</button>
+</div>
+<div>
+<p class="font-label-md text-label-md font-bold">Arq. Carlos Méndez</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Representante Legal Contratista</p>
+<p class="text-[10px] font-mono text-secondary">NIT: 900.223.441-2</p>
+<p class="text-[9px] text-secondary italic mt-1">Pendiente firma del contratista</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Footer -->
+<footer class="py-12 border-t border-outline-variant text-center space-y-2">
+<p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest">CivicSupervise © 2023</p>
+<p class="text-xs text-secondary italic">Este documento constituye un registro formal de avance y recibo de obra. Su alteración no autorizada está sujeta a sanciones legales.</p>
+</footer>
+</main>
+<script>
+    // Micro-interactions for signature field
+    const contractorSignatureBtn = document.querySelector('button.absolute');
+    if (contractorSignatureBtn) {
+        contractorSignatureBtn.addEventListener('click', () => {
+            const confirmed = confirm("¿Confirma la firma digital como Representante Legal del Contratista?");
+            if (confirmed) {
+                contractorSignatureBtn.parentElement.innerHTML = '<div class="italic font-serif text-2xl text-secondary opacity-40">Carlos Méndez</div>';
+                const statusText = document.querySelector('p.text-\[9px\].text-secondary.italic.mt-1:last-child');
+                if(statusText) {
+                    statusText.textContent = `Firmado digitalmente: ${new Date().toLocaleDateString()} - ${new Date().toLocaleTimeString()}`;
+                    statusText.classList.remove('text-secondary');
+                    statusText.classList.add('text-emerald-600');
+                }
+            }
+        });
+    }
+</script>
+</body></html>

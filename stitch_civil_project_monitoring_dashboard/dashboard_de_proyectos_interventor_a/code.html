@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>CivicSupervise - Portal de Infraestructura</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fb;
+        }
+        .grid-bg {
+            background-size: 40px 40px;
+            background-image: radial-gradient(circle, #e2e8f0 1px, transparent 1px);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid #e2e8f0;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary-fixed": "#131b2e",
+                      "on-secondary-fixed-variant": "#3a485b",
+                      "on-tertiary-fixed-variant": "#3f465c",
+                      "on-background": "#191c1e",
+                      "surface-variant": "#e0e3e5",
+                      "error-container": "#ffdad6",
+                      "primary-fixed-dim": "#b6c4ff",
+                      "on-primary-container": "#90a8ff",
+                      "outline-variant": "#c5c5d3",
+                      "on-secondary-fixed": "#0d1c2e",
+                      "on-primary": "#ffffff",
+                      "primary-fixed": "#dce1ff",
+                      "surface-container-highest": "#e0e3e5",
+                      "primary": "#00236f",
+                      "tertiary-fixed": "#dae2fd",
+                      "secondary-fixed": "#d5e3fc",
+                      "on-surface": "#191c1e",
+                      "surface-container-lowest": "#ffffff",
+                      "primary-container": "#1e3a8a",
+                      "on-secondary": "#ffffff",
+                      "surface-container": "#eceef0",
+                      "tertiary-fixed-dim": "#bec6e0",
+                      "secondary": "#515f74",
+                      "error": "#ba1a1a",
+                      "surface-tint": "#4059aa",
+                      "tertiary": "#222a3e",
+                      "on-primary-fixed": "#00164e",
+                      "on-secondary-container": "#57657a",
+                      "surface-dim": "#d8dadc",
+                      "tertiary-container": "#384055",
+                      "on-primary-fixed-variant": "#264191",
+                      "surface": "#f7f9fb",
+                      "on-tertiary-container": "#a4acc5",
+                      "secondary-fixed-dim": "#b9c7df",
+                      "inverse-on-surface": "#eff1f3",
+                      "background": "#f7f9fb",
+                      "inverse-primary": "#b6c4ff",
+                      "surface-container-low": "#f2f4f6",
+                      "on-tertiary": "#ffffff",
+                      "on-error": "#ffffff",
+                      "on-error-container": "#93000a",
+                      "outline": "#757682",
+                      "on-surface-variant": "#444651",
+                      "inverse-surface": "#2d3133",
+                      "secondary-container": "#d5e3fc",
+                      "surface-bright": "#f7f9fb",
+                      "surface-container-high": "#e6e8ea"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "stack-md": "16px",
+                      "stack-lg": "32px",
+                      "container-max": "1440px",
+                      "unit": "4px",
+                      "stack-sm": "8px",
+                      "gutter": "24px",
+                      "margin-mobile": "16px",
+                      "margin-desktop": "40px"
+              },
+              "fontFamily": {
+                      "headline-lg": ["Inter"],
+                      "headline-md": ["Inter"],
+                      "label-md": ["Inter"],
+                      "body-md": ["Inter"],
+                      "body-sm": ["Inter"],
+                      "data-mono": ["Inter"]
+              },
+              "fontSize": {
+                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                      "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "data-mono": ["14px", {"lineHeight": "20px", "fontWeight": "500"}]
+              }
+            },
+          },
+        }
+      </script>
+</head>
+<body class="bg-background text-on-surface antialiased grid-bg min-h-screen overflow-x-hidden">
+<!-- Sidebar Navigation -->
+<aside class="flex flex-col h-screen fixed left-0 top-0 overflow-y-auto bg-surface border-r border-outline-variant w-64 z-50">
+<div class="p-gutter">
+<h1 class="font-headline-md text-headline-md font-bold text-primary">CivicSupervise</h1>
+<p class="text-on-surface-variant font-label-md text-label-md opacity-70">Portal de Infraestructura</p>
+</div>
+<nav class="flex-1 mt-stack-md">
+<a class="flex items-center px-gutter py-3 text-primary font-bold border-r-4 border-primary bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="assignment">assignment</span>
+<span class="font-label-md text-label-md">Proyectos de Infraestructura</span>
+</a>
+<a class="flex items-center px-gutter py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="map">map</span>
+<span class="font-label-md text-label-md">Mapa de Obras</span>
+</a>
+<a class="flex items-center px-gutter py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="notifications_active">notifications_active</span>
+<span class="font-label-md text-label-md">Alertas y Anotaciones (Control Legal)</span>
+</a>
+<a class="flex items-center px-gutter py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="description">description</span>
+<span class="font-label-md text-label-md">Informes y Actas de Recibo</span>
+</a>
+<a class="flex items-center px-gutter py-3 text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined mr-3" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md">Configuración</span>
+</a>
+</nav>
+<div class="p-gutter mt-auto border-t border-outline-variant">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full border border-outline object-cover" data-alt="Professional portrait of a civil engineering supervisor" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDPOBuJo60ErO3usF3g-SwhwRuXdihHG52b0LC518FQk5ygyi-aSKKyOqEzQ1Yl4rSsPjqAVGj1yJuIRTrxod6jS2cjcbt68dHm7FAGEyRr6tJO9Nrth1-S19Cj1NJudNlnOYBKw1hIO4pKxPrAoCgrePjyV_l-SFhj60uYtazLapEpo2lZLBkRNPAAe1fnfi1IzueqZB7MK2EpuVyErNUkzg3TKpA4_5OJ5E8DPm4qwjUeuyYHoXkBnX_RHAJpXrF27JfGnTKZqkiw"/>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Ing. Aris Mendoza</p>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-wider">Interventor Senior</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Top App Bar -->
+<header class="flex justify-between items-center h-16 px-gutter sticky top-0 z-40 ml-64 bg-surface border-b border-outline-variant">
+<div class="flex items-center flex-1 max-w-xl">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm" data-icon="search">search</span>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg pl-10 pr-4 py-2 text-label-md focus:ring-2 focus:ring-primary focus:border-transparent outline-none" placeholder="Buscar contratos, expedientes técnicos..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined" data-icon="apps">apps</span>
+</button>
+<div class="h-8 w-px bg-outline-variant mx-2"></div>
+<button class="bg-primary text-on-primary font-label-md text-label-md px-4 py-2 rounded-lg hover:bg-primary-container transition-transform active:scale-95 duration-100 flex items-center gap-2">
+<span class="material-symbols-outlined text-[20px]" data-icon="add">add</span>
+            Seleccionar Proyecto
+        </button>
+</div>
+</header>
+<!-- Main Content -->
+<main class="ml-64 p-gutter max-w-container-max mx-auto">
+<!-- Hero Header -->
+<section class="mb-stack-lg flex flex-col md:flex-row md:items-end justify-between gap-gutter">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-primary mb-2">Proyectos en Ejecución</h2>
+<div class="flex items-center gap-4">
+<span class="flex items-center gap-1.5 text-on-surface-variant font-label-md text-label-md">
+<span class="w-2 h-2 rounded-full bg-green-500"></span> 12 Activos
+                </span>
+<span class="flex items-center gap-1.5 text-on-surface-variant font-label-md text-label-md">
+<span class="w-2 h-2 rounded-full bg-amber-500"></span> 3 Pendientes de Aprobación
+                </span>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="bg-white border border-outline-variant px-4 py-2 text-label-md font-label-md flex items-center gap-2 hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[18px]" data-icon="filter_list">filter_list</span>
+                Filtrar
+            </button>
+<button class="bg-white border border-outline-variant px-4 py-2 text-label-md font-label-md flex items-center gap-2 hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[18px]" data-icon="file_download">file_download</span>
+                Exportar
+            </button>
+</div>
+</section>
+<!-- Main Dashboard Layout -->
+<div class="grid grid-cols-12 gap-gutter">
+<!-- Left Side: Project Cards Grid (8 cols) -->
+<div class="col-span-12 lg:col-span-8 space-y-gutter">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<!-- Project Card 1 -->
+<div class="bg-white border border-outline-variant rounded-lg p-0 overflow-hidden group hover:shadow-lg transition-all duration-300">
+<div class="h-40 relative">
+<img class="w-full h-full object-cover" data-alt="Bridge construction site" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBOrYO1iJanz7F_LaJ8N19tDjDFFeFFKtXHM_fk7O01Ur5vYBaQ4Ul667v5joAyrWW0ktNmci13VgYhLhYHqSijtYyTmsET97jx44R2_e3I9yf1Otpg_QwQxG62b7oeuRdfcC5kKAeCFabY4600AGRP69pme3O5-ldNqvv8fX9cbUmXgpG_8T3H1Rbq6x-2reLRwk5UjMmWgCZPAhcjtLXtIy2d3JQYfgDbHnmveEffzTg9I4TQkrt2Eb0Us4CDI6-pMdt9XZAGO0Y"/>
+<div class="absolute top-3 right-3 flex flex-col gap-1 items-end">
+<span class="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-1 rounded-full uppercase">Al Día</span>
+<span class="bg-white/90 text-primary text-[9px] font-bold px-2 py-0.5 rounded shadow-sm">SECOP II: Adjudicado</span>
+</div>
+</div>
+<div class="p-4">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-headline-md text-[18px] text-primary">Puente Metropolitano - Sector 4</h3>
+<span class="text-on-surface-variant font-data-mono text-xs">ID: INF-2024-08</span>
+</div>
+<p class="text-body-sm text-on-surface-variant mb-4 line-clamp-2 leading-relaxed">Refuerzo estructural del pilón principal y ensamble de tablero para el proyecto de variante metropolitana.</p>
+<div class="space-y-3">
+<div class="flex justify-between text-xs font-label-md text-on-surface-variant mb-1">
+<span>Avance Físico (Curva S)</span>
+<span>65%</span>
+</div>
+<div class="w-full bg-surface-container h-2 rounded-full overflow-hidden relative">
+<div class="bg-primary h-full rounded-full transition-all duration-1000" style="width: 65%"></div>
+<div class="absolute top-0 left-[75%] w-[2px] h-full bg-red-400 z-10" title="Programado: 75%"></div>
+</div>
+<div class="flex items-center gap-4 text-xs font-label-md text-on-surface-variant">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="calendar_today">calendar_today</span>
+                                    Oct 2024
+                                </div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="group">group</span>
+                                    32 Operarios
+                                </div>
+</div>
+</div>
+</div>
+</div>
+<!-- Project Card 2 -->
+<div class="bg-white border border-outline-variant rounded-lg p-0 overflow-hidden group hover:shadow-lg transition-all duration-300">
+<div class="h-40 relative">
+<img class="w-full h-full object-cover" data-alt="Highway construction site" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDnCUdn9U-tbv29euyqE6CLX1ug5YEWbpM_pqeDBGO0hC_neCZcgwv51bz2eELPecnrpXPdodrtS5mIeIm2e7BGaROVDceSnYaIKVlnvz1ZsD13iCQi0UjPR6R6IHowJJcz3lNNtH8woFdAQ-PdUuvABhk6TXz3MyErb_yFGwqI0dvELcHwXX4j4ltU6y_WhcjhOT-b0BEwSWyRhGUfWdGQ6kaHTjS2Kq21dAHucZMwwEC2NuvE5BwMULPYf4KPCYKv3FLEfCjNRPwr"/>
+<div class="absolute top-3 right-3 flex flex-col gap-1 items-end">
+<span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-1 rounded-full uppercase">En Riesgo</span>
+<span class="bg-white/90 text-primary text-[9px] font-bold px-2 py-0.5 rounded shadow-sm">SECOP II: En Ejecución</span>
+</div>
+</div>
+<div class="p-4">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-headline-md text-[18px] text-primary">Expansión Vía Nacional - Fase II</h3>
+<span class="text-on-surface-variant font-data-mono text-xs">ID: INF-2024-12</span>
+</div>
+<p class="text-body-sm text-on-surface-variant mb-4 line-clamp-2 leading-relaxed">Ampliación de la Ruta Nacional 7 incluyendo sistema de drenaje y modernización de luminarias.</p>
+<div class="space-y-3">
+<div class="flex justify-between text-xs font-label-md text-on-surface-variant mb-1">
+<span>Avance Físico (Curva S)</span>
+<span>28%</span>
+</div>
+<div class="w-full bg-surface-container h-2 rounded-full overflow-hidden relative">
+<div class="bg-amber-500 h-full rounded-full transition-all duration-1000" style="width: 28%"></div>
+<div class="absolute top-0 left-[35%] w-[2px] h-full bg-red-400 z-10" title="Programado: 35%"></div>
+</div>
+<div class="flex items-center gap-4 text-xs font-label-md text-on-surface-variant">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="calendar_today">calendar_today</span>
+                                    Dic 2024
+                                </div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="group">group</span>
+                                    15 Operarios
+                                </div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Bento Style Stats Section -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
+<div class="bg-primary-container text-on-primary-container p-gutter rounded-lg">
+<p class="font-label-md text-label-md opacity-80 uppercase tracking-widest mb-1">Presupuesto Total</p>
+<h4 class="font-headline-md text-headline-md">$245.8M</h4>
+<p class="text-body-sm mt-4 text-primary-fixed-dim">↑ 12% vs último trimestre</p>
+</div>
+<div class="bg-white border border-outline-variant p-gutter rounded-lg">
+<p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest mb-1">Visitas de Campo Activas</p>
+<h4 class="font-headline-md text-headline-md text-primary">18 / 24</h4>
+<div class="flex items-center gap-2 mt-4">
+<div class="flex -space-x-2">
+<img alt="Personal" class="w-6 h-6 rounded-full border border-white" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCNlelB1zPdVlWlkW4-HazmFSKHUw_K1bAGmDr7eVspcL2tskVCxSAXMRVeR1c7Y6qXVTGc9nv_fUSpfDeNrZF0ec7o9o-DDlYnc6NXsNmMAhjFn5t9Xbp-umViJzTRta78Yp7UiwnDIA1DCfNOAKFTQuvAxu4RMDHlfyVO_GfBBntsK6ZlIhTiEKtvqRoBQvMa4mNjNmH00VoIFOcwx6Z1JJnUyxlhtKfYPKfB3PWzhGDFnO4ih4OGnvZJvgCsInWIUymW_2QEWSLJ"/>
+<img alt="Personal" class="w-6 h-6 rounded-full border border-white" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDOT3gg8hbOCS37dLTfR76fKcrfLfZdcyxCbWI26vAy3JjfOg4i3G1Eo8juEJw8ZBmx15Wa3Fi8VwXjE7WhVM3MTiaXefICb-trzYP5ZBHv2BtwCDixCpZlXNAhiPKtWXGF0wl5uYg3jyyzfWDdIzYGkgG4LkAOHwCnYFtj2eAv0CT4khTJIXvNRFtccuB9GN4vilcMHTLCbfJURd8bvmDZcUOm31sPI1V1vpGqZPLX-YE9qcRcyOmZaiRONW4A9Z6RLeAx2Dk-nlwe"/>
+</div>
+<span class="text-xs text-on-surface-variant font-label-md">+5 auxiliares en obra</span>
+</div>
+</div>
+<div class="bg-white border border-outline-variant p-gutter rounded-lg">
+<p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest mb-1">Incidentes HSE</p>
+<h4 class="font-headline-md text-headline-md text-error">02</h4>
+<p class="text-body-sm mt-4 text-on-surface-variant">Últimos 30 días. Requiere acción.</p>
+</div>
+</div>
+</div>
+<!-- Right Side: Alerts & Annotations Widget (4 cols) -->
+<aside class="col-span-12 lg:col-span-4 space-y-gutter">
+<div class="bg-white border border-outline-variant rounded-lg flex flex-col">
+<div class="p-gutter border-b border-outline-variant flex justify-between items-center">
+<h3 class="font-headline-md text-[18px] text-primary flex items-center gap-2">
+<span class="material-symbols-outlined text-error" data-icon="warning">warning</span>
+                        Centro de Alertas
+                    </h3>
+<span class="bg-error-container text-on-error-container text-[10px] font-bold px-2 py-0.5 rounded">3 Críticas</span>
+</div>
+<!-- Sección de Riesgos Anticorrupción y Parafiscales -->
+<div class="p-4 bg-surface-container-low border-b border-outline-variant">
+<div class="flex items-center gap-2 mb-3">
+<span class="material-symbols-outlined text-primary text-sm">shield</span>
+<h4 class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Cumplimiento Legal</h4>
+</div>
+<div class="space-y-2">
+<div class="flex items-center justify-between p-2 bg-white rounded border border-outline-variant/50">
+<span class="text-xs text-on-surface">Riesgos Anticorrupción</span>
+<span class="text-[10px] font-bold text-green-600">SIN HALLAZGOS</span>
+</div>
+<div class="flex items-center justify-between p-2 bg-white rounded border border-outline-variant/50">
+<span class="text-xs text-on-surface">Parafiscales y Seguridad Social</span>
+<span class="text-[10px] font-bold text-amber-600">VERIFICACIÓN PENDIENTE</span>
+</div>
+</div>
+</div>
+<div class="p-0 flex-1 overflow-y-auto">
+<!-- Alert Item 1 -->
+<div class="p-gutter border-b border-outline-variant hover:bg-surface-container transition-colors cursor-pointer group">
+<div class="flex justify-between items-start mb-2">
+<span class="bg-error-container text-on-error-container text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">Urgente</span>
+<span class="text-on-surface-variant font-data-mono text-[10px]">12/05/2024</span>
+</div>
+<h4 class="font-label-md text-label-md text-on-surface group-hover:text-primary transition-colors">Retraso en suministro de concreto</h4>
+<p class="text-body-sm text-on-surface-variant mt-1 leading-relaxed">Falla logística en proveedor principal afecta vaciado de zapata 4. Afecta ruta crítica.</p>
+<div class="mt-4 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-on-surface-variant" data-icon="location_on">location_on</span>
+<span class="text-[11px] font-label-md text-on-surface-variant">Puente Sector 4</span>
+</div>
+<div class="flex items-center gap-2">
+<img alt="Responsable" class="w-5 h-5 rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCxN30pUTWjA9HTDVzFG84P_dKPD3_ZjrXFtAy-8GyuKSkBErhjGRB6epIRsmxho5hFvZCyWPpcm2nfTGKT3guR3vV8M2ZMXTVSXD2Y5TrFl9AVVY44mfy5jDuGxlfiBFa1IehUPNVm18pfavVa7D8Z_RYWy3NH_L2KeiaCdJrIFWenk8FtA9kIoU7iJn6e3h10musoOI7MDI9urDu4IBeZwndhod_2H5nz0IvpNm9-olhnHxXlfBS2-QGKrNxy73wpYgHP3AePFWcn"/>
+<span class="text-[11px] font-label-md text-on-surface">M. Salas</span>
+</div>
+</div>
+</div>
+<!-- Alert Item 2 -->
+<div class="p-gutter border-b border-outline-variant hover:bg-surface-container transition-colors cursor-pointer group">
+<div class="flex justify-between items-start mb-2">
+<span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">Moderado</span>
+<span class="text-on-surface-variant font-data-mono text-[10px]">11/05/2024</span>
+</div>
+<h4 class="font-label-md text-label-md text-on-surface group-hover:text-primary transition-colors">Anotación de Interventoría: Topografía</h4>
+<p class="text-body-sm text-on-surface-variant mt-1 leading-relaxed">Discrepancia en cotas de nivel detectada en el tramo K1+200. Revisión técnica requerida.</p>
+<div class="mt-4 flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-on-surface-variant" data-icon="location_on">location_on</span>
+<span class="text-[11px] font-label-md text-on-surface-variant">Vía Nacional F-II</span>
+</div>
+<div class="flex items-center gap-2">
+<img alt="Responsable" class="w-5 h-5 rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA5baaiSAbKzksLORP0w_IW_NIuItb8r1CTfdcSjO4XK5F9_LcNmy03JA7iq8w-En1DfZ4SzZVDBQIftCLWyu0iasnTiH-aNya5ZTqL9hbnKiiMXKiF7j_w1UJNZPcg0bBpvQrSgm9G7w0gy2xfNcW8zHdSjyCVEC-f5NsFlE89FpgUwavCIMW2RUkFtGsCS2BWZna-XdF2Jgdw-evOA5AD9dMxoddQRTgRngy3YeFu-q8M0AiPIItVimRffOO-y8n4ZURnX-mco4hq"/>
+<span class="text-[11px] font-label-md text-on-surface">J. Ramos</span>
+</div>
+</div>
+</div>
+</div>
+<div class="p-gutter">
+<button class="w-full border border-primary text-primary font-label-md text-label-md py-2 hover:bg-primary hover:text-on-primary transition-all duration-200">
+                        Ver Bitácora Completa
+                    </button>
+</div>
+</div>
+<!-- Resource Quick Links -->
+<div class="bg-white border border-outline-variant rounded-lg p-gutter">
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase tracking-widest mb-4">Repositorio Documental</h3>
+<ul class="space-y-3">
+<li>
+<a class="flex items-center gap-3 text-body-sm text-on-surface hover:text-primary group" href="#">
+<span class="material-symbols-outlined text-[20px] text-on-surface-variant group-hover:text-primary" data-icon="description">description</span>
+                            Manual de Contratación Pública 2024.pdf
+                        </a>
+</li>
+<li>
+<a class="flex items-center gap-3 text-body-sm text-on-surface hover:text-primary group" href="#">
+<span class="material-symbols-outlined text-[20px] text-on-surface-variant group-hover:text-primary" data-icon="folder_zip">folder_zip</span>
+                            Planos Estructurales v.3 (Aprobados)
+                        </a>
+</li>
+<li>
+<a class="flex items-center gap-3 text-body-sm text-on-surface hover:text-primary group" href="#">
+<span class="material-symbols-outlined text-[20px] text-on-surface-variant group-hover:text-primary" data-icon="table_chart">table_chart</span>
+                            Formato de Acta de Recibo Parcial
+                        </a>
+</li>
+</ul>
+</div>
+</aside>
+</div>
+</main>
+<!-- FAB for adding new reports (Contextual) -->
+<button class="fixed bottom-gutter right-gutter w-14 h-14 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:scale-110 active:scale-90 transition-transform z-50" title="Nueva Acta de Recibo">
+<span class="material-symbols-outlined text-[32px]" data-icon="add_task">add_task</span>
+</button>
+<script>
+    // Simple micro-interaction for active nav
+    const navLinks = document.querySelectorAll('nav a');
+    navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            navLinks.forEach(l => {
+                l.classList.remove('text-primary', 'font-bold', 'border-r-4', 'border-primary', 'bg-surface-container-high');
+                l.classList.add('text-on-surface-variant');
+            });
+            link.classList.add('text-primary', 'font-bold', 'border-r-4', 'border-primary', 'bg-surface-container-high');
+            link.classList.remove('text-on-surface-variant');
+        });
+    });
+
+    // Search highlight effect
+    const searchInput = document.querySelector('input[type="text"]');
+    searchInput.addEventListener('focus', () => {
+        searchInput.parentElement.classList.add('scale-[1.02]');
+        searchInput.parentElement.style.transition = 'all 0.2s ease-in-out';
+    });
+    searchInput.addEventListener('blur', () => {
+        searchInput.parentElement.classList.remove('scale-[1.02]');
+    });
+</script>
+</body></html>

@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Detalle del Proyecto - CivicSupervise</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed": "#131b2e",
+                        "on-secondary-fixed-variant": "#3a485b",
+                        "on-tertiary-fixed-variant": "#3f465c",
+                        "on-background": "#191c1e",
+                        "surface-variant": "#e0e3e5",
+                        "error-container": "#ffdad6",
+                        "primary-fixed-dim": "#b6c4ff",
+                        "on-primary-container": "#90a8ff",
+                        "outline-variant": "#c5c5d3",
+                        "on-secondary-fixed": "#0d1c2e",
+                        "on-primary": "#ffffff",
+                        "primary-fixed": "#dce1ff",
+                        "surface-container-highest": "#e0e3e5",
+                        "primary": "#00236f",
+                        "tertiary-fixed": "#dae2fd",
+                        "secondary-fixed": "#d5e3fc",
+                        "on-surface": "#191c1e",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-container": "#1e3a8a",
+                        "on-secondary": "#ffffff",
+                        "surface-container": "#eceef0",
+                        "tertiary-fixed-dim": "#bec6e0",
+                        "secondary": "#515f74",
+                        "error": "#ba1a1a",
+                        "surface-tint": "#4059aa",
+                        "tertiary": "#222a3e",
+                        "on-primary-fixed": "#00164e",
+                        "on-secondary-container": "#57657a",
+                        "surface-dim": "#d8dadc",
+                        "tertiary-container": "#384055",
+                        "on-primary-fixed-variant": "#264191",
+                        "surface": "#f7f9fb",
+                        "on-tertiary-container": "#a4acc5",
+                        "secondary-fixed-dim": "#b9c7df",
+                        "inverse-on-surface": "#eff1f3",
+                        "background": "#f7f9fb",
+                        "inverse-primary": "#b6c4ff",
+                        "surface-container-low": "#f2f4f6",
+                        "on-tertiary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "outline": "#757682",
+                        "on-surface-variant": "#444651",
+                        "inverse-surface": "#2d3133",
+                        "secondary-container": "#d5e3fc",
+                        "surface-bright": "#f7f9fb",
+                        "surface-container-high": "#e6e8ea"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "stack-md": "16px",
+                        "stack-lg": "32px",
+                        "container-max": "1440px",
+                        "unit": "4px",
+                        "stack-sm": "8px",
+                        "gutter": "24px",
+                        "margin-mobile": "16px",
+                        "margin-desktop": "40px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "label-md": ["Inter"],
+                        "data-mono": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .active-nav-border { border-right-width: 4px; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-background text-on-surface flex min-h-screen">
+<!-- SideNavBar -->
+<aside class="flex flex-col h-screen fixed left-0 top-0 overflow-y-auto bg-surface dark:bg-inverse-surface border-r border-outline-variant dark:border-outline w-64 z-50">
+<div class="p-gutter">
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-inverse-primary tracking-tight">CivicSupervise</h1>
+<p class="font-label-md text-label-md text-on-surface-variant opacity-70">Portal de Infraestructura</p>
+</div>
+<nav class="flex-1 px-4 mt-4 space-y-2">
+<a class="flex items-center gap-3 px-4 py-3 rounded transition-colors text-primary dark:text-inverse-primary font-bold border-r-4 border-primary bg-surface-container-high dark:bg-secondary-container" href="#">
+<span class="material-symbols-outlined" data-icon="assignment">assignment</span>
+<span class="font-label-md text-label-md">Proyectos</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded transition-colors text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-secondary-container" href="#">
+<span class="material-symbols-outlined" data-icon="map">map</span>
+<span class="font-label-md text-label-md">Mapa</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded transition-colors text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-secondary-container" href="#">
+<span class="material-symbols-outlined" data-icon="notifications_active">notifications_active</span>
+<span class="font-label-md text-label-md">Alertas</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded transition-colors text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-secondary-container" href="#">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+<span class="font-label-md text-label-md">Informes</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded transition-colors text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-high dark:hover:bg-secondary-container" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md">Configuración</span>
+</a>
+</nav>
+<div class="p-gutter border-t border-outline-variant">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-primary-container rounded-full flex items-center justify-center text-on-primary-container font-bold">SP</div>
+<div class="overflow-hidden">
+<p class="font-label-md text-label-md truncate">Perfil Supervisor</p>
+<p class="text-xs text-on-surface-variant">Nivel Admin 4</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 ml-64 flex flex-col min-h-screen">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center h-16 px-gutter sticky top-0 z-40 bg-surface dark:bg-inverse-surface border-b border-outline-variant dark:border-outline">
+<div class="flex items-center gap-6">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" data-icon="search">search</span>
+<input class="bg-surface-container-low border border-outline-variant rounded-full pl-10 pr-4 py-1.5 text-sm w-64 focus:ring-2 focus:ring-primary focus:outline-none transition-all" placeholder="Buscar activos del proyecto..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary font-label-md text-label-md rounded shadow-sm hover:opacity-90 active:scale-95 duration-100">
+<span class="material-symbols-outlined text-sm" data-icon="layers">layers</span>
+                    Selector de Proyecto
+                </button>
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined cursor-pointer hover:text-primary transition-colors" data-icon="notifications">notifications</span>
+<span class="material-symbols-outlined cursor-pointer hover:text-primary transition-colors" data-icon="apps">apps</span>
+</div>
+</div>
+</header>
+<!-- Project View Context -->
+<div class="p-gutter space-y-stack-md">
+<!-- Breadcrumbs -->
+<nav class="flex items-center text-on-surface-variant font-label-md text-label-md space-x-2">
+<a class="hover:text-primary transition-colors" href="#">Proyectos</a>
+<span class="material-symbols-outlined text-sm" data-icon="chevron_right">chevron_right</span>
+<span class="text-on-surface font-bold">Expansión Vial - Sector 7</span>
+</nav>
+<!-- Línea de Tiempo (Bitácora de Obra) -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded p-stack-md">
+<div class="flex items-center justify-between mb-4">
+<h3 class="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="timeline">timeline</span>
+                        Bitácora de Obra (Línea de Tiempo)
+                    </h3>
+<button class="text-xs font-bold text-primary hover:underline">Ver Histórico de Datos</button>
+</div>
+<div class="grid grid-cols-7 gap-4">
+<div class="flex flex-col items-center gap-2 p-2 border border-transparent rounded hover:bg-surface-container transition-all cursor-default">
+<span class="text-[10px] font-bold text-on-surface-variant">LUN 12</span>
+<div class="flex gap-1">
+<span class="material-symbols-outlined text-sm text-secondary" data-icon="article">article</span>
+<span class="material-symbols-outlined text-sm text-primary" data-icon="verified">verified</span>
+</div>
+</div>
+<div class="flex flex-col items-center gap-2 p-2 border border-transparent rounded hover:bg-surface-container transition-all cursor-default">
+<span class="text-[10px] font-bold text-on-surface-variant">MAR 13</span>
+<div class="flex gap-1">
+<span class="material-symbols-outlined text-sm text-secondary" data-icon="article">article</span>
+</div>
+</div>
+<div class="flex flex-col items-center gap-2 p-2 border border-transparent rounded hover:bg-surface-container transition-all cursor-default">
+<span class="text-[10px] font-bold text-on-surface-variant">MIE 14</span>
+<div class="flex gap-1">
+<span class="material-symbols-outlined text-sm text-secondary" data-icon="article">article</span>
+<span class="material-symbols-outlined text-sm text-error" data-icon="report_problem">report_problem</span>
+</div>
+</div>
+<div class="flex flex-col items-center gap-2 p-2 border border-outline-variant bg-surface-container rounded cursor-default">
+<span class="text-[10px] font-bold text-primary">JUE 15</span>
+<div class="flex gap-1">
+<span class="material-symbols-outlined text-sm text-secondary" data-icon="article">article</span>
+<span class="material-symbols-outlined text-sm text-primary" data-icon="verified">verified</span>
+</div>
+</div>
+<div class="flex flex-col items-center gap-2 p-2 opacity-50">
+<span class="text-[10px] font-bold text-on-surface-variant">VIE 16</span>
+<div class="w-1 h-1 bg-outline rounded-full"></div>
+</div>
+<div class="flex flex-col items-center gap-2 p-2 opacity-50">
+<span class="text-[10px] font-bold text-on-surface-variant">SAB 17</span>
+<div class="w-1 h-1 bg-outline rounded-full"></div>
+</div>
+<div class="flex flex-col items-center gap-2 p-2 opacity-50">
+<span class="text-[10px] font-bold text-on-surface-variant">DOM 18</span>
+<div class="w-1 h-1 bg-outline rounded-full"></div>
+</div>
+</div>
+</section>
+<!-- Main Layout: Map + Side Info -->
+<div class="grid grid-cols-12 gap-gutter">
+<!-- Central Map Section -->
+<div class="col-span-12 lg:col-span-8 space-y-4">
+<div class="relative bg-surface-container rounded border border-outline-variant overflow-hidden h-[500px]">
+<div class="absolute inset-0 grayscale contrast-[0.9]" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuC-UxgktIpFg-rQK5qQNcI02SXtZg94YN80tfToql1Pf7yJSv90I62iCH_8FO7YQfdS1aKU07W3nHjw6IdTaFNGqEWt6r6KbkGakTaKjoBSgPP44-sCoLk2g8GdsBSeB1FITOFymg7SKWwYWmRfmw9Y1S42GZ_0xkUIJOSbFWv30O8PSpg-AYjV1ulXaUfyuYryCnL-1rJFBLUqrScD0dV_2dgFdFE-7ocrYnHmJ6-yhXrntJSmIg7J6OyovL0OPBV89-bdoBscGKyu')"></div>
+<!-- Map Overlay Controls -->
+<div class="absolute top-4 left-4 flex flex-col gap-2">
+<div class="bg-surface/90 backdrop-blur p-2 rounded shadow-sm border border-outline-variant flex flex-col gap-2">
+<button class="w-8 h-8 flex items-center justify-center text-primary hover:bg-surface-container transition-colors"><span class="material-symbols-outlined" data-icon="add">add</span></button>
+<div class="h-[1px] bg-outline-variant mx-1"></div>
+<button class="w-8 h-8 flex items-center justify-center text-primary hover:bg-surface-container transition-colors"><span class="material-symbols-outlined" data-icon="remove">remove</span></button>
+</div>
+<button class="bg-surface/90 backdrop-blur w-8 h-8 flex items-center justify-center rounded shadow-sm border border-outline-variant text-primary"><span class="material-symbols-outlined" data-icon="my_location">my_location</span></button>
+</div>
+<!-- Map Markers -->
+<div class="absolute top-1/4 left-1/3 group cursor-pointer">
+<div class="w-6 h-6 bg-green-500 rounded-full border-2 border-white shadow-lg animate-pulse"></div>
+<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-on-background text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                En Ejecución: Pavimentación Sector A
+                            </div>
+</div>
+<div class="absolute bottom-1/3 right-1/4 group cursor-pointer">
+<div class="w-6 h-6 bg-yellow-500 rounded-full border-2 border-white shadow-lg"></div>
+<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-on-background text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                Pendiente de Inspección: Drenaje
+                            </div>
+</div>
+<div class="absolute top-1/2 right-1/2 group cursor-pointer">
+<div class="w-6 h-6 bg-error rounded-full border-2 border-white shadow-lg"></div>
+<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-on-background text-white text-[10px] font-bold px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                                Estado Crítico: Estabilidad de Suelos
+                            </div>
+</div>
+<!-- Legend Overlay -->
+<div class="absolute bottom-4 left-4 bg-surface/90 backdrop-blur p-4 rounded shadow-sm border border-outline-variant min-w-[220px]">
+<p class="font-label-md text-xs mb-3 text-on-surface-variant font-bold uppercase tracking-widest">Leyenda del Mapa</p>
+<div class="space-y-2">
+<div class="flex items-center gap-3">
+<span class="w-3 h-3 bg-green-500 rounded-full"></span>
+<span class="text-xs font-medium">En Ejecución</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="w-3 h-3 bg-yellow-500 rounded-full"></span>
+<span class="text-xs font-medium">Pendiente de Inspección</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="w-3 h-3 bg-error rounded-full"></span>
+<span class="text-xs font-medium">Estado Crítico (Paralización)</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Frentes de Obra Side List -->
+<div class="col-span-12 lg:col-span-4 flex flex-col h-full">
+<section class="bg-surface-container-lowest border border-outline-variant rounded h-full flex flex-col">
+<div class="p-gutter border-b border-outline-variant flex items-center justify-between">
+<h3 class="font-label-md text-label-md text-primary font-bold uppercase tracking-wider">Frentes de Obra Activos</h3>
+<span class="bg-primary/10 text-primary text-[10px] px-2 py-0.5 rounded font-bold">4 TOTAL</span>
+</div>
+<div class="flex-1 overflow-y-auto p-4 space-y-4">
+<!-- Card Item -->
+<div class="p-4 border border-outline-variant rounded bg-surface hover:shadow-md transition-all group">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h4 class="font-bold text-body-md text-on-surface">Sector A-4</h4>
+<p class="text-xs text-on-surface-variant">Fundición de Concreto</p>
+</div>
+<span class="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 border border-green-200 uppercase">En Ejecución</span>
+</div>
+<div class="flex items-center gap-2 mb-3">
+<div class="w-6 h-6 rounded-full bg-surface-container-highest flex items-center justify-center">
+<span class="material-symbols-outlined text-xs" data-icon="person">person</span>
+</div>
+<span class="text-xs font-medium text-on-secondary-fixed-variant">Ing. Ricardo Méndez</span>
+</div>
+<div class="grid grid-cols-2 gap-2 mb-4">
+<div class="flex items-center gap-1 text-[9px] text-on-surface-variant font-medium bg-surface-container-low px-1.5 py-0.5 rounded border border-outline-variant">
+<span class="material-symbols-outlined text-[10px]" data-icon="biotech">biotech</span>
+                                        V. Ensayos (Lab)
+                                    </div>
+<div class="flex items-center gap-1 text-[9px] text-on-surface-variant font-medium bg-surface-container-low px-1.5 py-0.5 rounded border border-outline-variant">
+<span class="material-symbols-outlined text-[10px]" data-icon="eco">eco</span>
+                                        Cumplimiento PAGA
+                                    </div>
+<div class="flex items-center gap-1 text-[9px] text-on-surface-variant font-medium bg-surface-container-low px-1.5 py-0.5 rounded border border-outline-variant col-span-2">
+<span class="material-symbols-outlined text-[10px]" data-icon="location_on">location_on</span>
+                                        Georreferenciación GPS: 4.7110, -74.0721
+                                    </div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-[10px] font-bold">
+<span>PROGRESO</span>
+<span>65%</span>
+</div>
+<div class="h-2 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-primary relative" style="width: 65%;">
+<div class="absolute right-0 top-0 w-1 h-full bg-white opacity-40"></div>
+</div>
+</div>
+<div class="flex justify-between text-[9px] text-on-surface-variant italic">
+<span>Planeado: 62%</span>
+<span class="text-primary font-bold">+3% Adelantado</span>
+</div>
+</div>
+</div>
+<!-- Card Item -->
+<div class="p-4 border border-outline-variant rounded bg-surface hover:shadow-md transition-all group">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h4 class="font-bold text-body-md text-on-surface">Sector B-2</h4>
+<p class="text-xs text-on-surface-variant">Traslado de Servicios Públicos</p>
+</div>
+<span class="text-[10px] font-bold text-yellow-600 bg-yellow-50 px-2 py-0.5 border border-yellow-200 uppercase">Pendiente</span>
+</div>
+<div class="flex items-center gap-2 mb-3">
+<div class="w-6 h-6 rounded-full bg-surface-container-highest flex items-center justify-center">
+<span class="material-symbols-outlined text-xs" data-icon="person">person</span>
+</div>
+<span class="text-xs font-medium text-on-secondary-fixed-variant">Ing. Sofía Castro</span>
+</div>
+<div class="grid grid-cols-1 gap-2 mb-4">
+<div class="flex items-center gap-1 text-[9px] text-on-surface-variant font-medium bg-surface-container-low px-1.5 py-0.5 rounded border border-outline-variant">
+<span class="material-symbols-outlined text-[10px]" data-icon="location_on">location_on</span>
+                                        Georreferenciación GPS: 4.7150, -74.0750
+                                    </div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-[10px] font-bold">
+<span>PROGRESO</span>
+<span>22%</span>
+</div>
+<div class="h-2 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-yellow-500" style="width: 22%;"></div>
+</div>
+</div>
+</div>
+<!-- Card Item Critical -->
+<div class="p-4 border border-outline-variant rounded bg-error-container/20 border-error/20 hover:shadow-md transition-all group">
+<div class="flex justify-between items-start mb-2">
+<div>
+<h4 class="font-bold text-body-md text-error">Sector C-1</h4>
+<p class="text-xs text-on-surface-variant">Remediación de Suelos</p>
+</div>
+<span class="text-[10px] font-bold text-error bg-error-container px-2 py-0.5 border border-error/30 uppercase">Paralizado</span>
+</div>
+<div class="flex items-center gap-2 mb-3">
+<div class="w-6 h-6 rounded-full bg-surface-container-highest flex items-center justify-center">
+<span class="material-symbols-outlined text-xs" data-icon="person">person</span>
+</div>
+<span class="text-xs font-medium text-on-secondary-fixed-variant">Ing. Julián López</span>
+</div>
+<div class="grid grid-cols-2 gap-2 mb-4">
+<div class="flex items-center gap-1 text-[9px] text-error font-bold bg-error-container/40 px-1.5 py-0.5 rounded border border-error/20">
+<span class="material-symbols-outlined text-[10px]" data-icon="report_problem">report_problem</span>
+                                        Falla PAGA
+                                    </div>
+<div class="flex items-center gap-1 text-[9px] text-on-surface-variant font-medium bg-surface-container-low px-1.5 py-0.5 rounded border border-outline-variant">
+<span class="material-symbols-outlined text-[10px]" data-icon="location_on">location_on</span>
+                                        Georreferenciación GPS
+                                    </div>
+</div>
+<div class="space-y-1">
+<div class="flex justify-between text-[10px] font-bold">
+<span>PROGRESO</span>
+<span>10%</span>
+</div>
+<div class="h-2 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-error" style="width: 10%;"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="p-4 border-t border-outline-variant bg-surface-container-low text-center">
+<button class="text-xs font-bold text-primary flex items-center justify-center gap-2 mx-auto hover:gap-3 transition-all">
+                                VER TODOS LOS FRENTES
+                                <span class="material-symbols-outlined text-sm" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</section>
+</div>
+</div>
+<!-- Detailed Stats Footer -->
+<section class="grid grid-cols-1 md:grid-cols-4 gap-4">
+<div class="bg-surface-container-lowest p-4 rounded border border-outline-variant">
+<p class="text-xs font-bold text-on-surface-variant uppercase mb-2">Fuerza Laboral Diaria</p>
+<div class="flex items-end gap-2">
+<span class="text-2xl font-bold text-primary">128</span>
+<span class="text-xs text-green-600 font-bold mb-1">+12% vs S.P.</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-4 rounded border border-outline-variant">
+<p class="text-xs font-bold text-on-surface-variant uppercase mb-2">Incidentes</p>
+<div class="flex items-end gap-2">
+<span class="text-2xl font-bold text-on-surface">02</span>
+<span class="text-xs text-on-surface-variant mb-1">Tickets abiertos</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-4 rounded border border-outline-variant">
+<p class="text-xs font-bold text-on-surface-variant uppercase mb-2">Consumo de Materiales</p>
+<div class="flex items-end gap-2">
+<span class="text-2xl font-bold text-on-surface">84%</span>
+<span class="text-xs text-on-surface-variant mb-1">Capacidad stock</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-4 rounded border border-outline-variant">
+<p class="text-xs font-bold text-on-surface-variant uppercase mb-2">ETA de Finalización</p>
+<div class="flex items-end gap-2">
+<span class="text-2xl font-bold text-primary">NOV 24</span>
+<span class="text-xs text-on-surface-variant mb-1">Según cronograma</span>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- FAB Component -->
+<button class="fixed bottom-gutter right-gutter w-14 h-14 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all z-50">
+<span class="material-symbols-outlined" data-icon="add" style="font-variation-settings: 'FILL' 0, 'wght' 600;">add</span>
+</button>
+<script>
+        document.querySelectorAll('.group').forEach(marker => {
+            marker.addEventListener('click', () => {
+                const labelElement = marker.querySelector('div:last-child');
+                if (labelElement) {
+                    const label = labelElement.textContent;
+                    console.log('Foco seleccionado:', label.trim());
+                }
+            });
+        });
+    </script>
+</body></html>

@@ -1,0 +1,29 @@
+# Resultados de Investigación: Interventoría en Colombia (2026)
+
+## Marco Legal y Normativo
+La interventoría en Colombia está regida principalmente por:
+- **Ley 80 de 1993:** Estatuto General de Contratación de la Administración Pública.
+- **Ley 1474 de 2011:** Estatuto Anticorrupción (responsabilidad solidaria).
+- **Ley 1882 de 2018:** Fortalecimiento de la contratación pública.
+
+## Componentes Críticos del Informe Mensual (Gobierno Colombiano)
+Según manuales de INVIAS y la ANI, los informes deben contener:
+
+### 1. Control Técnico
+- **Ensayos de Laboratorio:** Registro de fallas de concreto, densidades de suelo, granulometrías.
+- **Bitácora de Obra:** Relación diaria de actividades, clima y personal.
+- **Evidencia Fotográfica:** Debe incluir georreferenciación (GPS-tagged) y fecha/hora.
+
+### 2. Control Administrativo y Legal
+- **Verificación de Parafiscales:** Certificación de pago de seguridad social (100% de la nómina) como requisito para pago.
+- **Cumplimiento Ambiental y Social (PAGA):** Reporte de gestión de residuos, emisiones y cuotas de mano de obra local/femenina.
+- **SECOP II:** Registro de hitos y documentos en la plataforma estatal.
+
+### 3. Control Financiero
+- **Acta de Recibo Parcial de Obra:** Detalle de cantidades ejecutadas, precios unitarios y balance de saldos.
+- **Curva S:** Comparativa entre avance físico programado vs. ejecutado.
+- **Anticipos:** Amortización detallada del anticipo entregado.
+
+## Nuevas Tendencias 2024-2026
+- **Mitigación de Riesgos:** Reporte de banderas rojas (Red Flags) sobre discrepancias de precios vs. mercado.
+- **Sostenibilidad:** Certificación de huella de carbono y cumplimiento de cuotas de género.

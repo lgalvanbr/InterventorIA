@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+
+<html class="light" lang="es"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Configuración de Fuentes de Datos | CivicSupervise</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#00236f",
+                        "on-surface-variant": "#444651",
+                        "error": "#ba1a1a",
+                        "on-secondary-fixed-variant": "#3a485b",
+                        "on-error-container": "#93000a",
+                        "inverse-on-surface": "#eff1f3",
+                        "primary-fixed-dim": "#b6c4ff",
+                        "on-error": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "surface-variant": "#e0e3e5",
+                        "inverse-surface": "#2d3133",
+                        "surface-dim": "#d8dadc",
+                        "surface-container-highest": "#e0e3e5",
+                        "tertiary-fixed-dim": "#bec6e0",
+                        "secondary": "#515f74",
+                        "surface": "#f7f9fb",
+                        "surface-container": "#eceef0",
+                        "on-primary-container": "#90a8ff",
+                        "on-tertiary": "#ffffff",
+                        "tertiary": "#222a3e",
+                        "surface-container-low": "#f2f4f6",
+                        "on-background": "#191c1e",
+                        "outline": "#757682",
+                        "on-primary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "inverse-primary": "#b6c4ff",
+                        "primary-fixed": "#dce1ff",
+                        "surface-tint": "#4059aa",
+                        "on-secondary-fixed": "#0d1c2e",
+                        "on-primary-fixed": "#00164e",
+                        "on-primary-fixed-variant": "#264191",
+                        "secondary-fixed-dim": "#b9c7df",
+                        "secondary-container": "#d5e3fc",
+                        "surface-container-lowest": "#ffffff",
+                        "outline-variant": "#c5c5d3",
+                        "surface-bright": "#f7f9fb",
+                        "tertiary-fixed": "#dae2fd",
+                        "tertiary-container": "#384055",
+                        "on-secondary-container": "#57657a",
+                        "on-tertiary-fixed-variant": "#3f465c",
+                        "on-tertiary-fixed": "#131b2e",
+                        "on-surface": "#191c1e",
+                        "on-tertiary-container": "#a4acc5",
+                        "primary-container": "#1e3a8a",
+                        "background": "#f7f9fb",
+                        "surface-container-high": "#e6e8ea",
+                        "secondary-fixed": "#d5e3fc"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "stack-lg": "32px",
+                        "container-max": "1440px",
+                        "gutter": "24px",
+                        "stack-sm": "8px",
+                        "margin-desktop": "40px",
+                        "unit": "4px",
+                        "stack-md": "16px",
+                        "margin-mobile": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "data-mono": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "data-mono": ["14px", {"lineHeight": "20px", "fontWeight": "500"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #f7f9fb; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .technical-card {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            box-shadow: none;
+        }
+        .sidebar-active {
+            color: #00236f;
+            font-weight: 700;
+            border-right: 4px solid #00236f;
+        }
+    </style>
+</head>
+<body class="text-on-surface">
+<!-- SideNavBar (Predicted Component) -->
+<aside class="flex flex-col h-screen fixed left-0 top-0 overflow-y-auto bg-surface dark:bg-inverse-surface border-r border-outline-variant dark:border-outline w-64 z-50">
+<div class="p-gutter">
+<h1 class="font-headline-md text-headline-md font-bold text-primary dark:text-inverse-primary">CivicSupervise</h1>
+<p class="font-label-md text-label-md text-on-surface-variant">Infrastructure Portal</p>
+</div>
+<nav class="flex-1 mt-stack-md">
+<a class="flex items-center px-gutter py-stack-md text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined mr-stack-sm">assignment</span>
+<span>Projects</span>
+</a>
+<a class="flex items-center px-gutter py-stack-md text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined mr-stack-sm">map</span>
+<span>Map</span>
+</a>
+<a class="flex items-center px-gutter py-stack-md text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined mr-stack-sm">notifications_active</span>
+<span>Alerts</span>
+</a>
+<a class="flex items-center px-gutter py-stack-md text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined mr-stack-sm">description</span>
+<span>Reports</span>
+</a>
+<a class="flex items-center px-gutter py-stack-md sidebar-active transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined mr-stack-sm">settings</span>
+<span>Settings</span>
+</a>
+</nav>
+<div class="p-gutter border-t border-outline-variant">
+<div class="flex items-center gap-stack-sm">
+<div class="w-10 h-10 rounded-full bg-surface-container-highest flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Professional portrait of a civil engineering supervisor wearing a white hard hat and safety vest, looking focused and authoritative in a high-tech office environment. The image uses cool tones and sharp focus to emphasize precision and leadership in infrastructure management." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBYdWxsni1Owiswc0f71N5mFSv3JnGmhez4xLcKSYP6dBcCqvZffifAElnRqQ_nJskZOMffGwv97VHOiqK5MwrJUDfHQZKmDkjYcSMTDIKI0lZ5csdud5xzgEOV2PdDvKbJ3Bb8RwQnf1xU7n-4wjopXnFYpMrcGM2FUwuUmVm0Sx9ixyYhvRQn7C0eHu3bKJ6rINZsvKIoIvqHlJGWdl_AB8vlratHSMB69EagOER7HhJCWcourM_o5xja4IaoKCUiehR9AMR97Ro4"/>
+</div>
+<div>
+<p class="font-label-md text-label-md font-bold">Admin Usuario</p>
+<p class="text-xs text-on-surface-variant">Supervisor Senior</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 min-h-screen flex flex-col">
+<!-- TopAppBar (Predicted Component) -->
+<header class="flex justify-between items-center h-16 px-gutter sticky top-0 z-40 bg-surface border-b border-outline-variant">
+<div class="flex items-center gap-stack-md">
+<span class="material-symbols-outlined text-on-surface-variant">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-label-md font-label-md w-64" placeholder="Buscar integraciones..." type="text"/>
+</div>
+<div class="flex items-center gap-stack-md">
+<button class="flex items-center gap-stack-sm px-stack-md py-2 border border-outline rounded text-label-md font-label-md hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-sm">filter_alt</span>
+<span>Project Selector</span>
+</button>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary">notifications</span>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer hover:text-primary">apps</span>
+</div>
+</header>
+<!-- Page Content -->
+<div class="p-gutter max-w-container-max mx-auto w-full space-y-stack-lg">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-stack-md">
+<div>
+<h2 class="font-headline-lg text-headline-lg text-primary">Configuración de Fuentes de Datos</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">Conecta y sincroniza tus hojas de cálculo para el seguimiento de Cantidades de Obra.</p>
+</div>
+<div class="flex items-center gap-stack-sm">
+<div class="flex items-center gap-2 mr-stack-md bg-surface-container px-3 py-2 rounded">
+<span class="text-xs font-label-md">Sincronización Diaria Automática</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox" value=""/>
+<div class="w-9 h-5 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<button class="bg-primary text-on-primary px-stack-md py-2 rounded font-label-md text-label-md flex items-center gap-2 hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-sm">sync</span>
+                        Sincronizar Todo
+                    </button>
+</div>
+</div>
+<!-- Connection Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<!-- Google Sheets Card -->
+<div class="technical-card p-gutter flex items-center gap-gutter group hover:border-primary transition-colors cursor-pointer">
+<div class="w-16 h-16 flex-shrink-0 bg-green-50 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-4xl text-green-600" style="font-variation-settings: 'FILL' 1;">table_chart</span>
+</div>
+<div class="flex-1">
+<h3 class="font-headline-md text-headline-md text-on-surface">Google Sheets</h3>
+<p class="text-on-surface-variant text-body-sm">Conecta hojas de cálculo de Google Drive para actualización en la nube.</p>
+</div>
+<button class="border border-green-600 text-green-700 font-label-md text-label-md px-stack-md py-2 rounded hover:bg-green-600 hover:text-white transition-colors">Conectar</button>
+</div>
+<!-- Excel Card -->
+<div class="technical-card p-gutter flex items-center gap-gutter group hover:border-primary transition-colors cursor-pointer">
+<div class="w-16 h-16 flex-shrink-0 bg-blue-50 rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-4xl text-blue-600" style="font-variation-settings: 'FILL' 1;">description</span>
+</div>
+<div class="flex-1">
+<h3 class="font-headline-md text-headline-md text-on-surface">Microsoft Excel</h3>
+<p class="text-on-surface-variant text-body-sm">Vincula archivos .xlsx o .csv desde OneDrive o SharePoint Business.</p>
+</div>
+<button class="border border-blue-600 text-blue-700 font-label-md text-label-md px-stack-md py-2 rounded hover:bg-blue-600 hover:text-white transition-colors">Conectar</button>
+</div>
+</div>
+<!-- Active Integrations Table -->
+<div class="technical-card overflow-hidden">
+<div class="px-gutter py-stack-md border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
+<h3 class="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant">Integraciones Activas</h3>
+<span class="bg-secondary-container text-on-secondary-container px-2 py-1 rounded text-xs font-bold">4 Archivos Conectados</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="text-xs font-label-md text-on-surface-variant border-b border-outline-variant">
+<th class="px-gutter py-4 font-semibold uppercase">Fuente de Datos</th>
+<th class="px-gutter py-4 font-semibold uppercase">Estado</th>
+<th class="px-gutter py-4 font-semibold uppercase">Última Actualización</th>
+<th class="px-gutter py-4 font-semibold uppercase">Proyecto / Frente</th>
+<th class="px-gutter py-4 font-semibold uppercase text-right">Acciones</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-gutter py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-blue-600">description</span>
+<div>
+<p class="font-label-md text-label-md font-bold">Cubicación_Sector_7.xlsx</p>
+<p class="text-xs text-on-surface-variant">OneDrive / Ingeniería / Estructuras</p>
+</div>
+</div>
+</td>
+<td class="px-gutter py-4">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+<span class="w-1.5 h-1.5 rounded-full bg-green-600"></span> Conectado
+                                    </span>
+</td>
+<td class="px-gutter py-4">
+<p class="text-body-sm">Hoy, 14:32</p>
+</td>
+<td class="px-gutter py-4">
+<p class="text-body-sm font-medium">Viaducto Sur - Frente A</p>
+</td>
+<td class="px-gutter py-4 text-right">
+<button class="text-primary font-label-md text-xs hover:underline decoration-2 underline-offset-4">Configurar Mapeo</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-gutter py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-green-600">table_chart</span>
+<div>
+<p class="font-label-md text-label-md font-bold">Quantities_Master_Plan.gsheet</p>
+<p class="text-xs text-on-surface-variant">Google Drive / Supervisión / Civil</p>
+</div>
+</div>
+</td>
+<td class="px-gutter py-4">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 animate-pulse">
+<span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span> Sincronizando
+                                    </span>
+</td>
+<td class="px-gutter py-4">
+<p class="text-body-sm">Hoy, 15:01</p>
+</td>
+<td class="px-gutter py-4">
+<p class="text-body-sm font-medium">Túnel Principal - Exc.</p>
+</td>
+<td class="px-gutter py-4 text-right">
+<button class="text-primary font-label-md text-xs hover:underline decoration-2 underline-offset-4">Configurar Mapeo</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="px-gutter py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-blue-600">description</span>
+<div>
+<p class="font-label-md text-label-md font-bold">Reporte_Materiales_V2.xlsx</p>
+<p class="text-xs text-on-surface-variant">Direct Upload</p>
+</div>
+</div>
+</td>
+<td class="px-gutter py-4">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+<span class="material-symbols-outlined text-xs leading-none">error</span> Error de Credenciales
+                                    </span>
+</td>
+<td class="px-gutter py-4">
+<p class="text-body-sm">Ayer, 18:45</p>
+</td>
+<td class="px-gutter py-4">
+<p class="text-body-sm font-medium">Movimiento de Tierras</p>
+</td>
+<td class="px-gutter py-4 text-right">
+<button class="text-error font-label-md text-xs hover:underline decoration-2 underline-offset-4">Re-conectar</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Field Mapping UI (Bento Grid Style) -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
+<!-- Data Preview -->
+<div class="lg:col-span-2 technical-card p-gutter space-y-stack-md">
+<div class="flex justify-between items-center">
+<h3 class="font-label-md text-label-md uppercase text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">visibility</span>
+                            Vista Previa de Datos: Cubicación_Sector_7.xlsx
+                        </h3>
+<div class="flex gap-2">
+<span class="text-xs px-2 py-1 bg-surface-container-high rounded font-data-mono">Sheet1</span>
+<span class="text-xs px-2 py-1 bg-surface-container-high rounded font-data-mono text-primary">A1:G100</span>
+</div>
+</div>
+<div class="bg-surface border border-outline-variant rounded overflow-hidden">
+<table class="w-full text-xs font-data-mono">
+<thead>
+<tr class="bg-surface-container-high border-b border-outline-variant">
+<th class="p-2 border-r border-outline-variant w-10 text-center">#</th>
+<th class="p-2 border-r border-outline-variant bg-primary-fixed text-primary">A. Item ID</th>
+<th class="p-2 border-r border-outline-variant bg-primary-fixed text-primary">B. Descripción</th>
+<th class="p-2 border-r border-outline-variant bg-primary-fixed text-primary">C. Cant. Hoy</th>
+<th class="p-2 border-r border-outline-variant">D. Unidad</th>
+<th class="p-2">E. Fecha</th>
+</tr>
+</thead>
+<tbody>
+<tr class="border-b border-outline-variant">
+<td class="p-2 border-r border-outline-variant text-center bg-surface-container">1</td>
+<td class="p-2 border-r border-outline-variant">CONC-04</td>
+<td class="p-2 border-r border-outline-variant">Concreto H-30</td>
+<td class="p-2 border-r border-outline-variant">45.00</td>
+<td class="p-2 border-r border-outline-variant">m3</td>
+<td class="p-2">15/10/23</td>
+</tr>
+<tr class="border-b border-outline-variant">
+<td class="p-2 border-r border-outline-variant text-center bg-surface-container">2</td>
+<td class="p-2 border-r border-outline-variant">ACER-12</td>
+<td class="p-2 border-r border-outline-variant">Acero Grado 60</td>
+<td class="p-2 border-r border-outline-variant">1250.5</td>
+<td class="p-2 border-r border-outline-variant">kg</td>
+<td class="p-2">15/10/23</td>
+</tr>
+<tr class="border-b border-outline-variant">
+<td class="p-2 border-r border-outline-variant text-center bg-surface-container">3</td>
+<td class="p-2 border-r border-outline-variant">ENCO-01</td>
+<td class="p-2 border-r border-outline-variant">Encofrado Met.</td>
+<td class="p-2 border-r border-outline-variant">12.5</td>
+<td class="p-2 border-r border-outline-variant">m2</td>
+<td class="p-2">15/10/23</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Mapping Configuration -->
+<div class="technical-card p-gutter flex flex-col">
+<h3 class="font-label-md text-label-md uppercase text-on-surface-variant flex items-center gap-2 mb-stack-md">
+<span class="material-symbols-outlined text-sm">hub</span>
+                        Mapeo de Campos
+                    </h3>
+<div class="flex-1 space-y-stack-md">
+<div class="space-y-1">
+<label class="text-xs font-bold text-on-surface-variant uppercase">ID del Ítem de Obra</label>
+<select class="w-full border-outline-variant rounded bg-surface text-body-sm focus:ring-primary focus:border-primary">
+<option>Columna A: Item ID</option>
+<option>Columna B: Descripción</option>
+<option>Columna C: Cant. Hoy</option>
+</select>
+</div>
+<div class="space-y-1">
+<label class="text-xs font-bold text-on-surface-variant uppercase">Descripción (Opcional)</label>
+<select class="w-full border-outline-variant rounded bg-surface text-body-sm focus:ring-primary focus:border-primary">
+<option>Columna B: Descripción</option>
+<option>Columna A: Item ID</option>
+<option>Ninguno</option>
+</select>
+</div>
+<div class="space-y-1">
+<label class="text-xs font-bold text-on-surface-variant uppercase">Cantidad Ejecutada (Valor)</label>
+<select class="w-full border-outline-variant rounded bg-surface text-body-sm focus:ring-primary focus:border-primary">
+<option>Columna C: Cant. Hoy</option>
+<option>Columna D: Unidad</option>
+<option>Columna E: Fecha</option>
+</select>
+</div>
+<div class="p-stack-sm bg-blue-50 border border-blue-200 rounded mt-stack-md">
+<p class="text-xs text-blue-800 flex items-start gap-2">
+<span class="material-symbols-outlined text-sm mt-0.5">info</span>
+                                El sistema validará que la Columna C contenga solo valores numéricos.
+                            </p>
+</div>
+</div>
+<button class="mt-stack-lg w-full bg-primary text-on-primary py-3 rounded font-label-md text-label-md hover:bg-primary-container transition-all">
+                        Guardar Configuración
+                    </button>
+</div>
+</div>
+<!-- Footer Stats -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter pb-gutter">
+<div class="technical-card p-stack-md text-center">
+<p class="text-xs text-on-surface-variant uppercase font-bold">Sincronizaciones hoy</p>
+<p class="text-headline-lg text-primary">12</p>
+</div>
+<div class="technical-card p-stack-md text-center">
+<p class="text-xs text-on-surface-variant uppercase font-bold">Datos Procesados</p>
+<p class="text-headline-lg text-primary">45k</p>
+</div>
+<div class="technical-card p-stack-md text-center">
+<p class="text-xs text-on-surface-variant uppercase font-bold">Integridad de Datos</p>
+<p class="text-headline-lg text-green-600">99.8%</p>
+</div>
+<div class="technical-card p-stack-md text-center">
+<p class="text-xs text-on-surface-variant uppercase font-bold">Próximo Sync</p>
+<p class="text-headline-lg text-secondary">08:00</p>
+</div>
+</div>
+</div>
+</main>
+<script>
+        // Micro-interaction for sync button
+        const syncBtn = document.querySelector('button:contains("Sincronizar Todo")');
+        if(syncBtn) {
+            syncBtn.addEventListener('click', () => {
+                const icon = syncBtn.querySelector('.material-symbols-outlined');
+                icon.classList.add('animate-spin');
+                setTimeout(() => {
+                    icon.classList.remove('animate-spin');
+                }, 2000);
+            });
+        }
+
+        // Custom selector polyfill for :contains
+        document.querySelectorAll('button').forEach(btn => {
+            if(btn.textContent.includes('Sincronizar Todo')) {
+                btn.addEventListener('click', function() {
+                    const icon = this.querySelector('.material-symbols-outlined');
+                    icon.style.transition = 'transform 1s linear';
+                    icon.style.transform = 'rotate(360deg)';
+                    setTimeout(() => icon.style.transform = 'rotate(0deg)', 1000);
+                });
+            }
+        });
+    </script>
+</body></html>
