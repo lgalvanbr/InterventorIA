@@ -210,10 +210,13 @@ body {
   /* Page breaks formatting */
   .page-break-before {
     page-break-before: always !important;
+    break-before: page !important;
   }
 
   .page-break-inside {
     page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    display: block !important;
   }
   
   /* Tables formatting */
@@ -223,5 +226,6 @@ body {
   tr {
     page-break-inside: avoid;
     page-break-after: auto;
+    break-inside: avoid;
   }
 }

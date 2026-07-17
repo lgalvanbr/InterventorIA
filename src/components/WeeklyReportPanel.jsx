@@ -116,6 +116,232 @@ const subrasanteStyle = {
   borderWidth: '1px 0'
 };
 
+const getIaCommentForFrente = (consolidadoIa, frenteNumber) => {
+  if (!consolidadoIa) return '';
+  const regex = new RegExp(`FRENTE\\s+${frenteNumber}\\s*[:•\\-\\s]([\\s\\S]*?)(?=(?:FRENTE\\s+\\d+\\s*[:•\\-\\s])|$)`, 'i');
+  const match = consolidadoIa.match(regex);
+  return match ? match[1].trim() : '';
+};
+
+const PrintFrenteCard = ({ frente, printMode, allFrentes, consolidadoIa, getDayName }) => {
+  const isMv = frente.id.startsWith('f_mv');
+  const activeNotes = frente.bitacora_notes?.filter(n => n.note.trim() !== '') || [];
+  const activePhotos = frente.fotos || [];
+  
+  const originalFrente = allFrentes?.find(o => o.id === frente.id);
+  const lat = originalFrente?.latitude || '4.6097';
+  const lng = originalFrente?.longitude || '-74.0817';
+
+  const frenteIaComment = getIaCommentForFrente(consolidadoIa, frente.frente);
+
+  const photosByDay = activePhotos.reduce((groups, photo) => {
+    const dateKey = photo.date || 'Sin fecha';
+    if (!groups[dateKey]) {
+      groups[dateKey] = [];
+    }
+    groups[dateKey].push(photo);
+    return groups;
+  }, {});
+
+  return (
+    <div className="border border-slate-300 rounded-lg p-4 space-y-3 page-break-inside bg-white shadow-2xs text-left">
+      
+      {/* Ficha Header */}
+      <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+        <div className="flex items-center gap-2">
+          <div className="bg-primary/10 p-1 rounded text-primary flex items-center justify-center">
+            <span className="material-symbols-outlined text-[16px] font-black">construction</span>
+          </div>
+          <div>
+            <h4 className="font-extrabold text-xs text-slate-900 flex items-center gap-1.5 leading-none">
+              FRENTE {frente.frente} <span className="text-[10px] text-slate-400">•</span> CIV {frente.civ}
+            </h4>
+            <p className="text-[9px] text-slate-500 flex items-center gap-1 mt-1 leading-none font-semibold">
+              <span className="material-symbols-outlined text-[11px] text-slate-400">map</span>
+              <strong>Ubicación:</strong> {frente.desde} al {frente.hasta} ({frente.eje})
+            </p>
+          </div>
+        </div>
+        <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${
+          isMv ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-teal-100 text-teal-800 border border-teal-200'
+        }`}>
+          {isMv ? 'MALLA VIAL' : 'ESPACIO PÚBLICO'}
+        </span>
+      </div>
+
+      {/* Comentario IA del Frente */}
+      {frenteIaComment && (
+        <div className="bg-slate-50 border-l-2 border-primary/50 p-2.5 rounded-r text-[9px] text-slate-800 leading-relaxed italic font-semibold shadow-2xs">
+          <div className="flex items-center gap-1 text-primary text-[8px] font-black uppercase tracking-wider mb-1">
+            <span className="material-symbols-outlined text-[11px]">smart_toy</span>
+            Análisis de Interventoría (IA)
+          </div>
+          "{frenteIaComment}"
+        </div>
+      )}
+
+      {/* Mapa y Perfil de Estructura de Suelo */}
+      {printMode === 'full' && (
+        <div className="grid grid-cols-2 gap-4 text-[9px] print:flex print:gap-4 print:w-full">
+          {/* Mapa de Ubicación */}
+          <div className="bg-slate-50 p-2 rounded border border-slate-200 flex flex-col gap-1.5 justify-between print:w-1/2">
+            <p className="font-black text-slate-750 uppercase tracking-wider text-[8px] flex items-center gap-1">
+              <span className="material-symbols-outlined text-[10px] text-slate-400">location_on</span>
+              Ubicación Georreferenciada
+            </p>
+            <div className="w-full h-[140px] overflow-hidden rounded border border-slate-250 relative bg-slate-100">
+              <img 
+                src={`https://static-maps.yandex.ru/1.x/?lang=es_ES&ll=${lng},${lat}&z=15&l=map&size=300,300`} 
+                alt="Ubicación en mapa"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=15&size=300x300&maptype=mapnik`;
+                }}
+              />
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="relative flex items-center justify-center">
+                  <span className="animate-ping absolute inline-flex h-6 w-6 rounded-full bg-red-400 opacity-75"></span>
+                  <svg className="w-8 h-8 text-red-500 drop-shadow-md" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2ZM12 11.5C10.62 11.5 9.5 10.38 9.5 9C9.5 7.62 10.62 6.5 12 6.5C13.38 6.5 14.5 7.62 14.5 9C14.5 10.38 13.38 11.5 12 11.5Z"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+            <div className="text-[8px] font-bold text-slate-500 text-center font-mono">
+              COORDENADAS: {parseFloat(lat).toFixed(5)}, {parseFloat(lng).toFixed(5)}
+            </div>
+          </div>
+
+          {/* Perfil de Suelo/Pavimento */}
+          <div className="bg-slate-50 p-2 rounded border border-slate-200 flex flex-col gap-1.5 justify-between print:w-1/2">
+            <p className="font-black text-slate-755 uppercase tracking-wider text-[8px] flex items-center gap-1">
+              <span className="material-symbols-outlined text-[10px] text-slate-400">layers</span>
+              Perfil de Estructura del Suelo
+            </p>
+            {frente.perfil_suelo_img_url ? (
+              <div className="w-full h-[140px] overflow-hidden rounded border border-slate-200 relative bg-white flex items-center justify-center p-1 shadow-2xs">
+                <img 
+                  src={frente.perfil_suelo_img_url} 
+                  alt="Perfil de estructura del suelo" 
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col border border-slate-200 border-dashed rounded overflow-hidden flex-1 min-h-[140px] text-[8px] font-bold bg-slate-100 items-center justify-center text-slate-450 p-4 text-center leading-normal">
+                <span className="material-symbols-outlined text-slate-400 text-[20px] mb-1">image</span>
+                <span>Sin perfil de estructura de suelo</span>
+                <span className="text-[6.5px] font-normal opacity-75 mt-0.5">Sube el plano o esquema desde el detalle del frente</span>
+              </div>
+            )}
+            <div className="text-[8px] font-bold text-slate-500 text-center uppercase tracking-wide">
+              Estructura de Pavimento Aprobada
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bitacora Consolidada Semanal */}
+      {printMode === 'full' && (
+        <div className="space-y-2">
+          <p className="font-black text-slate-750 uppercase tracking-wider text-[8px] flex items-center gap-1">
+            <span className="material-symbols-outlined text-[10px] text-slate-400">notes</span>
+            Bitácora Diaria del Periodo
+          </p>
+          {activeNotes.length === 0 ? (
+            <p className="text-[9px] text-slate-400 italic">No se reportaron bitácoras en este frente durante la semana.</p>
+          ) : (
+            <div className="grid grid-cols-1 gap-1.5 text-[9px]">
+              {activeNotes.map((noteItem) => {
+                const noteDate = new Date(noteItem.date + 'T12:00:00');
+                return (
+                  <div key={noteItem.id} className="bg-slate-50/50 p-2 rounded border border-slate-100 flex gap-2">
+                    <div className="min-w-[65px] font-black text-slate-500 border-r border-slate-200 pr-2 uppercase text-[8px] flex items-center gap-0.5">
+                      <span className="material-symbols-outlined text-[9px] text-slate-400">event</span>
+                      {getDayName(noteDate)} {noteDate.getDate()}
+                    </div>
+                    <div className="text-slate-700 leading-relaxed font-semibold">{noteItem.note}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Photos Consolidada */}
+      {activePhotos.length > 0 && (
+        <div className="space-y-2">
+          <p className="font-black text-slate-750 uppercase tracking-wider text-[8px] flex items-center gap-1">
+            <span className="material-symbols-outlined text-[10px] text-slate-400">photo_library</span>
+            Evidencia Fotográfica Semanal ({activePhotos.length})
+          </p>
+          
+          {printMode === 'simplified' ? (
+            /* Grouped by day */
+            <div className="space-y-3">
+              {Object.keys(photosByDay).sort().map(dateStr => {
+                const dateObj = new Date(dateStr + 'T12:00:00');
+                const formattedDate = dateStr !== 'Sin fecha' 
+                  ? `${getDayName(dateObj)} ${dateObj.getDate()} de ${dateObj.toLocaleDateString('es-CO', { month: 'long' })}`
+                  : 'Otros avances';
+                
+                return (
+                  <div key={dateStr} className="space-y-1.5">
+                    <p className="font-bold text-slate-700 text-[8px] uppercase tracking-wide border-b border-slate-100 pb-0.5 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[10px] text-slate-400">calendar_month</span>
+                      {formattedDate}
+                    </p>
+                    <div className="grid grid-cols-4 gap-2">
+                      {photosByDay[dateStr].map((photo) => (
+                        <div key={photo.id} className="border border-slate-200 rounded overflow-hidden shadow-2xs bg-white text-[8px] flex flex-col relative">
+                          <div className="aspect-square bg-slate-100 overflow-hidden relative">
+                            <img src={photo.url} alt="Avance" className="w-full h-full object-cover" />
+                            {/* Date overlay badge */}
+                            {photo.date && (
+                              <span className="absolute top-1 left-1 bg-black/60 text-white font-black px-1.5 py-0.5 rounded text-[7px] uppercase tracking-wide">
+                                {photo.date}
+                              </span>
+                            )}
+                          </div>
+                          <div className="p-1 text-slate-650 font-semibold border-t border-slate-150 break-words whitespace-normal leading-tight">
+                            {photo.caption || 'Avance de obra'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* Standard Grid for Full Mode */
+            <div className="grid grid-cols-4 gap-2">
+              {activePhotos.map((photo) => (
+                <div key={photo.id} className="border border-slate-200 rounded overflow-hidden shadow-2xs bg-white text-[8px] flex flex-col relative">
+                  <div className="aspect-square bg-slate-100 overflow-hidden relative">
+                    <img src={photo.url} alt="Avance" className="w-full h-full object-cover" />
+                    {/* Date overlay badge */}
+                    {photo.date && (
+                      <span className="absolute top-1 left-1 bg-black/60 text-white font-black px-1.5 py-0.5 rounded text-[7px] uppercase tracking-wide">
+                        {photo.date}
+                      </span>
+                    )}
+                  </div>
+                  <div className="p-1 text-slate-655 font-semibold border-t border-slate-150 break-words whitespace-normal leading-tight">
+                    {photo.caption || 'Avance de obra'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+    </div>
+  );
+};
+
 export default function WeeklyReportPanel({ 
   report, 
   weeklyReports,
@@ -208,7 +434,11 @@ export default function WeeklyReportPanel({
     });
 
     text += `INSTRUCCIÓN PARA LA IA:\n`;
-    text += `Actúa como un Ingeniero Senior de Interventoría Técnica. Escribe un consolidado técnico formal y profesional de la semana en base a estos datos. Enfécate en el avance físico, el cumplimiento de las bitácoras y los diseños de pavimento, y resume la evidencia fotográfica de forma fluida. Genera de 2 a 4 párrafos en tono directivo y técnico para el cliente IDU.`;
+    text += `Actúa como un Ingeniero Senior de Interventoría Técnica. Genera un análisis técnico formal y profesional estructurado FRENTE POR FRENTE para cada frente activo. Usa estrictamente el siguiente formato para cada frente:\n\n`;
+    text += `FRENTE [Número de Frente]: [Tu análisis técnico de la semana, avances, bitácoras y fotos en un párrafo conciso pero completo en tono directivo para el cliente IDU]\n\n`;
+    text += `Ejemplo:\n`;
+    text += `FRENTE 1: Se realizaron actividades de excavación mecánica y colocación de base granular...\n`;
+    text += `FRENTE 2: Se avanzó con la colocación del concreto hidráulico...`;
 
     navigator.clipboard.writeText(text)
       .then(() => {
@@ -775,147 +1005,23 @@ export default function WeeklyReportPanel({
 
               {/* PDF Fichas Técnicas Individuales (Frente por Frente) */}
               <div className="py-4 space-y-8 page-break-before">
-                <h3 className="text-xs font-black text-slate-950 uppercase mb-4 border-b border-slate-300 pb-1">
+                <h3 className="text-xs font-black text-slate-950 uppercase mb-4 border-b border-slate-300 pb-1 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-primary text-[14px]">engineering</span>
                   {printMode === 'full' 
                     ? report.consolidado_ia ? 'III. Fichas Técnicas de Frentes Activos' : 'II. Fichas Técnicas de Frentes Activos'
                     : report.consolidado_ia ? 'II. Evidencia Fotográfica por Frente' : 'I. Evidencia Fotográfica por Frente'}
                 </h3>
 
-                {report.frentes.filter(f => f.fotos && f.fotos.length > 0).map((frente) => {
-                  const isMv = frente.id.startsWith('f_mv');
-                  // Filter out active notes
-                  const activeNotes = frente.bitacora_notes?.filter(n => n.note.trim() !== '') || [];
-                  const activePhotos = frente.fotos || [];
-                  
-                  const originalFrente = allFrentes?.find(o => o.id === frente.id);
-                  const lat = originalFrente?.latitude || '4.6097';
-                  const lng = originalFrente?.longitude || '-74.0817';
-
-                  const design = getDisenoForCiv(frente.civ);
-                  const layers = design?.paquete_estructural_capas?.map(l => ({
-                    material: l.nombre,
-                    espesor_propuesto_cm: l.espesor_cm,
-                    modulo_psi: l.modulo_psi
-                  })) || [];
-
-                  return (
-                    <div key={frente.id} className="border border-slate-300 rounded-lg p-4 space-y-3 page-break-inside bg-white">
-                      
-                      {/* Ficha Header */}
-                      <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                        <div>
-                          <h4 className="font-extrabold text-xs text-slate-900">
-                            FRENTE {frente.frente} — CIV {frente.civ}
-                          </h4>
-                          <p className="text-[9px] text-slate-500"><strong>Ubicación:</strong> {frente.desde} al {frente.hasta} ({frente.eje})</p>
-                        </div>
-                        <span className="text-[9px] font-black uppercase bg-slate-900 text-white px-2 py-0.5 rounded">
-                          {isMv ? 'MALLA VIAL' : 'ESPACIO PÚBLICO'}
-                        </span>
-                      </div>
-
-                      {/* Mapa y Perfil de Estructura de Suelo */}
-                      {printMode === 'full' && (
-                        <div className="grid grid-cols-2 gap-4 text-[9px] print:flex print:gap-4 print:w-full">
-                          {/* Mapa de Ubicación */}
-                          <div className="bg-slate-50 p-2 rounded border border-slate-200 flex flex-col gap-1.5 justify-between print:w-1/2">
-                            <p className="font-black text-slate-750 uppercase tracking-wider text-[8px]">Ubicación Georreferenciada</p>
-                            <div className="w-full h-[140px] overflow-hidden rounded border border-slate-200 relative bg-slate-100">
-                              <img 
-                                src={`https://static-maps.yandex.ru/1.x/?lang=es_ES&ll=${lng},${lat}&z=15&l=map&size=300,300`} 
-                                alt="Ubicación en mapa"
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.onerror = null;
-                                  e.target.src = `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=15&size=300x300&maptype=mapnik`;
-                                }}
-                              />
-                              {/* Custom CSS Pulsing Pin Overlay */}
-                              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                <div className="relative flex items-center justify-center">
-                                  <span className="animate-ping absolute inline-flex h-6 w-6 rounded-full bg-red-400 opacity-75"></span>
-                                  <svg className="w-8 h-8 text-red-500 drop-shadow-md" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2ZM12 11.5C10.62 11.5 9.5 10.38 9.5 9C9.5 7.62 10.62 6.5 12 6.5C13.38 6.5 14.5 7.62 14.5 9C14.5 10.38 13.38 11.5 12 11.5Z"/>
-                                  </svg>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="text-[8px] font-bold text-slate-500 text-center font-mono">
-                              COORDENADAS: {parseFloat(lat).toFixed(5)}, {parseFloat(lng).toFixed(5)}
-                            </div>
-                          </div>
-
-                          {/* Perfil de Suelo/Pavimento */}
-                          <div className="bg-slate-50 p-2 rounded border border-slate-200 flex flex-col gap-1.5 justify-between print:w-1/2">
-                            <p className="font-black text-slate-750 uppercase tracking-wider text-[8px]">Perfil de Estructura del Suelo</p>
-                            {frente.perfil_suelo_img_url ? (
-                              <div className="w-full h-[140px] overflow-hidden rounded border border-slate-200 relative bg-white flex items-center justify-center p-1 shadow-2xs">
-                                <img 
-                                  src={frente.perfil_suelo_img_url} 
-                                  alt="Perfil de estructura del suelo" 
-                                  className="w-full h-full object-contain"
-                                />
-                              </div>
-                            ) : (
-                              <div className="flex flex-col border border-slate-200 border-dashed rounded overflow-hidden flex-1 min-h-[140px] text-[8px] font-bold bg-slate-100 items-center justify-center text-slate-450 p-4 text-center leading-normal">
-                                <ImageIcon size={20} className="text-slate-400 mb-1" />
-                                <span>Sin perfil de estructura de suelo</span>
-                                <span className="text-[6.5px] font-normal opacity-75 mt-0.5">Sube el plano o esquema desde el detalle del frente</span>
-                              </div>
-                            )}
-                            <div className="text-[8px] font-bold text-slate-500 text-center uppercase tracking-wide">
-                              Estructura de Pavimento Aprobada
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Bitacora Consolidada Semanal */}
-                      {printMode === 'full' && (
-                        <div className="space-y-2">
-                          <p className="font-black text-slate-750 uppercase tracking-wider text-[8px]">Bitácora Diaria del Periodo</p>
-                          {activeNotes.length === 0 ? (
-                            <p className="text-[9px] text-slate-450 italic">No se reportaron bitácoras en este frente durante la semana.</p>
-                          ) : (
-                            <div className="grid grid-cols-1 gap-2 text-[9px]">
-                              {activeNotes.map((noteItem) => {
-                                const noteDate = new Date(noteItem.date + 'T12:00:00');
-                                return (
-                                  <div key={noteItem.id} className="bg-slate-50/50 p-2 rounded border border-slate-100 flex gap-2">
-                                    <div className="min-w-[65px] font-black text-slate-550 border-r border-slate-200 pr-2 uppercase text-[8px] flex items-center">
-                                      {getDayName(noteDate)} {noteDate.getDate()}
-                                    </div>
-                                    <div className="text-slate-700 leading-relaxed">{noteItem.note}</div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Photos Consolidada */}
-                      {activePhotos.length > 0 && (
-                        <div className="space-y-2">
-                          <p className="font-black text-slate-750 uppercase tracking-wider text-[8px]">Evidencia Fotográfica Semanal ({activePhotos.length})</p>
-                          <div className="grid grid-cols-4 gap-2">
-                            {activePhotos.map((photo) => (
-                              <div key={photo.id} className="border border-slate-200 rounded overflow-hidden shadow-2xs bg-white text-[8px] flex flex-col">
-                                <div className="aspect-square bg-slate-100 overflow-hidden">
-                                  <img src={photo.url} alt="Avance" className="w-full h-full object-cover" />
-                                </div>
-                                <div className="p-1 text-slate-650 font-semibold border-t border-slate-150 break-words whitespace-normal leading-tight">
-                                  {photo.caption || 'Avance de obra'}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                    </div>
-                  );
-                })}
+                {report.frentes.filter(f => f.fotos && f.fotos.length > 0).map((frente) => (
+                  <PrintFrenteCard 
+                    key={frente.id} 
+                    frente={frente} 
+                    printMode={printMode} 
+                    allFrentes={allFrentes} 
+                    consolidadoIa={iaText} 
+                    getDayName={getDayName} 
+                  />
+                ))}
               </div>
 
             </div>
@@ -1007,38 +1113,53 @@ export default function WeeklyReportPanel({
       {/* RENDER IN VISIBLE PRINTER CONTAINER FOR PRINTING ONLY */}
       <div className="print-only font-sans p-6 text-slate-900 bg-white space-y-6">
         {/* PDF Header */}
-        <div className="border-b-2 border-slate-800 pb-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-base font-black tracking-tight text-slate-900 uppercase">
-              INFORME SEMANAL DE INTERVENTORÍA TÉCNICA
-            </h1>
-            <p className="text-xs font-black text-primary uppercase leading-tight mb-0.5">INCOLTA SAS</p>
-            <p className="text-[10px] font-bold text-slate-500">Consorcio Interventoría Usaquén • Contrato IDU-19-620-18</p>
+        <div className="border-b-2 border-slate-800 pb-4 flex justify-between items-center text-left">
+          <div className="flex items-center gap-3">
+            <div className="bg-primary/10 p-2 rounded text-primary flex items-center justify-center">
+              <span className="material-symbols-outlined text-[24px] font-black">assignment</span>
+            </div>
+            <div>
+              <h1 className="text-base font-black tracking-tight text-slate-900 uppercase leading-none">
+                INFORME SEMANAL DE INTERVENTORÍA TÉCNICA
+              </h1>
+              <p className="text-xs font-black text-primary uppercase leading-tight mt-1 mb-0.5">INCOLTA SAS</p>
+              <p className="text-[10px] font-bold text-slate-500">Consorcio Interventoría Usaquén • Contrato IDU-19-620-18</p>
+            </div>
           </div>
           <div className="text-right">
             <span className="text-sm font-black bg-slate-900 text-white px-2.5 py-1 rounded">
               SEMANA {report.numero_semana}
             </span>
-            <p className="text-[10px] text-slate-400 mt-1">{report.fecha_inicial_corte} al {report.fecha_final_corte}</p>
+            <p className="text-[10px] text-slate-450 mt-1 font-semibold flex items-center justify-end gap-1">
+              <span className="material-symbols-outlined text-[11px] text-slate-455">calendar_today</span>
+              {report.fecha_inicial_corte} al {report.fecha_final_corte}
+            </p>
           </div>
         </div>
 
         {/* PDF Meta */}
-        <div className="grid grid-cols-2 gap-4 py-4 border-b border-slate-200 text-xs">
+        <div className="grid grid-cols-2 gap-4 py-4 border-b border-slate-200 text-xs text-left">
           <div>
-            <p className="text-slate-400 font-bold uppercase tracking-wider text-[8px]">Entidad Contratante</p>
+            <p className="text-slate-450 font-bold uppercase tracking-wider text-[8px] flex items-center gap-0.5">
+              <span className="material-symbols-outlined text-[9px] text-slate-400">domain</span>
+              Entidad Contratante
+            </p>
             <p className="font-extrabold text-slate-800">Instituto de Desarrollo Urbano (IDU)</p>
           </div>
           <div>
-            <p className="text-slate-400 font-bold uppercase tracking-wider text-[8px]">Avance Físico del Período</p>
+            <p className="text-slate-450 font-bold uppercase tracking-wider text-[8px] flex items-center gap-0.5">
+              <span className="material-symbols-outlined text-[9px] text-slate-400">trending_up</span>
+              Avance Físico del Período
+            </p>
             <p className="font-extrabold text-slate-800">+{weeklyProgress}% en la semana</p>
           </div>
         </div>
 
         {/* PDF Resumen Frentes Table */}
         {printMode === 'full' && (
-          <div className="py-4">
-            <h3 className="text-xs font-black text-slate-950 uppercase mb-3 border-b border-slate-350 pb-1">
+          <div className="py-4 text-left">
+            <h3 className="text-xs font-black text-slate-950 uppercase mb-3 border-b border-slate-350 pb-1 flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-primary text-[14px]">view_list</span>
               I. Resumen General de Frentes
             </h3>
             <table className="w-full text-left border-collapse text-[10px]">
@@ -1079,8 +1200,9 @@ export default function WeeklyReportPanel({
 
         {/* PDF AI Consolidated Section */}
         {report.consolidado_ia && (
-          <div className="py-4 border-b border-slate-200">
-            <h3 className="text-xs font-black text-slate-950 uppercase mb-2 pb-1 border-b border-slate-350">
+          <div className="py-4 border-b border-slate-200 text-left">
+            <h3 className="text-xs font-black text-slate-950 uppercase mb-2 pb-1 border-b border-slate-350 flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-primary text-[14px]">smart_toy</span>
               {printMode === 'full' ? 'II.' : 'I.'} Consolidado de Interventoría (IA)
             </h3>
             <div className="bg-slate-50 border border-slate-200 rounded p-3 text-[10px] text-slate-850 leading-relaxed whitespace-pre-line italic font-semibold">
@@ -1091,149 +1213,25 @@ export default function WeeklyReportPanel({
 
         {/* PDF Fichas Técnicas Individuales (Frente por Frente) */}
         <div className="py-4 space-y-6">
-          <h3 className="text-xs font-black text-slate-950 uppercase mb-4 border-b border-slate-350 pb-1">
+          <h3 className="text-xs font-black text-slate-950 uppercase mb-4 border-b border-slate-350 pb-1 flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-primary text-[14px]">engineering</span>
             {printMode === 'full' 
               ? report.consolidado_ia ? 'III. Fichas Técnicas de Frentes Activos' : 'II. Fichas Técnicas de Frentes Activos'
               : report.consolidado_ia ? 'II. Evidencia Fotográfica por Frente' : 'I. Evidencia Fotográfica por Frente'}
           </h3>
 
-          {report.frentes.filter(f => f.fotos && f.fotos.length > 0).map((frente) => {
-            const isMv = frente.id.startsWith('f_mv');
-            const activeNotes = frente.bitacora_notes?.filter(n => n.note.trim() !== '') || [];
-            const activePhotos = frente.fotos || [];
-            
-            const originalFrente = allFrentes?.find(o => o.id === frente.id);
-            const lat = originalFrente?.latitude || '4.6097';
-            const lng = originalFrente?.longitude || '-74.0817';
-
-            const design = getDisenoForCiv(frente.civ);
-            const layers = design?.paquete_estructural_capas?.map(l => ({
-              material: l.nombre,
-              espesor_propuesto_cm: l.espesor_cm,
-              modulo_psi: l.modulo_psi
-            })) || [];
-
-            return (
-              <div key={frente.id} className="border border-slate-350 rounded-lg p-4 space-y-3 page-break-inside bg-white">
-                
-                {/* Ficha Header */}
-                <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-                  <div>
-                    <h4 className="font-extrabold text-xs text-slate-900">
-                      FRENTE {frente.frente} — CIV {frente.civ}
-                    </h4>
-                    <p className="text-[9px] text-slate-500"><strong>Ubicación:</strong> {frente.desde} al {frente.hasta} ({frente.eje})</p>
-                  </div>
-                  <span className="text-[9px] font-black uppercase bg-slate-900 text-white px-2 py-0.5 rounded">
-                    {isMv ? 'MALLA VIAL' : 'ESPACIO PÚBLICO'}
-                  </span>
-                </div>
-
-                {/* Mapa y Perfil de Estructura de Suelo */}
-                {printMode === 'full' && (
-                  <div className="grid grid-cols-2 gap-4 text-[9px] print:flex print:gap-4 print:w-full">
-                    {/* Mapa de Ubicación */}
-                    <div className="bg-slate-50 p-2 rounded border border-slate-200 flex flex-col gap-1.5 justify-between print:w-1/2">
-                      <p className="font-black text-slate-750 uppercase tracking-wider text-[8px]">Ubicación Georreferenciada</p>
-                      <div className="w-full h-[140px] overflow-hidden rounded border border-slate-200 relative bg-slate-100">
-                        <img 
-                          src={`https://static-maps.yandex.ru/1.x/?lang=es_ES&ll=${lng},${lat}&z=15&l=map&size=300,300`} 
-                          alt="Ubicación en mapa"
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=15&size=300x300&maptype=mapnik`;
-                          }}
-                        />
-                        {/* Custom CSS Pulsing Pin Overlay */}
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="relative flex items-center justify-center">
-                            <span className="animate-ping absolute inline-flex h-6 w-6 rounded-full bg-red-400 opacity-75"></span>
-                            <svg className="w-8 h-8 text-red-500 drop-shadow-md" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2ZM12 11.5C10.62 11.5 9.5 10.38 9.5 9C9.5 7.62 10.62 6.5 12 6.5C13.38 6.5 14.5 7.62 14.5 9C14.5 10.38 13.38 11.5 12 11.5Z"/>
-                            </svg>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-[8px] font-bold text-slate-500 text-center font-mono">
-                        COORDENADAS: {parseFloat(lat).toFixed(5)}, {parseFloat(lng).toFixed(5)}
-                      </div>
-                    </div>
-
-                    {/* Perfil de Suelo/Pavimento */}
-                    <div className="bg-slate-50 p-2 rounded border border-slate-200 flex flex-col gap-1.5 justify-between print:w-1/2">
-                      <p className="font-black text-slate-750 uppercase tracking-wider text-[8px]">Perfil de Estructura del Suelo</p>
-                      {frente.perfil_suelo_img_url ? (
-                        <div className="w-full h-[140px] overflow-hidden rounded border border-slate-200 relative bg-white flex items-center justify-center p-1 shadow-2xs">
-                          <img 
-                            src={frente.perfil_suelo_img_url} 
-                            alt="Perfil de estructura del suelo" 
-                            className="w-full h-full object-contain"
-                          />
-                        </div>
-                      ) : (
-                        <div className="flex flex-col border border-slate-200 border-dashed rounded overflow-hidden flex-1 min-h-[140px] text-[8px] font-bold bg-slate-100 items-center justify-center text-slate-455 p-4 text-center leading-normal">
-                          <ImageIcon size={20} className="text-slate-400 mb-1" />
-                          <span>Sin perfil de estructura de suelo</span>
-                          <span className="text-[6.5px] font-normal opacity-75 mt-0.5">Sube el plano o esquema desde el detalle del frente</span>
-                        </div>
-                      )}
-                      <div className="text-[8px] font-bold text-slate-500 text-center uppercase tracking-wide">
-                        Estructura de Pavimento Aprobada
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Bitacora Consolidada Semanal */}
-                {printMode === 'full' && (
-                  <div className="space-y-2">
-                    <p className="font-black text-slate-750 uppercase tracking-wider text-[8px]">Bitácora Diaria del Periodo</p>
-                    {activeNotes.length === 0 ? (
-                      <p className="text-[9px] text-slate-450 italic">No se reportaron bitácoras en este frente durante la semana.</p>
-                    ) : (
-                      <div className="grid grid-cols-1 gap-1.5 text-[9px]">
-                        {activeNotes.map((noteItem) => {
-                          const noteDate = new Date(noteItem.date + 'T12:00:00');
-                          return (
-                            <div key={noteItem.id} className="bg-slate-50/50 p-2 rounded border border-slate-100 flex gap-2">
-                              <div className="min-w-[65px] font-black text-slate-550 border-r border-slate-250 pr-2 uppercase text-[8px] flex items-center">
-                                {getDayName(noteDate)} {noteDate.getDate()}
-                              </div>
-                              <div className="text-slate-700 leading-relaxed">{noteItem.note}</div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Photos Consolidada */}
-                {activePhotos.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="font-black text-slate-750 uppercase tracking-wider text-[8px]">Evidencia Fotográfica Semanal ({activePhotos.length})</p>
-                    <div className="grid grid-cols-4 gap-2">
-                      {activePhotos.map((photo) => (
-                        <div key={photo.id} className="border border-slate-200 rounded overflow-hidden shadow-2xs bg-white text-[8px] flex flex-col">
-                          <div className="aspect-square bg-slate-100 overflow-hidden">
-                            <img src={photo.url} alt="Avance" className="w-full h-full object-cover" />
-                          </div>
-                          <div className="p-1 text-slate-650 font-semibold border-t border-slate-150 break-words whitespace-normal leading-tight">
-                            {photo.caption || 'Avance de obra'}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-              </div>
-            );
-          })}
+          {report.frentes.filter(f => f.fotos && f.fotos.length > 0).map((frente) => (
+            <PrintFrenteCard 
+              key={frente.id} 
+              frente={frente} 
+              printMode={printMode} 
+              allFrentes={allFrentes} 
+              consolidadoIa={iaText} 
+              getDayName={getDayName} 
+            />
+          ))}
         </div>
       </div>
-
     </div>
   );
 }
