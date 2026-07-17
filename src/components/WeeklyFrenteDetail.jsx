@@ -5,7 +5,9 @@ export default function WeeklyFrenteDetail({
   report, 
   frenteId, 
   onClose, 
-  onSave 
+  onSave,
+  onSaveWithoutClose,
+  onNavigateFrente
 }) {
   const frente = report?.frentes?.find(f => f.id === frenteId) || null;
 
@@ -220,13 +222,13 @@ export default function WeeklyFrenteDetail({
                   semana: report.numero_semana,
                   frenteId: frente.id,
                   fileName: fileName,
-                  base64: base64
+                  base64: base64,
+                  bucket: supabaseConfig.supabaseBucket || 'frentes-fotos'
                 })
               });
               if (response.ok) {
                 const result = await response.json();
-                const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-                if (result.url && isLocal) {
+                if (result.url) {
                   previewUrl = result.url;
                 }
               }
@@ -255,6 +257,25 @@ export default function WeeklyFrenteDetail({
 
   const handleDeletePhoto = (photoId) => {
     setFotos(prev => prev.filter(f => f.id !== photoId));
+  };
+
+  const handleNavigate = (direction) => {
+    if (onSaveWithoutClose) {
+      const updatedFrente = {
+        ...frente,
+        porcentaje_avance_semana: porcentajeAvance,
+        ejecucion_presupuestal_semana: ejecucionPresupuestal,
+        pmt_estado: pmtEstado,
+        actividades_ejecutadas_hitos: hitos,
+        fotos,
+        bitacora_notas: bitacoraNotas,
+        perfil_suelo_img_url: perfilSueloImgUrl
+      };
+      onSaveWithoutClose(updatedFrente);
+    }
+    if (onNavigateFrente) {
+      onNavigateFrente(direction);
+    }
   };
 
   const handleSave = () => {
@@ -311,6 +332,27 @@ export default function WeeklyFrenteDetail({
           >
             <ArrowLeft size={16} />
           </button>
+          
+          {onNavigateFrente && (
+            <div className="flex items-center gap-1">
+              <button 
+                type="button"
+                onClick={() => handleNavigate('prev')}
+                className="p-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-650 rounded-lg shadow-sm transition-all flex items-center justify-center"
+                title="Frente anterior"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button 
+                type="button"
+                onClick={() => handleNavigate('next')}
+                className="p-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-650 rounded-lg shadow-sm transition-all flex items-center justify-center"
+                title="Siguiente frente"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="bg-primary/10 text-primary text-[10px] font-extrabold uppercase px-2 py-0.5 rounded tracking-wide border border-primary/15">

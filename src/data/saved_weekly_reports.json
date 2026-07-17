@@ -1334,7 +1334,8 @@
             "date": "2026-07-11"
           }
         ],
-        "bitacora_notas": []
+        "bitacora_notas": [],
+        "perfil_suelo_img_url": ""
       },
       {
         "id": "f_mv_2",
@@ -1348,8 +1349,22 @@
         "ejecucion_presupuestal_semana": 83753901,
         "actividades_ejecutadas_hitos": "Preliminares y Excavaciones: 60% ejecutado (de 50% programado). Demoliciones: 100% ejecutado (de 80% programado). Redes de alcantarillado: 20% ejecutado (de 17% programado).",
         "pmt_estado": "Aprobado COI 22 del 28/05/2026",
-        "fotos": [],
-        "bitacora_notas": []
+        "fotos": [
+          {
+            "id": "1784312931837tnp3bch4l",
+            "url": "/uploads/semana_29/frente_f_mv_2/1784312929900_78ce72a9_773c_4459_a593_290073c58237.jpeg",
+            "caption": "sin actividades",
+            "date": "2026-07-11"
+          }
+        ],
+        "bitacora_notas": [
+          {
+            "id": 1784312975743,
+            "date": "2026-07-11",
+            "note": "*11/07/2026*\n*FRENTE 2,3,4*\n*CIV: 1000067*\n*CIV: 1007361*\n*CIV: 1000086*\n*CLIMA* \nMañana:llovizna leve \n\n*MAQUINARIA*\n\n* ⁠sin maquinaria  \n\n*PERSONAL CONTRATISTA*\n\n* 1 boal \n\n \n *PERSONAL INTERVENTORIA*\n-  1 inspector \n*ACTIVIDADES*\n•sin actividades"
+          }
+        ],
+        "perfil_suelo_img_url": ""
       },
       {
         "id": "f_mv_3",
@@ -1365,19 +1380,20 @@
         "pmt_estado": "Aprobado COI 22 del 28/05/2026",
         "fotos": [
           {
-            "id": "1784004701588xvh176tqc",
-            "url": "/uploads/semana_29/frente_f_mv_3/1784004701545_imagen_2026_07_13_235141527.png",
-            "caption": "estructura",
-            "date": "2026-07-11"
-          },
-          {
-            "id": "178400525652843ohzqogq",
-            "url": "/uploads/semana_29/frente_f_mv_3/1784005256207_image.jpg",
-            "caption": "prueba",
+            "id": "1784313042312znd6vobx4",
+            "url": "/uploads/semana_29/frente_f_mv_3/1784313040745_8e6170b1_7972_4b6c_bea5_7c422e242198.jpeg",
+            "caption": "sin actividades",
             "date": "2026-07-11"
           }
         ],
-        "bitacora_notas": []
+        "bitacora_notas": [
+          {
+            "id": 1784313052846,
+            "date": "2026-07-11",
+            "note": "sin actividades personal ubicado al frente 16"
+          }
+        ],
+        "perfil_suelo_img_url": ""
       },
       {
         "id": "f_mv_4",

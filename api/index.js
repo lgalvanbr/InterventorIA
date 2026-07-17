@@ -50,6 +50,51 @@ async function saveReportsToSupabase(reportsData) {
   return false;
 }
 
+async function uploadPhotoToSupabase(semana, frenteId, fileName, base64Data, bucketName = 'frentes-fotos') {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    console.warn("Supabase credentials missing on backend, cannot upload photo to Supabase Storage");
+    return null;
+  }
+
+  try {
+    const matches = base64Data.match(/^data:image\/([A-Za-z-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      console.error("Invalid base64 image data format");
+      return null;
+    }
+
+    const contentType = `image/${matches[1]}`;
+    const buffer = Buffer.from(matches[2], 'base64');
+    
+    const filePath = `semana_${semana}/frente_${frenteId}/${fileName}`;
+    const url = `${SUPABASE_URL}/storage/v1/object/${bucketName}/${filePath}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'apikey': SUPABASE_KEY,
+        'Content-Type': contentType
+      },
+      body: buffer
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      if (response.status !== 409) {
+        console.error("Supabase Storage error:", err.message || err);
+        return null;
+      }
+    }
+
+    return `${SUPABASE_URL}/storage/v1/object/public/${bucketName}/${filePath}`;
+  } catch (e) {
+    console.error("Failed to upload photo to Supabase:", e);
+  }
+  return null;
+}
+
+
 // Load initial weekly reports from the JSON file
 function getInitialReports() {
   try {
@@ -184,7 +229,7 @@ export default async function handler(req, res) {
   if (pathname === '/api/upload-photo' && req.method === 'POST') {
     try {
       const body = await getBody(req);
-      const { semana, frenteId, fileName, base64 } = body;
+      const { semana, frenteId, fileName, base64, bucket } = body;
 
       if (!semana || !frenteId || !fileName || !base64) {
         res.status(400).json({ error: 'Missing parameters' });
@@ -215,9 +260,21 @@ export default async function handler(req, res) {
         console.warn("Disk write for photo failed (expected on Vercel):", diskErr);
       }
 
+      // Try uploading to Supabase Storage via backend credentials
+      let responseUrl = fileKey;
+      try {
+        const bucketName = bucket || 'frentes-fotos';
+        const supabaseUrlResult = await uploadPhotoToSupabase(semana, frenteId, fileName, base64, bucketName);
+        if (supabaseUrlResult) {
+          responseUrl = supabaseUrlResult;
+        }
+      } catch (supErr) {
+        console.error("Backend error uploading to Supabase, falling back to local/memory URL:", supErr);
+      }
+
       res.status(200).json({ 
-        url: fileKey,
-        message: "Photo uploaded to memory."
+        url: responseUrl,
+        message: responseUrl.startsWith('http') ? "Photo uploaded to Supabase Storage." : "Photo uploaded to memory fallback."
       });
     } catch (err) {
       res.status(500).json({ error: 'Failed to process photo upload' });

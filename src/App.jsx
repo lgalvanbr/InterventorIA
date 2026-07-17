@@ -235,6 +235,14 @@ const getSeededProjects = () => {
   ];
 };
 
+const saveWeeklyReportsToStorage = (reports) => {
+  try {
+    localStorage.setItem('geo_interventoria_weekly_reports', JSON.stringify(reports));
+  } catch (err) {
+    console.error("Error saving weekly reports to localStorage (quota exceeded):", err);
+  }
+};
+
 export default function App() {
   const [projects, setProjects] = useState([]);
   const [activeProjectId, setActiveProjectId] = useState(null);
@@ -281,7 +289,7 @@ export default function App() {
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
           setWeeklyReports(data);
-          localStorage.setItem('geo_interventoria_weekly_reports', JSON.stringify(data));
+          saveWeeklyReportsToStorage(data);
         } else if (!localWeekly) {
           const allFrentes = loadedProjects.flatMap(p => 
             (p.frentes || []).map(f => {
@@ -308,7 +316,7 @@ export default function App() {
           );
           const seededWeekly = initializeWeeklyReports(allFrentes);
           setWeeklyReports(seededWeekly);
-          localStorage.setItem('geo_interventoria_weekly_reports', JSON.stringify(seededWeekly));
+          saveWeeklyReportsToStorage(seededWeekly);
           
           fetch('/api/weekly-reports', {
             method: 'POST',
@@ -343,7 +351,7 @@ export default function App() {
 
   const handleUpdateWeeklyReports = (updatedReports) => {
     setWeeklyReports(updatedReports);
-    localStorage.setItem('geo_interventoria_weekly_reports', JSON.stringify(updatedReports));
+    saveWeeklyReportsToStorage(updatedReports);
     fetch('/api/weekly-reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

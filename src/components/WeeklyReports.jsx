@@ -17,10 +17,13 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
 
   // Set default active report to the latest week
   useEffect(() => {
-    if (weeklyReports.length > 0 && !activeReportId) {
-      // Sort reports by week number descending to find latest
-      const sorted = [...weeklyReports].sort((a, b) => b.numero_semana - a.numero_semana);
-      setActiveReportId(sorted[0].id_informe);
+    if (weeklyReports.length > 0) {
+      const exists = weeklyReports.some(r => r.id_informe === activeReportId);
+      if (!exists) {
+        // Sort reports by week number descending to find latest
+        const sorted = [...weeklyReports].sort((a, b) => b.numero_semana - a.numero_semana);
+        setActiveReportId(sorted[0].id_informe);
+      }
     }
   }, [weeklyReports, activeReportId]);
 

@@ -291,6 +291,22 @@ export default function WeeklyReportPanel({
           onSaveFrente(updatedFrente);
           setEditingFrenteId(null);
         }}
+        onSaveWithoutClose={(updatedFrente) => {
+          onSaveFrente(updatedFrente);
+        }}
+        onNavigateFrente={(direction) => {
+          const currentIndex = report.frentes.findIndex(f => f.id === editingFrenteId);
+          if (currentIndex === -1) return;
+          let nextIndex = currentIndex;
+          if (direction === 'prev') {
+            nextIndex = currentIndex - 1;
+            if (nextIndex < 0) nextIndex = report.frentes.length - 1;
+          } else {
+            nextIndex = currentIndex + 1;
+            if (nextIndex >= report.frentes.length) nextIndex = 0;
+          }
+          setEditingFrenteId(report.frentes[nextIndex].id);
+        }}
       />
     );
   }

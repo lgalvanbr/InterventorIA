@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Save, CheckCircle, Image as ImageIcon, ChevronLeft, Calendar, FileText, Trash2, ArrowRight } from 'lucide-react';
+import { Camera, Save, CheckCircle, Image as ImageIcon, ChevronLeft, ChevronRight, Calendar, FileText, Trash2, ArrowRight } from 'lucide-react';
 
 export default function InspectorPortal({ 
   weeklyReports, 
@@ -216,13 +216,13 @@ export default function InspectorPortal({
                   semana: currentReport.numero_semana,
                   frenteId: selectedFrenteId,
                   fileName: fileName,
-                  base64: base64
+                  base64: base64,
+                  bucket: supabaseConfig.supabaseBucket || 'frentes-fotos'
                 })
               });
               if (response.ok) {
                 const result = await response.json();
-                const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-                if (result.url && isLocal) {
+                if (result.url) {
                   previewUrl = result.url;
                 }
               }
@@ -252,6 +252,26 @@ export default function InspectorPortal({
 
   const handleDeletePhoto = (photoId) => {
     setFotos(prev => prev.filter(f => f.id !== photoId));
+  };
+
+  const handlePrevFrente = () => {
+    if (filteredFrentes.length === 0) return;
+    const currentIndex = filteredFrentes.findIndex(f => f.id === selectedFrenteId);
+    let nextIndex = currentIndex - 1;
+    if (nextIndex < 0) {
+      nextIndex = filteredFrentes.length - 1; // wrap around
+    }
+    setSelectedFrenteId(filteredFrentes[nextIndex].id);
+  };
+
+  const handleNextFrente = () => {
+    if (filteredFrentes.length === 0) return;
+    const currentIndex = filteredFrentes.findIndex(f => f.id === selectedFrenteId);
+    let nextIndex = currentIndex + 1;
+    if (nextIndex >= filteredFrentes.length || currentIndex === -1) {
+      nextIndex = 0; // wrap around
+    }
+    setSelectedFrenteId(filteredFrentes[nextIndex].id);
   };
 
   const handleActiveDayNoteChange = (text) => {
@@ -399,18 +419,40 @@ export default function InspectorPortal({
             </button>
           </div>
 
-          <select 
-            value={selectedFrenteId}
-            onChange={(e) => setSelectedFrenteId(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm text-slate-800 font-bold focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer"
-          >
-            <option value="" disabled>-- Selecciona un frente ({filteredFrentes.length}) --</option>
-            {filteredFrentes.map(f => (
-              <option key={f.id} value={f.id}>
-                Frente {f.frente} • CIV {f.civ} — {f.eje}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePrevFrente}
+              disabled={filteredFrentes.length <= 1}
+              className="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed p-2.5 rounded-lg border border-slate-200 text-slate-700 flex items-center justify-center shrink-0"
+              title="Frente anterior"
+            >
+              <ChevronLeft size={20} />
+            </button>
+
+            <select 
+              value={selectedFrenteId}
+              onChange={(e) => setSelectedFrenteId(e.target.value)}
+              className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm text-slate-800 font-bold focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer"
+            >
+              <option value="" disabled>-- Selecciona un frente ({filteredFrentes.length}) --</option>
+              {filteredFrentes.map(f => (
+                <option key={f.id} value={f.id}>
+                  Frente {f.frente} • CIV {f.civ} — {f.eje}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="button"
+              onClick={handleNextFrente}
+              disabled={filteredFrentes.length <= 1}
+              className="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed p-2.5 rounded-lg border border-slate-200 text-slate-700 flex items-center justify-center shrink-0"
+              title="Siguiente frente"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
 
           {activeFrente && (
             <div className="mt-3 p-3 bg-primary/5 border border-primary/10 rounded-lg text-[11px] text-slate-600 space-y-1">
