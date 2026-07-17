@@ -52,19 +52,18 @@ async function saveReportsToSupabase(reportsData) {
 
 async function uploadPhotoToSupabase(semana, frenteId, fileName, base64Data, bucketName = 'frentes-fotos') {
   if (!SUPABASE_URL || !SUPABASE_KEY) {
-    console.warn("Supabase credentials missing on backend, cannot upload photo to Supabase Storage");
-    return null;
+    throw new Error("Supabase credentials (SUPABASE_URL/SUPABASE_KEY) are missing in environment variables.");
   }
 
   try {
     const matches = base64Data.match(/^data:image\/([A-Za-z-+\/]+);base64,(.+)$/);
     if (!matches || matches.length !== 3) {
-      console.error("Invalid base64 image data format");
-      return null;
+      throw new Error("Invalid base64 image data format");
     }
 
     const contentType = `image/${matches[1]}`;
     const buffer = Buffer.from(matches[2], 'base64');
+    const blob = new Blob([buffer], { type: contentType });
     
     const filePath = `semana_${semana}/frente_${frenteId}/${fileName}`;
     const url = `${SUPABASE_URL}/storage/v1/object/${bucketName}/${filePath}`;
@@ -76,23 +75,25 @@ async function uploadPhotoToSupabase(semana, frenteId, fileName, base64Data, buc
         'apikey': SUPABASE_KEY,
         'Content-Type': contentType
       },
-      body: buffer
+      body: blob
     });
 
     if (!response.ok) {
-      const err = await response.json();
-      if (response.status !== 409) {
-        console.error("Supabase Storage error:", err.message || err);
-        return null;
-      }
+      let errMsg = `HTTP ${response.status}`;
+      try {
+        const err = await response.json();
+        errMsg = err.message || JSON.stringify(err);
+      } catch (jsonErr) {}
+      throw new Error(`Supabase Storage returned error: ${errMsg}`);
     }
 
     return `${SUPABASE_URL}/storage/v1/object/public/${bucketName}/${filePath}`;
   } catch (e) {
     console.error("Failed to upload photo to Supabase:", e);
+    throw e;
   }
-  return null;
 }
+
 
 
 // Load initial weekly reports from the JSON file
@@ -261,15 +262,29 @@ export default async function handler(req, res) {
       }
 
       // Try uploading to Supabase Storage via backend credentials
-      let responseUrl = fileKey;
+      let responseUrl = null;
+      let supabaseError = null;
       try {
         const bucketName = bucket || 'frentes-fotos';
-        const supabaseUrlResult = await uploadPhotoToSupabase(semana, frenteId, fileName, base64, bucketName);
-        if (supabaseUrlResult) {
-          responseUrl = supabaseUrlResult;
-        }
+        responseUrl = await uploadPhotoToSupabase(semana, frenteId, fileName, base64, bucketName);
       } catch (supErr) {
-        console.error("Backend error uploading to Supabase, falling back to local/memory URL:", supErr);
+        console.error("Backend error uploading to Supabase:", supErr);
+        supabaseError = supErr.message || String(supErr);
+      }
+
+      // Check if we are in production (Vercel) and fail if cloud upload failed
+      const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+      if (isProduction && !responseUrl) {
+        res.status(500).json({ 
+          error: 'Failed to upload photo to Supabase Storage', 
+          details: supabaseError || 'Supabase credentials missing or invalid' 
+        });
+        return;
+      }
+
+      // Local fallback
+      if (!responseUrl) {
+        responseUrl = fileKey;
       }
 
       res.status(200).json({ 

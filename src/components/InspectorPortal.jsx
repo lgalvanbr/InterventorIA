@@ -225,6 +225,9 @@ export default function InspectorPortal({
                 if (result.url) {
                   previewUrl = result.url;
                 }
+              } else {
+                const errResult = await response.json().catch(() => ({}));
+                alert(`Error al subir la foto al servidor: ${errResult.details || errResult.error || 'Error desconocido'}`);
               }
             } catch (netErr) {
               console.warn("API offline, using base64 preview:", netErr);
