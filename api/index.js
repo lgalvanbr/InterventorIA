@@ -1,9 +1,54 @@
 import fs from 'fs';
 import path from 'path';
 
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://rjghsenbsrprbajhkwxr.supabase.co';
+const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+
 // In-memory fallback database for Vercel Serverless (since filesystem is read-only)
 let memoryReports = null;
 const memoryUploadedFiles = {}; // stores base64/buffers in memory to mock download
+
+async function getReportsFromSupabase() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/weekly_reports?id=eq.main_reports&select=data`, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    if (res.ok) {
+      const rows = await res.json();
+      if (rows && rows.length > 0) {
+        return rows[0].data;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to fetch reports from Supabase:", e);
+  }
+  return null;
+}
+
+async function saveReportsToSupabase(reportsData) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/weekly_reports`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        id: 'main_reports',
+        data: reportsData
+      })
+    });
+    return res.ok;
+  } catch (e) {
+    console.error("Failed to save reports to Supabase:", e);
+  }
+  return false;
+}
 
 // Load initial weekly reports from the JSON file
 function getInitialReports() {
@@ -49,6 +94,14 @@ export default async function handler(req, res) {
 
   // GET /api/weekly-reports
   if (pathname === '/api/weekly-reports' && req.method === 'GET') {
+    // Try Supabase first
+    const cloudReports = await getReportsFromSupabase();
+    if (cloudReports) {
+      memoryReports = cloudReports;
+      res.status(200).json(cloudReports);
+      return;
+    }
+
     if (memoryReports === null) {
       memoryReports = getInitialReports();
     }
@@ -62,7 +115,10 @@ export default async function handler(req, res) {
       const body = await getBody(req);
       memoryReports = body; // save to memory
 
-      // Attempt to write to disk (will succeed locally, fail on Vercel gracefully)
+      // 1. Attempt to write to Supabase Storage/Database
+      const savedToCloud = await saveReportsToSupabase(body);
+
+      // 2. Attempt to write to disk (will succeed locally, fail on Vercel gracefully)
       try {
         const filePath = path.join(process.cwd(), 'src/data/saved_weekly_reports.json');
         fs.writeFileSync(filePath, JSON.stringify(body, null, 2), 'utf8');
@@ -72,8 +128,8 @@ export default async function handler(req, res) {
 
       res.status(200).json({ 
         success: true, 
-        persisted: false, 
-        message: "Report saved in memory (Serverless Ephemeral)." 
+        persisted: savedToCloud, 
+        message: savedToCloud ? "Report saved to Supabase Cloud Database." : "Report saved in memory only (fallback)." 
       });
     } catch (e) {
       res.status(500).json({ error: 'Failed to process request' });
