@@ -119,11 +119,10 @@ const subrasanteStyle = {
 const getIaCommentForFrente = (consolidadoIa, frenteNumber) => {
   if (!consolidadoIa) return '';
   const regex = new RegExp(`FRENTE\\s+${frenteNumber}\\s*[:•\\-\\s]([\\s\\S]*?)(?=(?:FRENTE\\s+\\d+\\s*[:•\\-\\s])|$)`, 'i');
-  const match = consolidadoIa.match(regex);
   return match ? match[1].trim() : '';
 };
 
-const PrintFrenteCard = ({ frente, printMode, allFrentes, consolidadoIa, getDayName }) => {
+const PrintFrenteCard = ({ frente, printMode, allFrentes, consolidadoIa, getDayName, report }) => {
   const isMv = frente.id.startsWith('f_mv');
   const activeNotes = frente.bitacora_notes?.filter(n => n.note.trim() !== '') || [];
   const activePhotos = frente.fotos || [];
@@ -134,8 +133,41 @@ const PrintFrenteCard = ({ frente, printMode, allFrentes, consolidadoIa, getDayN
 
   const frenteIaComment = getIaCommentForFrente(consolidadoIa, frente.frente);
 
+  const getMappedDateStr = (photoDateStr) => {
+    if (!photoDateStr || photoDateStr === 'Sin fecha' || !report?.fecha_inicial_corte) return 'Sin fecha';
+    try {
+      const photoDate = new Date(photoDateStr + 'T12:00:00');
+      const start = new Date(report.fecha_inicial_corte + 'T12:00:00');
+      
+      const jsDay = photoDate.getDay();
+      const dayIndex = jsDay === 6 ? 0 : jsDay + 1; // 6 (Saturday) -> 0, 0 (Sunday) -> 1, ..., 5 (Friday) -> 6
+      
+      const mappedDate = new Date(start);
+      mappedDate.setDate(start.getDate() + dayIndex);
+      
+      return mappedDate.toISOString().split('T')[0];
+    } catch (e) {
+      return photoDateStr;
+    }
+  };
+
+  const getFriendlyPhotoDate = (photoDateStr) => {
+    const mappedStr = getMappedDateStr(photoDateStr);
+    if (mappedStr === 'Sin fecha') return '';
+    try {
+      const mappedDate = new Date(mappedStr + 'T12:00:00');
+      const dayName = getDayName(mappedDate);
+      const dayNum = mappedDate.getDate();
+      const monthNum = String(mappedDate.getMonth() + 1).padStart(2, '0');
+      return `${dayName} ${dayNum}/${monthNum}`;
+    } catch (e) {
+      return photoDateStr;
+    }
+  };
+
   const photosByDay = activePhotos.reduce((groups, photo) => {
-    const dateKey = photo.date || 'Sin fecha';
+    const rawDate = photo.date || 'Sin fecha';
+    const dateKey = getMappedDateStr(rawDate);
     if (!groups[dateKey]) {
       groups[dateKey] = [];
     }
@@ -300,11 +332,11 @@ const PrintFrenteCard = ({ frente, printMode, allFrentes, consolidadoIa, getDayN
                             {/* Date overlay badge */}
                             {photo.date && (
                               <span className="absolute top-1 left-1 bg-black/60 text-white font-black px-1.5 py-0.5 rounded text-[7px] uppercase tracking-wide">
-                                {photo.date}
+                                {getFriendlyPhotoDate(photo.date)}
                               </span>
                             )}
                           </div>
-                          <div className="p-1 text-slate-650 font-semibold border-t border-slate-150 break-words whitespace-normal leading-tight">
+                          <div className="p-1 text-slate-655 font-semibold border-t border-slate-150 break-words whitespace-normal leading-tight">
                             {photo.caption || 'Avance de obra'}
                           </div>
                         </div>
@@ -324,7 +356,7 @@ const PrintFrenteCard = ({ frente, printMode, allFrentes, consolidadoIa, getDayN
                     {/* Date overlay badge */}
                     {photo.date && (
                       <span className="absolute top-1 left-1 bg-black/60 text-white font-black px-1.5 py-0.5 rounded text-[7px] uppercase tracking-wide">
-                        {photo.date}
+                        {getFriendlyPhotoDate(photo.date)}
                       </span>
                     )}
                   </div>
@@ -1021,6 +1053,7 @@ export default function WeeklyReportPanel({
                     allFrentes={allFrentes} 
                     consolidadoIa={iaText} 
                     getDayName={getDayName} 
+                    report={report}
                   />
                 ))}
               </div>
@@ -1229,6 +1262,7 @@ export default function WeeklyReportPanel({
               allFrentes={allFrentes} 
               consolidadoIa={iaText} 
               getDayName={getDayName} 
+              report={report}
             />
           ))}
         </div>
