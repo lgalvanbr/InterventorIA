@@ -129,6 +129,41 @@ export default function InspectorPortal({
     });
   };
 
+  // Get Supabase config from localStorage
+  let supabaseConfig = null;
+  if (typeof window !== 'undefined') {
+    try {
+      supabaseConfig = JSON.parse(localStorage.getItem('geo_interventoria_supabase_config') || 'null');
+    } catch (e) {}
+  }
+
+  const uploadToSupabase = async (supabaseUrl, supabaseKey, bucketName, filePath, base64Data) => {
+    const base64Response = await fetch(base64Data);
+    const blob = await base64Response.blob();
+
+    const cleanPath = filePath.replace(/^\//, '');
+    const url = `${supabaseUrl}/storage/v1/object/${bucketName}/${cleanPath}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${supabaseKey}`,
+        'apikey': supabaseKey,
+        'Content-Type': blob.type || 'image/jpeg'
+      },
+      body: blob
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      if (response.status !== 409) {
+        throw new Error(err.message || 'Error al subir a Supabase Storage');
+      }
+    }
+
+    return `${supabaseUrl}/storage/v1/object/public/${bucketName}/${cleanPath}`;
+  };
+
   const handlePhotoUpload = async (e) => {
     if (!selectedFrenteId) {
       alert("Por favor, selecciona un frente primero.");
@@ -147,26 +182,46 @@ export default function InspectorPortal({
           const fileName = `${Date.now()}_${cleanName}`;
           
           let previewUrl = base64; // Default to compressed base64
-          try {
-            const response = await fetch('/api/upload-photo', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                semana: currentReport.numero_semana,
-                frenteId: selectedFrenteId,
-                fileName: fileName,
-                base64: base64
-              })
-            });
-            if (response.ok) {
-              const result = await response.json();
-              const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-              if (result.url && isLocal) {
-                previewUrl = result.url;
-              }
+          
+          let uploadedToSupabase = false;
+          if (supabaseConfig && supabaseConfig.supabaseUrl && supabaseConfig.supabaseKey) {
+            try {
+              const cloudUrl = await uploadToSupabase(
+                supabaseConfig.supabaseUrl,
+                supabaseConfig.supabaseKey,
+                supabaseConfig.supabaseBucket || 'frentes-fotos',
+                `semana_${currentReport.numero_semana}/frente_${selectedFrenteId}/${fileName}`,
+                base64
+              );
+              previewUrl = cloudUrl;
+              uploadedToSupabase = true;
+            } catch (sErr) {
+              console.error("Error uploading to Supabase from portal, falling back:", sErr);
             }
-          } catch (netErr) {
-            console.warn("API offline, using base64 preview:", netErr);
+          }
+
+          if (!uploadedToSupabase) {
+            try {
+              const response = await fetch('/api/upload-photo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  semana: currentReport.numero_semana,
+                  frenteId: selectedFrenteId,
+                  fileName: fileName,
+                  base64: base64
+                })
+              });
+              if (response.ok) {
+                const result = await response.json();
+                const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                if (result.url && isLocal) {
+                  previewUrl = result.url;
+                }
+              }
+            } catch (netErr) {
+              console.warn("API offline, using base64 preview:", netErr);
+            }
           }
 
           uploadedPhotos.push({

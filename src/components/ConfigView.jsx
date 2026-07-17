@@ -10,6 +10,11 @@ export default function ConfigView({ projects = [] }) {
   const [carbonFactor, setCarbonFactor] = useState('0.08'); // ton CO2 per hour of diesel machinery
   
   const [savedMsg, setSavedMsg] = useState('');
+
+  // Supabase storage states
+  const [supabaseUrl, setSupabaseUrl] = useState('');
+  const [supabaseKey, setSupabaseKey] = useState('');
+  const [supabaseBucket, setSupabaseBucket] = useState('frentes-fotos');
   
   // Custom frentes colors states
   const [frentesSearch, setFrentesSearch] = useState('');
@@ -99,6 +104,18 @@ export default function ConfigView({ projects = [] }) {
         console.error("Error loading config from localStorage:", e);
       }
     }
+
+    const savedSupabase = localStorage.getItem('geo_interventoria_supabase_config');
+    if (savedSupabase) {
+      try {
+        const parsed = JSON.parse(savedSupabase);
+        setSupabaseUrl(parsed.supabaseUrl || '');
+        setSupabaseKey(parsed.supabaseKey || '');
+        setSupabaseBucket(parsed.supabaseBucket || 'frentes-fotos');
+      } catch (e) {
+        console.error("Error loading Supabase config from localStorage:", e);
+      }
+    }
   }, []);
 
   const handleSave = (e) => {
@@ -113,6 +130,14 @@ export default function ConfigView({ projects = [] }) {
     };
 
     localStorage.setItem('geo_interventoria_config', JSON.stringify(configData));
+
+    const supabaseConfig = {
+      supabaseUrl,
+      supabaseKey,
+      supabaseBucket
+    };
+    localStorage.setItem('geo_interventoria_supabase_config', JSON.stringify(supabaseConfig));
+
     setSavedMsg('Configuración guardada correctamente.');
     setTimeout(() => setSavedMsg(''), 3000);
   };
@@ -260,6 +285,49 @@ export default function ConfigView({ projects = [] }) {
                 onChange={(e) => setCarbonFactor(e.target.value)}
               />
               <span className="text-[9px] text-slate-400 mt-1 block">Estándar recomendado: 0.08 (representa maquinaria pesada promedio de excavación).</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Supabase Storage Integration (Card 4) */}
+        <div className="bg-white border border-slate-200 rounded-lg p-6">
+          <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider mb-4 flex items-center gap-1.5 border-b border-slate-100 pb-3">
+            <span className="material-symbols-outlined text-sky-600 text-lg">cloud_upload</span>
+            Almacenamiento en la Nube (Supabase Storage)
+          </h4>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">URL del Proyecto Supabase</label>
+              <input 
+                type="text" 
+                className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-xs font-mono-numbers focus:ring-1 focus:ring-primary focus:outline-none"
+                placeholder="Ej. https://xyzabc.supabase.co"
+                value={supabaseUrl}
+                onChange={(e) => setSupabaseUrl(e.target.value)}
+              />
+            </div>
+            
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Clave Pública (Anon Key)</label>
+              <input 
+                type="password" 
+                className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                placeholder="Ingrese la clave anon pública..."
+                value={supabaseKey}
+                onChange={(e) => setSupabaseKey(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Nombre del Bucket</label>
+              <input 
+                type="text" 
+                className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                placeholder="Ej. frentes-fotos"
+                value={supabaseBucket}
+                onChange={(e) => setSupabaseBucket(e.target.value)}
+              />
             </div>
           </div>
         </div>
