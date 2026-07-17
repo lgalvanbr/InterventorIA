@@ -169,12 +169,12 @@ const PrintFrenteCard = ({ frente, printMode, allFrentes, consolidadoIa, getDayN
         </span>
       </div>
 
-      {/* Comentario IA del Frente */}
+      {/* Comentario de Interventoría del Frente */}
       {frenteIaComment && (
         <div className="bg-slate-50 border-l-2 border-primary/50 p-2.5 rounded-r text-[9px] text-slate-800 leading-relaxed italic font-semibold shadow-2xs">
           <div className="flex items-center gap-1 text-primary text-[8px] font-black uppercase tracking-wider mb-1">
-            <span className="material-symbols-outlined text-[11px]">smart_toy</span>
-            Análisis de Interventoría (IA)
+            <span className="material-symbols-outlined text-[11px]">rate_review</span>
+            Análisis de Interventoría
           </div>
           "{frenteIaComment}"
         </div>
@@ -369,7 +369,7 @@ export default function WeeklyReportPanel({
         ...report,
         consolidado_ia: iaText
       });
-      alert('¡Texto consolidado de IA guardado con éxito!');
+      alert('¡Texto consolidado de interventoría guardado con éxito!');
     }
   };
 
@@ -433,7 +433,7 @@ export default function WeeklyReportPanel({
       text += `--------------------------------------------------\n\n`;
     });
 
-    text += `INSTRUCCIÓN PARA LA IA:\n`;
+    text += `INSTRUCCIÓN PARA LA REDACCIÓN:\n`;
     text += `Actúa como un Ingeniero Senior de Interventoría Técnica. Genera un análisis técnico formal y profesional estructurado FRENTE POR FRENTE para cada frente activo. Usa estrictamente el siguiente formato para cada frente:\n\n`;
     text += `FRENTE [Número de Frente]: [Tu análisis técnico de la semana, avances, bitácoras y fotos en un párrafo conciso pero completo en tono directivo para el cliente IDU]\n\n`;
     text += `Ejemplo:\n`;
@@ -442,7 +442,7 @@ export default function WeeklyReportPanel({
 
     navigator.clipboard.writeText(text)
       .then(() => {
-        alert('¡Datos de frentes copiados con éxito! Pégalos en ChatGPT o Gemini.');
+        alert('¡Datos de frentes copiados con éxito! Pégalos en tu asistente de redacción.');
       })
       .catch(err => {
         console.error('Error al copiar:', err);
@@ -810,15 +810,15 @@ export default function WeeklyReportPanel({
         {activeTab === 'pdf' && (
           <div className="flex flex-col lg:flex-row gap-6 items-start w-full">
             
-            {/* Left Sidebar: IA Editor Panel (Hidden in Print) */}
+            {/* Left Sidebar: Editor Panel (Hidden in Print) */}
             <div className="w-full lg:w-[320px] flex flex-col gap-5 shrink-0 no-print bg-white p-5 rounded-xl border border-slate-200 shadow-sm sticky top-[95px]">
               <div>
                 <div className="flex items-center gap-2 text-primary">
                   <span className="material-symbols-outlined text-[20px] font-bold">psychology</span>
-                  <h3 className="font-extrabold text-sm text-slate-800">Asistente de IA</h3>
+                  <h3 className="font-extrabold text-sm text-slate-800">Asistente de Redacción</h3>
                 </div>
                 <p className="text-[10px] text-slate-500 mt-1 leading-normal">
-                  Copia las bitácoras de frentes, procésalas con ChatGPT/Gemini y pega la respuesta consolidada aquí para incluirla en el reporte.
+                  Copia las bitácoras de frentes, procésalas con tu asistente y pega la respuesta consolidada aquí para incluirla en el reporte.
                 </p>
               </div>
 
@@ -836,7 +836,7 @@ export default function WeeklyReportPanel({
               {/* Action 2: Input Text */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex justify-between items-center text-[10.5px] font-bold text-slate-700">
-                  <span>Consolidado de IA</span>
+                  <span>Consolidado de Interventoría</span>
                   {iaText !== report.consolidado_ia && (
                     <span className="text-[9px] text-amber-600 font-extrabold animate-pulse">Sin guardar</span>
                   )}
@@ -844,7 +844,7 @@ export default function WeeklyReportPanel({
                 <textarea
                   rows={9}
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-[11px] leading-relaxed font-semibold focus:bg-white focus:outline-none resize-none focus:ring-1 focus:ring-primary/20"
-                  placeholder="Pega el resumen consolidado de la IA aquí..."
+                  placeholder="Pega el resumen consolidado de interventoría aquí..."
                   value={iaText}
                   onChange={(e) => setIaText(e.target.value)}
                   onBlur={handleBlur}
@@ -856,7 +856,7 @@ export default function WeeklyReportPanel({
                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded-lg shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[15px]">save</span>
-                Guardar Consolidado IA
+                Guardar Consolidado
               </button>
 
               <hr className="border-slate-100" />
@@ -904,7 +904,7 @@ export default function WeeklyReportPanel({
               <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm flex items-center justify-between no-print">
                 <div>
                   <h3 className="font-bold text-xs text-slate-800">
-                    Vista Previa ({printMode === 'full' ? 'Completo con todo' : 'Simplificado: IA + Fotos'})
+                    Vista Previa ({printMode === 'full' ? 'Completo con todo' : 'Simplificado: Análisis + Fotos'})
                   </h3>
                   <p className="text-[10px] text-slate-500">Muestra el diseño exacto que se exportará al PDF.</p>
                 </div>
@@ -993,9 +993,10 @@ export default function WeeklyReportPanel({
 
               {/* PDF AI Consolidated Section */}
               {report.consolidado_ia && (
-                <div className="py-4 border-b border-slate-200">
-                  <h3 className="text-xs font-black text-slate-950 uppercase mb-2 pb-1 border-b border-slate-300">
-                    {printMode === 'full' ? 'II.' : 'I.'} Consolidado de Interventoría (IA)
+                <div className="py-4 border-b border-slate-200 text-left">
+                  <h3 className="text-xs font-black text-slate-950 uppercase mb-2 pb-1 border-b border-slate-300 flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-primary text-[14px]">rate_review</span>
+                    {printMode === 'full' ? 'II.' : 'I.'} Consolidado de Interventoría
                   </h3>
                   <div className="bg-slate-50 border border-slate-200 rounded p-3 text-[10px] text-slate-850 leading-relaxed whitespace-pre-line italic font-semibold shadow-2xs">
                     {report.consolidado_ia}
@@ -1201,9 +1202,9 @@ export default function WeeklyReportPanel({
         {/* PDF AI Consolidated Section */}
         {report.consolidado_ia && (
           <div className="py-4 border-b border-slate-200 text-left">
-            <h3 className="text-xs font-black text-slate-950 uppercase mb-2 pb-1 border-b border-slate-350 flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-primary text-[14px]">smart_toy</span>
-              {printMode === 'full' ? 'II.' : 'I.'} Consolidado de Interventoría (IA)
+            <h3 className="text-xs font-black text-slate-950 uppercase mb-2 pb-1 border-b border-slate-355 flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-primary text-[14px]">rate_review</span>
+              {printMode === 'full' ? 'II.' : 'I.'} Consolidado de Interventoría
             </h3>
             <div className="bg-slate-50 border border-slate-200 rounded p-3 text-[10px] text-slate-850 leading-relaxed whitespace-pre-line italic font-semibold">
               {report.consolidado_ia}
