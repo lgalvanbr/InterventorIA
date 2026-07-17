@@ -12,8 +12,8 @@ export default function ConfigView({ projects = [] }) {
   const [savedMsg, setSavedMsg] = useState('');
 
   // Supabase storage states
-  const [supabaseUrl, setSupabaseUrl] = useState('');
-  const [supabaseKey, setSupabaseKey] = useState('');
+  const [supabaseUrl, setSupabaseUrl] = useState('https://rjghsenbsrprbajhkwxr.supabase.co');
+  const [supabaseKey, setSupabaseKey] = useState('sb_publishable_QQ_O2_zR4gy1jlJzoLc8uA_SIKzyZtS');
   const [supabaseBucket, setSupabaseBucket] = useState('frentes-fotos');
   
   // Custom frentes colors states
@@ -109,12 +109,20 @@ export default function ConfigView({ projects = [] }) {
     if (savedSupabase) {
       try {
         const parsed = JSON.parse(savedSupabase);
-        setSupabaseUrl(parsed.supabaseUrl || '');
-        setSupabaseKey(parsed.supabaseKey || '');
+        setSupabaseUrl(parsed.supabaseUrl || 'https://rjghsenbsrprbajhkwxr.supabase.co');
+        setSupabaseKey(parsed.supabaseKey || 'sb_publishable_QQ_O2_zR4gy1jlJzoLc8uA_SIKzyZtS');
         setSupabaseBucket(parsed.supabaseBucket || 'frentes-fotos');
       } catch (e) {
         console.error("Error loading Supabase config from localStorage:", e);
       }
+    } else {
+      // Seed default Supabase config to localStorage
+      const defaultSupabase = {
+        supabaseUrl: 'https://rjghsenbsrprbajhkwxr.supabase.co',
+        supabaseKey: 'sb_publishable_QQ_O2_zR4gy1jlJzoLc8uA_SIKzyZtS',
+        supabaseBucket: 'frentes-fotos'
+      };
+      localStorage.setItem('geo_interventoria_supabase_config', JSON.stringify(defaultSupabase));
     }
   }, []);
 

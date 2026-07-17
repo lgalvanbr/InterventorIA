@@ -129,11 +129,18 @@ export default function InspectorPortal({
     });
   };
 
-  // Get Supabase config from localStorage
-  let supabaseConfig = null;
+  // Get Supabase config from localStorage with defaults
+  let supabaseConfig = {
+    supabaseUrl: 'https://rjghsenbsrprbajhkwxr.supabase.co',
+    supabaseKey: 'sb_publishable_QQ_O2_zR4gy1jlJzoLc8uA_SIKzyZtS',
+    supabaseBucket: 'frentes-fotos'
+  };
   if (typeof window !== 'undefined') {
     try {
-      supabaseConfig = JSON.parse(localStorage.getItem('geo_interventoria_supabase_config') || 'null');
+      const saved = JSON.parse(localStorage.getItem('geo_interventoria_supabase_config') || 'null');
+      if (saved) {
+        supabaseConfig = saved;
+      }
     } catch (e) {}
   }
 
