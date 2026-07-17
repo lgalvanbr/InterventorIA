@@ -10,6 +10,7 @@ import WeeklyFrenteDetail from './components/WeeklyFrenteDetail';
 import WeeklyReportPanel from './components/WeeklyReportPanel';
 import EngineersView from './components/EngineersView';
 import InspectorPortal from './components/InspectorPortal';
+import MapView from './components/MapView';
 import { initializeWeeklyReports, calculateConsolidatedMetrics } from './data/reportsWeekly';
 
 // Helper to initialize compliance list of checks for Colombian regulations
@@ -330,6 +331,8 @@ export default function App() {
     if (params.get('mode') === 'inspector') {
       setIsInspectorMode(true);
       setView('inspector-portal');
+    } else if (params.get('mode') === 'map') {
+      setView('map-only');
     }
   }, []);
 
@@ -455,7 +458,7 @@ export default function App() {
   return (
     <div className="flex min-h-screen bg-[#f7f9fb] text-on-surface">
       {/* Sidebar Navigation */}
-      {!isInspectorMode && (
+      {!isInspectorMode && view !== 'map-only' && (
         <Sidebar 
           currentView={view} 
           onViewChange={handleViewChange} 
@@ -467,7 +470,7 @@ export default function App() {
       )}
 
       {/* Main Content routing with dynamic padding-left for sidebar offset */}
-      <div className={`flex-1 transition-all duration-300 min-w-0 ${isInspectorMode ? 'pl-0' : (isSidebarHovered ? 'pl-64' : 'pl-16')}`}>
+      <div className={`flex-1 transition-all duration-300 min-w-0 ${(isInspectorMode || view === 'map-only') ? 'pl-0' : (isSidebarHovered ? 'pl-64' : 'pl-16')}`}>
         {view === 'dashboard' && (
           <Dashboard 
             projects={projects} 
@@ -575,6 +578,35 @@ export default function App() {
             weeklyReports={weeklyReports}
             onSaveFrenteData={handleSaveFrenteData}
           />
+        )}
+
+        {view === 'map-only' && (
+          <div className="map-only-view">
+            <MapView 
+              frentes={projects.flatMap(p => p.frentes || [])}
+              isUnified={true}
+            />
+            
+            <style dangerouslySetInnerHTML={{ __html: `
+              .map-only-view {
+                width: 100vw;
+                height: 100vh;
+                display: flex;
+                flex-direction: column;
+                background-color: #f8fafc;
+              }
+              .map-only-view .map-card {
+                flex: 1;
+                height: 100% !important;
+                border: none !important;
+                border-radius: 0 !important;
+              }
+              .map-only-view .map-wrapper {
+                flex: 1;
+                height: 100%;
+              }
+            `}} />
+          </div>
         )}
       </div>
     </div>
