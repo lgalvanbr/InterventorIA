@@ -187,8 +187,8 @@ export const FRENTES_DISENOS = {
   "1002332": ESTRUCTURA_TIPO_1("1002332"),
   // Frente 2: Tipo 4 (18cm)
   "1000067": ESTRUCTURA_TIPO_4("1000067", 18),
-  // Frente 3: Tipo 1
-  "1007361": ESTRUCTURA_TIPO_1("1007361"),
+  // Frente 3: Tipo 3 (Rigido)
+  "1007361": ESTRUCTURA_TIPO_3("1007361", 18),
   // Frente 4: Tipo 4 (18cm)
   "1000086": ESTRUCTURA_TIPO_4("1000086", 18),
   // Frente 5: Tipo 4 Modificada (20cm)

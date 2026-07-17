@@ -16,6 +16,7 @@ export default function WeeklyFrenteDetail({
   const [hitos, setHitos] = useState('');
   const [fotos, setFotos] = useState([]);
   const [bitacoraNotas, setBitacoraNotas] = useState([]);
+  const [perfilSueloImgUrl, setPerfilSueloImgUrl] = useState('');
 
   // Active Day Index (0 = Saturday, ..., 6 = Friday)
   const [activeDayIdx, setActiveDayIdx] = useState(0);
@@ -32,6 +33,7 @@ export default function WeeklyFrenteDetail({
       setHitos(frente.actividades_ejecutadas_hitos || '');
       setFotos(frente.fotos || []);
       setBitacoraNotas(frente.bitacora_notas || []);
+      setPerfilSueloImgUrl(frente.perfil_suelo_img_url || '');
       setActiveDayIdx(0); // Reset to Saturday (Day 0)
     }
   }, [frente]);
@@ -101,12 +103,39 @@ export default function WeeklyFrenteDetail({
     );
   }
 
-  const fileToBase64 = (file) => {
+  const compressImage = (file, maxWidth = 800, maxHeight = 800, quality = 0.7) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = error => reject(error);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = (err) => reject(err);
+      };
+      reader.onerror = (err) => reject(err);
     });
   };
 
@@ -117,7 +146,7 @@ export default function WeeklyFrenteDetail({
     for (const file of files) {
       if (file.type.startsWith('image/')) {
         try {
-          const base64 = await fileToBase64(file);
+          const base64 = await compressImage(file);
           const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
           const fileName = `${Date.now()}_${cleanName}`;
           
@@ -135,7 +164,8 @@ export default function WeeklyFrenteDetail({
             });
             if (response.ok) {
               const result = await response.json();
-              if (result.url) {
+              const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+              if (result.url && isLocal) {
                 previewUrl = result.url;
               }
             }
@@ -173,7 +203,8 @@ export default function WeeklyFrenteDetail({
       pmt_estado: pmtEstado,
       actividades_ejecutadas_hitos: hitos,
       fotos,
-      bitacora_notas: bitacoraNotas
+      bitacora_notas: bitacoraNotas,
+      perfil_suelo_img_url: perfilSueloImgUrl
     };
     onSave(updatedFrente);
   };
@@ -263,7 +294,7 @@ export default function WeeklyFrenteDetail({
             Avances e Indicadores Semanales (Consolidado)
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
             {/* Avance Físico % */}
             <div className="flex flex-col gap-2">
               <div className="flex justify-between items-center">
@@ -327,10 +358,77 @@ export default function WeeklyFrenteDetail({
               </select>
             </div>
 
+            {/* Perfil de Estructura de Suelo Upload */}
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold text-slate-650">Diseño Estructura Suelo</label>
+              {perfilSueloImgUrl ? (
+                <div className="relative border border-slate-200 rounded p-1 flex items-center gap-2 bg-slate-50 h-[34px]">
+                  <img src={perfilSueloImgUrl} alt="Perfil" className="w-8 h-8 object-cover rounded" />
+                  <span className="text-[9px] font-bold text-slate-500 truncate flex-1">Imagen cargada</span>
+                  <button 
+                    type="button"
+                    onClick={() => setPerfilSueloImgUrl('')}
+                    className="p-1 text-red-500 hover:bg-red-50 rounded"
+                    title="Eliminar imagen"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center border border-dashed border-slate-300 hover:bg-slate-50 rounded p-1 text-center cursor-pointer min-h-[34px] bg-slate-50/50">
+                  <div className="flex items-center gap-1">
+                    <Plus size={12} className="text-slate-400" />
+                    <span className="text-[9.5px] font-bold text-slate-500">Subir Plano/Diseño</span>
+                  </div>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        try {
+                          const base64 = await compressImage(file);
+                          const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+                          const fileName = `perfil_${Date.now()}_${cleanName}`;
+                          
+                          let finalUrl = base64;
+                          try {
+                            const response = await fetch('/api/upload-photo', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                semana: report.numero_semana,
+                                frenteId: frente.id,
+                                fileName: fileName,
+                                base64: base64
+                              })
+                            });
+                            if (response.ok) {
+                              const result = await response.json();
+                              const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                              if (result.url && isLocal) {
+                                finalUrl = result.url;
+                              }
+                            }
+                          } catch (apiErr) {
+                            console.warn("Could not save to server, using base64:", apiErr);
+                          }
+                          setPerfilSueloImgUrl(finalUrl);
+                        } catch (err) {
+                          console.error("Error uploading soil profile:", err);
+                        }
+                      }
+                    }}
+                    className="hidden" 
+                  />
+                </label>
+              )}
+            </div>
+
             {/* Tramo / Ubicación Info */}
             <div className="flex flex-col gap-1 justify-center bg-slate-50 border border-slate-150 rounded px-4 py-2 text-xs">
               <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Límites del Tramo</span>
-              <p className="text-slate-700 font-semibold leading-snug">
+              <p className="text-slate-750 font-bold leading-tight">
                 Desde: <strong className="text-slate-900">{frente.desde || 'N/A'}</strong> <br/> Hasta: <strong className="text-slate-900">{frente.hasta || 'N/A'}</strong>
               </p>
             </div>
@@ -470,13 +568,13 @@ export default function WeeklyFrenteDetail({
                     <p className="text-[9px] text-slate-400 mt-0.5">Las fotos subidas aquí quedarán ordenadas en la carpeta de este día.</p>
                   </div>
                 ) : (
-                  <div className="overflow-y-auto max-h-[350px] space-y-4 pr-1">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 overflow-y-auto max-h-[350px] pr-1">
                     {activeDayPhotos.map((foto, index) => (
                       <div 
                         key={foto.id} 
                         className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm flex flex-col group relative"
                       >
-                        <div className="h-40 bg-slate-955 relative overflow-hidden flex items-center justify-center">
+                        <div className="aspect-square bg-slate-955 relative overflow-hidden flex items-center justify-center">
                           <img 
                             src={foto.url} 
                             alt="Diaria de obra" 
@@ -484,26 +582,26 @@ export default function WeeklyFrenteDetail({
                           />
                           <button
                             onClick={() => setLightboxIndex(index)}
-                            className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-bold gap-1"
+                            className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold gap-0.5"
                           >
-                            <Eye size={14} /> Ampliar Foto
+                            <Eye size={12} /> Ampliar
                           </button>
                           <button
                             onClick={() => handleDeletePhoto(foto.id)}
-                            className="absolute top-2 right-2 bg-red-600 hover:bg-red-750 text-white p-1.5 rounded-full shadow transition-all opacity-0 group-hover:opacity-100"
+                            className="absolute top-1.5 right-1.5 bg-red-600 hover:bg-red-750 text-white p-1 rounded-full shadow transition-all opacity-0 group-hover:opacity-100"
                             title="Eliminar"
                           >
-                            <Trash2 size={12} />
+                            <Trash2 size={11} />
                           </button>
                         </div>
 
-                        <div className="p-2.5 bg-slate-50/50">
+                        <div className="p-2 bg-slate-50/50 flex-1 flex flex-col">
                           <input 
                             type="text"
-                            placeholder="Descripción de lo ocurrido en la foto..."
+                            placeholder="Descripción..."
                             value={foto.caption || ''}
                             onChange={(e) => handleUpdateCaption(foto.id, e.target.value)}
-                            className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-[10px] font-semibold text-slate-700 focus:outline-none"
+                            className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary mt-auto"
                           />
                         </div>
                       </div>

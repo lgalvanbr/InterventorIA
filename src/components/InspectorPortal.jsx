@@ -160,7 +160,8 @@ export default function InspectorPortal({
             });
             if (response.ok) {
               const result = await response.json();
-              if (result.url) {
+              const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+              if (result.url && isLocal) {
                 previewUrl = result.url;
               }
             }
@@ -461,13 +462,13 @@ export default function InspectorPortal({
                   <p className="text-[9px] text-slate-400 mt-0.5">Usa el botón de arriba para registrar avances visuales.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {activeDayPhotos.map((foto) => (
                     <div 
                       key={foto.id} 
                       className="border border-slate-200 rounded-lg overflow-hidden bg-slate-50 shadow-sm flex flex-col relative"
                     >
-                      <div className="h-44 bg-slate-900 relative overflow-hidden flex items-center justify-center">
+                      <div className="aspect-square bg-slate-900 relative overflow-hidden flex items-center justify-center">
                         <img 
                           src={foto.url} 
                           alt="Avance de obra diario" 
@@ -475,19 +476,19 @@ export default function InspectorPortal({
                         />
                         <button
                           onClick={() => handleDeletePhoto(foto.id)}
-                          className="absolute top-2 right-2 bg-red-600 hover:bg-red-750 text-white p-2 rounded-full shadow transition-all"
+                          className="absolute top-1.5 right-1.5 bg-red-600 hover:bg-red-750 text-white p-1.5 rounded-full shadow transition-all"
                           title="Eliminar"
                         >
-                          <Trash2 size={13} />
+                          <Trash2 size={11} />
                         </button>
                       </div>
-                      <div className="p-2 bg-white">
+                      <div className="p-2 bg-white flex-1 flex flex-col">
                         <input 
                           type="text"
-                          placeholder="Pie de foto / descripción breve..."
+                          placeholder="Descripción..."
                           value={foto.caption || ''}
                           onChange={(e) => handleUpdateCaption(foto.id, e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded px-2.5 py-1.5 text-[10px] font-semibold text-slate-700 focus:outline-none focus:bg-white"
+                          className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-[9px] font-semibold text-slate-700 focus:outline-none focus:bg-white focus:ring-1 focus:ring-primary mt-auto"
                         />
                       </div>
                     </div>

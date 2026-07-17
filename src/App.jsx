@@ -265,13 +265,23 @@ export default function App() {
       localStorage.setItem('geo_interventoria_projects_v7', JSON.stringify(loadedProjects));
     }
 
-    // Load weekly reports from local server API database
+    // Load weekly reports from local server API database or localStorage fallback
+    const localWeekly = localStorage.getItem('geo_interventoria_weekly_reports');
+    if (localWeekly) {
+      try {
+        setWeeklyReports(JSON.parse(localWeekly));
+      } catch (e) {
+        console.error("Error loading weekly reports from localStorage:", e);
+      }
+    }
+
     fetch('/api/weekly-reports')
       .then(res => res.json())
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
           setWeeklyReports(data);
-        } else {
+          localStorage.setItem('geo_interventoria_weekly_reports', JSON.stringify(data));
+        } else if (!localWeekly) {
           const allFrentes = loadedProjects.flatMap(p => 
             (p.frentes || []).map(f => {
               const civMatch = f.civ || (f.name?.match(/CIV\s+(\d+)/i)?.[1] || '');
@@ -297,6 +307,7 @@ export default function App() {
           );
           const seededWeekly = initializeWeeklyReports(allFrentes);
           setWeeklyReports(seededWeekly);
+          localStorage.setItem('geo_interventoria_weekly_reports', JSON.stringify(seededWeekly));
           
           fetch('/api/weekly-reports', {
             method: 'POST',
@@ -329,6 +340,7 @@ export default function App() {
 
   const handleUpdateWeeklyReports = (updatedReports) => {
     setWeeklyReports(updatedReports);
+    localStorage.setItem('geo_interventoria_weekly_reports', JSON.stringify(updatedReports));
     fetch('/api/weekly-reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -527,6 +539,7 @@ export default function App() {
             report={weeklyReports.find(r => r.id_informe === selectedReportId)}
             weeklyReports={weeklyReports}
             initialEditingFrenteId={selectedDetailFrenteId}
+            allFrentes={projects.flatMap(p => p.frentes || [])}
             onClose={() => {
               setView('weekly-reports');
               setSelectedReportId(null);
@@ -542,11 +555,15 @@ export default function App() {
               });
               handleUpdateWeeklyReports(updatedReports);
             }}
+            onSaveReport={(updatedReport) => {
+              const updatedReports = weeklyReports.map(r => r.id_informe === updatedReport.id_informe ? updatedReport : r);
+              handleUpdateWeeklyReports(updatedReports);
+            }}
           />
         )}
 
         {view === 'config' && (
-          <ConfigView />
+          <ConfigView projects={projects} />
         )}
 
         {view === 'engineers' && (

@@ -112,6 +112,16 @@ export default function MapView({
 
     if (frentes.length === 0) return;
 
+    // Get custom colors from localStorage
+    let customColors = {};
+    if (typeof window !== 'undefined') {
+      try {
+        customColors = JSON.parse(localStorage.getItem('geo_interventoria_frentes_colors') || '{}');
+      } catch (e) {
+        console.error("Error parsing custom colors:", e);
+      }
+    }
+
     const bounds = [];
 
     frentes.forEach(f => {
@@ -131,11 +141,18 @@ export default function MapView({
       if (f.status === 'alerta') statusClass = 'status-alerta';
       if (f.status === 'critico') statusClass = 'status-critico';
 
+      // Apply custom color if set
+      const customColor = customColors[f.id];
+      const pinStyle = customColor ? `background-color: ${customColor} !important;` : '';
+
       const customIcon = L.divIcon({
         className: 'custom-html-marker',
         html: `
-          <div class="marker-pin ${typeClass} ${statusClass} ${activeFrenteId === f.id ? 'active-pin' : ''}">
-            <span class="material-symbols-outlined marker-icon" style="font-size: 14px; color: white;">${iconName}</span>
+          <div class="marker-pin-wrapper">
+            <div class="marker-pin ${typeClass} ${statusClass} ${activeFrenteId === f.id ? 'active-pin' : ''}" style="${pinStyle}">
+              <span class="material-symbols-outlined marker-icon" style="font-size: 14px; color: white;">${iconName}</span>
+            </div>
+            <div class="marker-label">Fr. ${f.frente || ''}</div>
           </div>
         `,
         iconSize: [28, 28],
@@ -257,6 +274,29 @@ export default function MapView({
           z-index: 99999;
           border-radius: 0 !important;
           border: none !important;
+        }
+        .marker-pin-wrapper {
+          position: relative;
+          width: 28px;
+          height: 28px;
+        }
+        .marker-label {
+          position: absolute;
+          top: -22px;
+          left: 50%;
+          transform: translateX(-50%);
+          background-color: rgba(15, 23, 42, 0.9);
+          color: white;
+          font-size: 9px;
+          font-weight: 800;
+          padding: 2px 5px;
+          border-radius: 4px;
+          white-space: nowrap;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+          pointer-events: none;
+          z-index: 1001;
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          font-family: 'Inter', sans-serif;
         }
         .marker-pin {
           width: 28px;
