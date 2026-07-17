@@ -4,5 +4,10 @@
     { "source": "/api/:path*", "destination": "/api" },
     { "source": "/uploads/:path*", "destination": "/api" },
     { "source": "/((?!api|uploads|frentes|assets).*)$", "destination": "/index.html" }
-  ]
+  ],
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "public/uploads/**"
+    }
+  }
 }
