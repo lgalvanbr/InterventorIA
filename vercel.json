@@ -7,10 +7,7 @@
   ],
   "functions": {
     "api/index.js": {
-      "includeFiles": [
-        "public/uploads/**",
-        "src/data/saved_weekly_reports.json"
-      ]
+      "includeFiles": "src/data/saved_weekly_reports.json"
     }
   }
 }
