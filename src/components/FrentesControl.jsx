@@ -285,6 +285,134 @@ export default function FrentesControl({ projects }) {
     window.location.reload();
   };
 
+  const compressImage = (file, maxWidth = 800, maxHeight = 800, quality = 0.7) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = (err) => reject(err);
+      };
+      reader.onerror = (err) => reject(err);
+    });
+  };
+
+  const handlePerfilImageChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      try {
+        const base64 = await compressImage(file);
+        const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+        const fileName = `perfil_control_${Date.now()}_${cleanName}`;
+        
+        let previewUrl = base64;
+        
+        // Supabase configuration lookup
+        let supabaseConfig = {
+          supabaseUrl: 'https://rjghsenbsrprbajhkwxr.supabase.co',
+          supabaseKey: 'sb_publishable_QQ_O2_zR4gy1jlJzoLc8uA_SIKzyZtS',
+          supabaseBucket: 'frentes-fotos'
+        };
+        try {
+          const saved = JSON.parse(localStorage.getItem('geo_interventoria_supabase_config') || 'null');
+          if (saved) supabaseConfig = saved;
+        } catch (e) {}
+
+        let uploadedToSupabase = false;
+        if (supabaseConfig && supabaseConfig.supabaseUrl && supabaseConfig.supabaseKey) {
+          try {
+            const base64Response = await fetch(base64);
+            const blob = await base64Response.blob();
+            const url = `${supabaseConfig.supabaseUrl}/storage/v1/object/${supabaseConfig.supabaseBucket || 'frentes-fotos'}/control_diseno/${fileName}`;
+
+            const response = await fetch(url, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${supabaseConfig.supabaseKey}`,
+                'apikey': supabaseConfig.supabaseKey,
+                'Content-Type': blob.type || 'image/jpeg'
+              },
+              body: blob
+            });
+
+            if (response.ok || response.status === 409) {
+              previewUrl = `${supabaseConfig.supabaseUrl}/storage/v1/object/public/${supabaseConfig.supabaseBucket || 'frentes-fotos'}/control_diseno/${fileName}`;
+              uploadedToSupabase = true;
+            }
+          } catch (sErr) {
+            console.error("Error uploading profile to Supabase:", sErr);
+          }
+        }
+
+        if (!uploadedToSupabase) {
+          try {
+            const response = await fetch('/api/upload-photo', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                semana: 999, // General design week
+                frenteId: selectedCiv,
+                fileName: fileName,
+                base64: base64,
+                bucket: supabaseConfig.supabaseBucket || 'frentes-fotos'
+              })
+            });
+            if (response.ok) {
+              const result = await response.json();
+              if (result.url) previewUrl = result.url;
+            }
+          } catch (apiErr) {
+            console.warn("Could not save profile image to server, using base64:", apiErr);
+          }
+        }
+
+        // Save to global design override
+        const overrides = JSON.parse(localStorage.getItem('geo_interventoria_design_overrides') || '{}');
+        const existingDesign = getDisenoForCiv(selectedCiv);
+        overrides[selectedCiv] = {
+          ...existingDesign,
+          perfil_suelo_img_url: previewUrl
+        };
+        localStorage.setItem('geo_interventoria_design_overrides', JSON.stringify(overrides));
+        try {
+          await fetch('/api/design-overrides', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(overrides)
+          });
+        } catch (sErr) {}
+        alert("Imagen de perfil de estructura de suelo guardada y vinculada.");
+        window.location.reload();
+      } catch (err) {
+        console.error("Error uploading profile image:", err);
+      }
+    }
+  };
+
   // Filter frentes list by search term
   const filteredFrentes = allFrentes.filter(f => 
     f.civ.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -753,187 +881,61 @@ export default function FrentesControl({ projects }) {
                         </>
                       )}
                     </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Vertical Layer Package Diagram */}
+                               {/* Vertical Layer Package Diagram replaced by Soil Profile Photo */}
               <div className="flex flex-col gap-6">
-                
-                {/* Capas Card */}
-                <div className="bg-white border border-slate-200 rounded-lg p-6 flex flex-col flex-1">
-                  <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
-                    <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-primary text-lg">layers</span>
-                      Paquete Estructural de Capas
-                    </h4>
-                    <button
-                      onClick={() => {
-                        if (isEditingModules) {
-                          handleSaveModules();
-                        } else {
-                          setIsEditingModules(true);
-                        }
-                      }}
-                      className={`text-xs font-bold px-3 py-1.5 rounded flex items-center gap-1 transition-all ${
-                        isEditingModules 
-                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm'
-                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 shadow-sm'
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-[14px]">
-                        {isEditingModules ? 'save' : 'edit'}
-                      </span>
-                      {isEditingModules ? 'Guardar' : 'Editar Módulos'}
-                    </button>
-                  </div>
+                <div className="bg-white border border-slate-200 rounded-lg p-6">
+                  <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider mb-4 flex items-center justify-between border-b border-slate-100 pb-3">
+                    <span className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-primary text-lg">image</span>
+                      Plano de Perfil de Suelo/Pavimento
+                    </span>
+                    {activeDesign.perfil_suelo_img_url && (
+                      <button
+                        onClick={async () => {
+                          const overrides = JSON.parse(localStorage.getItem('geo_interventoria_design_overrides') || '{}');
+                          const existingDesign = getDisenoForCiv(selectedCiv);
+                          delete existingDesign.perfil_suelo_img_url;
+                          overrides[selectedCiv] = existingDesign;
+                          localStorage.setItem('geo_interventoria_design_overrides', JSON.stringify(overrides));
+                          try {
+                            await fetch('/api/design-overrides', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify(overrides)
+                            });
+                          } catch (e) {}
+                          alert("Imagen de perfil de suelo eliminada.");
+                          window.location.reload();
+                        }}
+                        className="text-[10px] font-bold text-rose-600 hover:text-rose-800 flex items-center gap-0.5 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-xs">delete</span>
+                        Eliminar
+                      </button>
+                    )}
+                  </h4>
 
-                  <p className="text-slate-400 text-[10px] mb-4 italic">
-                    Representación vertical de capas aprobadas por interventoría (desde superficie hasta suelo de fundación).
-                  </p>
-
-                  <div className="flex-1 overflow-x-auto mt-2 select-none">
-                    <table className="w-full text-left border-collapse text-[11px]">
-                      <thead>
-                        <tr className="border-b border-slate-200 text-slate-400 font-bold uppercase tracking-wider text-[9px] bg-slate-50/50">
-                          <th className="py-2.5 px-3 text-center w-28 min-w-[110px]">Perfil Estructural</th>
-                          <th className="py-2.5 px-3">Material / Capa</th>
-                          <th className="py-2.5 px-2 text-center">Espesor</th>
-                          <th className="py-2.5 px-2 text-center">Especificación IDU</th>
-                          <th className="py-2.5 px-2 text-right">Valor Módulo</th>
-                          <th className="py-2.5 px-3 text-right">Módulo Combinado</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 font-semibold">
-                        {((isEditingModules && editedDesign) ? editedDesign : activeDesign).paquete_estructural_capas.map((layer) => {
-                          const layerHeight = layer.espesor_cm > 0 
-                            ? Math.max(38, Math.min(54, layer.espesor_cm * 2.2)) 
-                            : (layer.espesor_label === 'Geomalla' ? 18 : 26);
-
-                          const visualStyle = getVisualLayerStyle(layer.tipo_material);
-
-                          return (
-                            <tr 
-                              key={`${layer.posicion}-${layer.nombre}`} 
-                              style={{ height: `${layerHeight}px` }}
-                              className="hover:bg-slate-50/30"
-                            >
-                              {/* 1. Visual Block Column */}
-                              <td className="p-0 border-y-0 h-full w-28 min-w-[110px] vertical-align-middle">
-                                <div 
-                                  style={{ ...visualStyle, height: `${layerHeight}px` }}
-                                  className="w-full flex items-center justify-center text-[9px] font-black uppercase tracking-wider px-1 text-center select-none shadow-inner border-b border-r"
-                                  title={`${layer.nombre} - ${layer.espesor_cm > 0 ? `${layer.espesor_cm} cm` : layer.espesor_label || ''}`}
-                                >
-                                  {layer.espesor_cm > 0 ? `${layer.espesor_cm} cm` : layer.espesor_label || '-'}
-                                </div>
-                              </td>
-
-                              {/* 2. Material with colored badge */}
-                              <td className="py-2.5 px-3 flex items-center gap-2 min-w-[200px] h-full">
-                                <span 
-                                  style={visualStyle} 
-                                  className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black shrink-0 shadow-sm border"
-                                >
-                                  {layer.posicion}
-                                </span>
-                                <span className="text-slate-800 text-xs leading-normal font-bold pl-1">{layer.nombre}</span>
-                              </td>
-
-                              {/* 3. Espesor */}
-                              <td className="py-2.5 px-2 text-center font-mono-numbers text-slate-700 text-xs whitespace-nowrap">
-                                {layer.espesor_cm > 0 ? `${layer.espesor_cm} cm` : layer.espesor_label || '-'}
-                              </td>
-
-                              {/* 4. Especificación */}
-                              <td className="py-2.5 px-2 text-center font-mono text-slate-650">
-                                {layer.especificacion_idu || '-'}
-                              </td>
-
-                              {/* 5. Valor Módulo */}
-                              <td className="py-2.5 px-2 text-right font-mono-numbers text-slate-750">
-                                {isEditingModules ? (
-                                  <input 
-                                    type="number"
-                                    value={layer.modulo_psi === null || layer.modulo_psi === undefined ? '' : layer.modulo_psi}
-                                    onChange={(e) => handleModuleChange(layer.posicion, 'modulo_psi', e.target.value)}
-                                    className="w-20 text-right p-0.5 border rounded border-slate-300 focus:ring-1 focus:ring-primary focus:outline-none bg-white font-mono-numbers text-xs"
-                                    placeholder="N/A"
-                                  />
-                                ) : (
-                                  layer.modulo_psi ? `${layer.modulo_psi.toLocaleString()} psi` : '-'
-                                )}
-                              </td>
-
-                              {/* 6. Módulo Combinado */}
-                              <td className="py-2.5 px-3 text-right font-mono-numbers text-slate-700">
-                                {isEditingModules ? (
-                                  <input 
-                                    type="number"
-                                    value={layer.modulo_combinado_pci === null || layer.modulo_combinado_pci === undefined ? '' : layer.modulo_combinado_pci}
-                                    onChange={(e) => handleModuleChange(layer.posicion, 'modulo_combinado_pci', e.target.value)}
-                                    className="w-20 text-right p-0.5 border rounded border-slate-300 focus:ring-1 focus:ring-primary focus:outline-none bg-white font-mono-numbers text-xs"
-                                    placeholder="N/A"
-                                  />
-                                ) : (
-                                  layer.modulo_combinado_pci ? `${layer.modulo_combinado_pci} PCI` : '-'
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                        
-                        {/* Subrasante Foundation representation */}
-                        <tr style={{ height: '42px' }} className="bg-slate-50 border-t border-slate-200">
-                          {/* Visual dirt block for subrasante */}
-                          <td className="p-0 border-y-0 h-full w-28 min-w-[110px]">
-                            <div
-                              style={{
-                                background: 'linear-gradient(135deg, #78350f 25%, #451a03 100%)',
-                                backgroundImage: 'repeating-linear-gradient(-45deg, rgba(255,255,255,0.03), rgba(255,255,255,0.03) 4px, transparent 4px, transparent 8px)',
-                                borderRight: '1px solid #451a03',
-                                height: '42px'
-                              }}
-                              className="w-full flex flex-col items-center justify-center text-[7px] text-[#fed7aa] font-black uppercase tracking-widest px-1 text-center select-none shadow-inner"
-                              title="Subrasante de cimentación"
-                            >
-                              <span>Subrasante</span>
-                            </div>
-                          </td>
-
-                          <td className="py-2.5 px-3 font-bold text-slate-700 flex items-center gap-2 h-full">
-                            <span 
-                              style={{
-                                background: 'linear-gradient(135deg, #78350f 25%, #451a03 100%)',
-                                color: '#fed7aa',
-                                borderColor: '#451a03'
-                              }} 
-                              className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black shrink-0 shadow-sm border"
-                            >
-                              SR
-                            </span>
-                            <span className="text-slate-800 text-xs font-extrabold pl-1">Subrasante (Cimiento)</span>
-                          </td>
-                          <td className="py-2.5 px-2 text-center text-slate-400 font-mono-numbers">-</td>
-                          <td className="py-2.5 px-2 text-center text-slate-400 font-mono">-</td>
-                          <td className="py-2.5 px-2 text-right font-bold text-slate-700 font-mono-numbers">
-                            {isEditingModules ? (
-                              <input 
-                                type="number"
-                                value={(editedDesign || activeDesign).datos_geotecnicos.modulo_resiliente_saturado_psi || ''}
-                                onChange={(e) => handleGeotechChange('modulo_resiliente_saturado_psi', e.target.value)}
-                                className="w-20 text-right p-0.5 border rounded border-slate-350 focus:ring-1 focus:ring-primary focus:outline-none bg-white font-mono-numbers text-xs"
-                                placeholder="0"
-                              />
-                            ) : (
-                              `${(editedDesign || activeDesign).datos_geotecnicos.modulo_resiliente_saturado_psi.toLocaleString()} psi`
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3 text-right text-slate-400 font-mono-numbers">-</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
+                  {activeDesign.perfil_suelo_img_url ? (
+                    <div className="w-full h-64 overflow-hidden rounded border border-slate-200 bg-slate-50 flex items-center justify-center p-2 relative shadow-2xs group">
+                      <img 
+                        src={activeDesign.perfil_suelo_img_url} 
+                        alt="Perfil Estructural Aprobado" 
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <label className="flex flex-col items-center justify-center border border-dashed border-slate-300 hover:bg-slate-50 rounded-lg p-8 text-center cursor-pointer bg-slate-50/50 min-h-[256px]">
+                      <span className="material-symbols-outlined text-slate-400 text-[32px] mb-1.5">add_photo_alternate</span>
+                      <span className="text-xs font-bold text-slate-650">Vincular Plano del Perfil Estructural</span>
+                      <span className="text-[10px] text-slate-400 mt-1">Sube el esquema para los informes del frente</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handlePerfilImageChange}
+                      />
+                    </label>
+                  )}
                 </div>
 
                 {/* Alertas de Calidad / Interventoría */}
@@ -952,6 +954,8 @@ export default function FrentesControl({ projects }) {
                       ))}
                     </div>
                   </div>
+                )}
+              </div>                </div>
                 )}
               </div>
             </div>

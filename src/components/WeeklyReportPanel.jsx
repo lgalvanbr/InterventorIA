@@ -119,6 +119,7 @@ const subrasanteStyle = {
 const getIaCommentForFrente = (consolidadoIa, frenteNumber) => {
   if (!consolidadoIa) return '';
   const regex = new RegExp(`FRENTE\\s+${frenteNumber}\\s*[:•\\-\\s]([\\s\\S]*?)(?=(?:FRENTE\\s+\\d+\\s*[:•\\-\\s])|$)`, 'i');
+  const match = consolidadoIa.match(regex);
   return match ? match[1].trim() : '';
 };
 
@@ -251,21 +252,25 @@ const PrintFrenteCard = ({ frente, printMode, allFrentes, consolidadoIa, getDayN
               <span className="material-symbols-outlined text-[10px] text-slate-400">layers</span>
               Perfil de Estructura del Suelo
             </p>
-            {frente.perfil_suelo_img_url ? (
-              <div className="w-full h-[140px] overflow-hidden rounded border border-slate-200 relative bg-white flex items-center justify-center p-1 shadow-2xs">
-                <img 
-                  src={frente.perfil_suelo_img_url} 
-                  alt="Perfil de estructura del suelo" 
-                  className="w-full h-full object-contain"
-                />
-              </div>
-            ) : (
-              <div className="flex flex-col border border-slate-200 border-dashed rounded overflow-hidden flex-1 min-h-[140px] text-[8px] font-bold bg-slate-100 items-center justify-center text-slate-450 p-4 text-center leading-normal">
-                <span className="material-symbols-outlined text-slate-400 text-[20px] mb-1">image</span>
-                <span>Sin perfil de estructura de suelo</span>
-                <span className="text-[6.5px] font-normal opacity-75 mt-0.5">Sube el plano o esquema desde el detalle del frente</span>
-              </div>
-            )}
+            {(() => {
+              const design = getDisenoForCiv(frente.civ);
+              const imgUrl = design?.perfil_suelo_img_url || frente.perfil_suelo_img_url;
+              return imgUrl ? (
+                <div className="w-full h-[140px] overflow-hidden rounded border border-slate-200 relative bg-white flex items-center justify-center p-1 shadow-2xs">
+                  <img 
+                    src={imgUrl} 
+                    alt="Perfil de estructura del suelo" 
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col border border-slate-200 border-dashed rounded overflow-hidden flex-1 min-h-[140px] text-[8px] font-bold bg-slate-100 items-center justify-center text-slate-450 p-4 text-center leading-normal">
+                  <span className="material-symbols-outlined text-slate-400 text-[20px] mb-1">image</span>
+                  <span>Sin perfil de estructura de suelo</span>
+                  <span className="text-[6.5px] font-normal opacity-75 mt-0.5">Sube el plano o esquema desde el detalle del frente</span>
+                </div>
+              );
+            })()}
             <div className="text-[8px] font-bold text-slate-500 text-center uppercase tracking-wide">
               Estructura de Pavimento Aprobada
             </div>

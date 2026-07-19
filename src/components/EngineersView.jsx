@@ -48,104 +48,6 @@ const ENGINEERS_METADATA = [
     bgClass: 'bg-primary',
     textColor: 'text-white',
     avatarUrl: null
-  },
-  {
-    name: 'Ing. Carolina Rojas',
-    role: 'Residente de Interventoría (Malla Vial)',
-    specialty: 'Control de Obra y Geotecnia',
-    tp: '31204-CND',
-    email: 'carolina.rojas@interventor-ia.gov.co',
-    phone: '+57 318 245 9081',
-    status: 'En Campo',
-    statusColor: 'bg-green-500',
-    initials: 'CR',
-    bgClass: 'bg-indigo-600',
-    textColor: 'text-white',
-    avatarUrl: null
-  },
-  {
-    name: 'Ing. Juan Mendoza',
-    role: 'Residente de Interventoría (Malla Vial)',
-    specialty: 'Pavimentos y Mezclas Asfálticas',
-    tp: '28945-CND',
-    email: 'juan.mendoza@interventor-ia.gov.co',
-    phone: '+57 300 456 7812',
-    status: 'En Campo',
-    statusColor: 'bg-green-500',
-    initials: 'JM',
-    bgClass: 'bg-emerald-600',
-    textColor: 'text-white',
-    avatarUrl: null
-  },
-  {
-    name: 'Ing. Diana Guerrero',
-    role: 'Especialista Ambiental y Social (PAGA)',
-    specialty: 'Gestión Ambiental y Relaciones Comunitarias',
-    tp: '40212-CND',
-    email: 'diana.guerrero@interventor-ia.gov.co',
-    phone: '+57 310 987 6543',
-    status: 'En Campo (Visitas)',
-    statusColor: 'bg-green-500',
-    initials: 'DG',
-    bgClass: 'bg-teal-600',
-    textColor: 'text-white',
-    avatarUrl: null
-  },
-  {
-    name: 'Ing. Carlos Ortiz',
-    role: 'Residente de Interventoría (Malla Vial)',
-    specialty: 'Topografía e Hidráulica',
-    tp: '35124-CND',
-    email: 'carlos.ortiz@interventor-ia.gov.co',
-    phone: '+57 312 876 5432',
-    status: 'En Campo',
-    statusColor: 'bg-green-500',
-    initials: 'CO',
-    bgClass: 'bg-cyan-600',
-    textColor: 'text-white',
-    avatarUrl: null
-  },
-  {
-    name: 'Ing. Diego Pardo',
-    role: 'Residente de Interventoría (Malla Vial)',
-    specialty: 'Estructuras y Obras de Drenaje',
-    tp: '36712-CND',
-    email: 'diego.pardo@interventor-ia.gov.co',
-    phone: '+57 314 345 6789',
-    status: 'En Oficina de Campo',
-    statusColor: 'bg-amber-500',
-    initials: 'DP',
-    bgClass: 'bg-violet-600',
-    textColor: 'text-white',
-    avatarUrl: null
-  },
-  {
-    name: 'Ing. Andrés Castro',
-    role: 'Residente de Interventoría (Espacio Público)',
-    specialty: 'Urbanismo y Movilidad Peatonal',
-    tp: '33412-CND',
-    email: 'andres.castro@interventor-ia.gov.co',
-    phone: '+57 316 789 0123',
-    status: 'En Campo',
-    statusColor: 'bg-green-500',
-    initials: 'AC',
-    bgClass: 'bg-sky-600',
-    textColor: 'text-white',
-    avatarUrl: null
-  },
-  {
-    name: 'Ing. Javier Ruiz',
-    role: 'Residente de Interventoría (Espacio Público)',
-    specialty: 'Redes Secundarias y Espacio Urbano',
-    tp: '32987-CND',
-    email: 'javier.ruiz@interventor-ia.gov.co',
-    phone: '+57 321 456 7890',
-    status: 'En Campo',
-    statusColor: 'bg-green-500',
-    initials: 'JR',
-    bgClass: 'bg-purple-600',
-    textColor: 'text-white',
-    avatarUrl: null
   }
 ];
 
@@ -169,11 +71,16 @@ export default function EngineersView({ projects = [], onUpdateProjects }) {
     const saved = localStorage.getItem('interventoria_engineers_v1');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        const hasOldEngineers = parsed.some(eng => eng.name === 'Ing. Carolina Rojas');
+        if (!hasOldEngineers) {
+          return parsed;
+        }
       } catch (e) {
         console.error("Error al leer ingenieros de localStorage:", e);
       }
     }
+    localStorage.setItem('interventoria_engineers_v1', JSON.stringify(ENGINEERS_METADATA));
     return ENGINEERS_METADATA;
   });
 

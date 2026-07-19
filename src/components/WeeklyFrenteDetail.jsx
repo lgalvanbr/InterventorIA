@@ -1,5 +1,66 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Activity, FileText, CheckCircle2, Trash2, ArrowLeft, Image as ImageIcon, Plus, ChevronLeft, ChevronRight, X, Eye } from 'lucide-react';
+import { getDisenoForCiv } from '../data/frentesDisenos';
+
+const getVisualLayerStyle = (type) => {
+  switch (type) {
+    case 'asfalto':
+      return {
+        background: 'linear-gradient(135deg, #1e293b 25%, #334155 100%)',
+        color: '#f8fafc',
+        borderColor: '#0f172a'
+      };
+    case 'concreto':
+      return {
+        background: 'linear-gradient(to bottom, #e2e8f0 0%, #cbd5e1 100%)',
+        color: '#0f172a',
+        borderColor: '#94a3b8'
+      };
+    case 'base_cemento':
+      return {
+        background: 'repeating-linear-gradient(45deg, #fef08a, #fef08a 8px, #fde68a 8px, #fde68a 16px)',
+        color: '#713f12',
+        borderColor: '#d97706'
+      };
+    case 'subbase':
+    case 'subbase_cemento':
+      return {
+        background: '#fef08a',
+        backgroundImage: 'radial-gradient(#eab308 15%, transparent 16%)',
+        backgroundSize: '5px 5px',
+        color: '#713f12',
+        borderColor: '#ca8a04'
+      };
+    case 'geomalla':
+      return {
+        background: '#1e1b4b',
+        backgroundImage: 'linear-gradient(to right, #4f46e5 1px, transparent 1px), linear-gradient(to bottom, #4f46e5 1px, transparent 1px)',
+        backgroundSize: '3.5px 3.5px',
+        color: '#e0e7ff',
+        borderColor: '#312e81'
+      };
+    case 'geocelda':
+      return {
+        background: '#ffedd5',
+        backgroundImage: 'repeating-linear-gradient(90deg, #ea580c 0px, #ea580c 1.5px, transparent 1.5px, transparent 10px)',
+        color: '#c2410c',
+        borderColor: '#ea580c'
+      };
+    case 'geotextil':
+    case 'geotextil_nt':
+      return {
+        background: 'repeating-linear-gradient(90deg, #3b82f6, #3b82f6 5px, transparent 5px, transparent 10px)',
+        color: '#1e3a8a',
+        borderColor: '#2563eb'
+      };
+    default:
+      return {
+        background: '#cbd5e1',
+        color: '#334155',
+        borderColor: '#cbd5e1'
+      };
+  }
+};
 
 export default function WeeklyFrenteDetail({ 
   report, 
@@ -35,7 +96,11 @@ export default function WeeklyFrenteDetail({
       setHitos(frente.actividades_ejecutadas_hitos || '');
       setFotos(frente.fotos || []);
       setBitacoraNotas(frente.bitacora_notas || []);
-      setPerfilSueloImgUrl(frente.perfil_suelo_img_url || '');
+      
+      // Load from global design override first, fallback to weekly report frente's property
+      const globalDesign = getDisenoForCiv(frente.civ);
+      setPerfilSueloImgUrl(globalDesign?.perfil_suelo_img_url || frente.perfil_suelo_img_url || '');
+      
       setActiveDayIdx(0); // Reset to Saturday (Day 0)
     }
   }, [frente]);
@@ -104,6 +169,8 @@ export default function WeeklyFrenteDetail({
       </div>
     );
   }
+
+  const activeDesign = frente ? getDisenoForCiv(frente.civ) : null;
 
   const compressImage = (file, maxWidth = 800, maxHeight = 800, quality = 0.7) => {
     return new Promise((resolve, reject) => {
@@ -262,6 +329,14 @@ export default function WeeklyFrenteDetail({
     setFotos(prev => prev.filter(f => f.id !== photoId));
   };
 
+  const syncOverridesToCloud = (overrides) => {
+    fetch('/api/design-overrides', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(overrides)
+    }).catch(err => console.error("Error syncing design overrides to Supabase:", err));
+  };
+
   const handleNavigate = (direction) => {
     if (onSaveWithoutClose) {
       const updatedFrente = {
@@ -274,6 +349,20 @@ export default function WeeklyFrenteDetail({
         bitacora_notas: bitacoraNotas,
         perfil_suelo_img_url: perfilSueloImgUrl
       };
+      
+      try {
+        const overrides = JSON.parse(localStorage.getItem('geo_interventoria_design_overrides') || '{}');
+        const existingDesign = getDisenoForCiv(frente.civ);
+        overrides[frente.civ] = {
+          ...existingDesign,
+          perfil_suelo_img_url: perfilSueloImgUrl
+        };
+        localStorage.setItem('geo_interventoria_design_overrides', JSON.stringify(overrides));
+        syncOverridesToCloud(overrides);
+      } catch (err) {
+        console.error("Error writing design overrides:", err);
+      }
+
       onSaveWithoutClose(updatedFrente);
     }
     if (onNavigateFrente) {
@@ -292,6 +381,20 @@ export default function WeeklyFrenteDetail({
       bitacora_notas: bitacoraNotas,
       perfil_suelo_img_url: perfilSueloImgUrl
     };
+
+    try {
+      const overrides = JSON.parse(localStorage.getItem('geo_interventoria_design_overrides') || '{}');
+      const existingDesign = getDisenoForCiv(frente.civ);
+      overrides[frente.civ] = {
+        ...existingDesign,
+        perfil_suelo_img_url: perfilSueloImgUrl
+      };
+      localStorage.setItem('geo_interventoria_design_overrides', JSON.stringify(overrides));
+      syncOverridesToCloud(overrides);
+    } catch (err) {
+      console.error("Error writing design overrides:", err);
+    }
+
     onSave(updatedFrente);
   };
 
@@ -555,12 +658,93 @@ export default function WeeklyFrenteDetail({
             {/* Tramo / Ubicación Info */}
             <div className="flex flex-col gap-1 justify-center bg-slate-50 border border-slate-150 rounded px-4 py-2 text-xs">
               <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Límites del Tramo</span>
-              <p className="text-slate-750 font-bold leading-tight">
+              <p className="text-slate-755 font-bold leading-tight">
                 Desde: <strong className="text-slate-900">{frente.desde || 'N/A'}</strong> <br/> Hasta: <strong className="text-slate-900">{frente.hasta || 'N/A'}</strong>
               </p>
             </div>
           </div>
         </div>
+
+        {/* Estructura del Suelo y Pavimento Aprobada */}
+        {activeDesign && (
+          <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-sm">
+            <h3 className="font-bold text-slate-800 text-xs uppercase tracking-wider mb-4 flex items-center gap-1.5 border-b border-slate-100 pb-2">
+              <span className="material-symbols-outlined text-primary text-sm">layers</span>
+              Estructura de Suelo y Pavimento Aprobada (Ficha de Diseño)
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+              {/* Left Side: Geotechnical details & specifications (7/12) */}
+              <div className="md:col-span-7 space-y-4">
+                <div className="grid grid-cols-2 gap-4 text-xs text-left">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Grupo de Estructura</span>
+                    <span className="font-bold text-slate-700">{activeDesign.nombre_grupo}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Tecnología</span>
+                    <span className="font-bold text-slate-700">{activeDesign.tecnologia_aprobada}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Alternativa Aprobada</span>
+                    <span className="font-semibold text-slate-800 bg-slate-50 p-2 rounded block border border-slate-100 mt-1">
+                      {activeDesign.alternativa_aprobada}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Tránsito de Diseño</span>
+                    <span className="font-bold text-slate-750 font-mono-numbers">{activeDesign.transito_ejes_equivalentes.toLocaleString()} Ejes Eq.</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">CBR de Subrasante</span>
+                    <span className="font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded inline-block">{activeDesign.datos_geotecnicos.cbr_saturado_promedio_porcentaje}%</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Módulo Resiliente (Mr)</span>
+                    <span className="font-bold text-slate-700 font-mono-numbers">{activeDesign.datos_geotecnicos.modulo_resiliente_saturado_psi.toLocaleString()} PSI</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Tipo de Suelo (USCS)</span>
+                    <span className="font-bold text-slate-700">{activeDesign.datos_geotecnicos.clasificacion_uscs}</span>
+                  </div>
+                </div>
+
+                {activeDesign.elementos_estabilizacion_subrasante && activeDesign.elementos_estabilizacion_subrasante.tipo !== 'Sin mejoramiento de rasante' && (
+                  <div className="bg-indigo-50/50 border border-indigo-100 rounded p-3 text-xs text-left">
+                    <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-wider block mb-1">Mejoramiento de Fundación</span>
+                    <span className="font-bold text-indigo-950 block">{activeDesign.elementos_estabilizacion_subrasante.tipo}</span>
+                  </div>
+                )}
+
+                {activeDesign.alertas_interventoria && activeDesign.alertas_interventoria.length > 0 && (
+                  <div className="bg-rose-50/30 border border-rose-100 rounded p-3 text-xs text-left">
+                    <span className="text-[9px] font-bold text-rose-500 uppercase tracking-wider block mb-1">Consigna de Calidad</span>
+                    <p className="font-bold text-rose-950 leading-relaxed">{activeDesign.alertas_interventoria[0].mensaje}</p>
+                  </div>
+                )}
+              </div>
+              {/* Right Side: Visual Pavement/Soil Structure Profile Photo */}
+              <div className="md:col-span-5 flex flex-col justify-center border-l border-slate-100 md:pl-6 text-left">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-3 text-center">Diseño Estructura Suelo (Plano Aprobado)</span>
+                {perfilSueloImgUrl || activeDesign.perfil_suelo_img_url ? (
+                  <div className="w-full h-56 overflow-hidden rounded border border-slate-200 bg-white flex items-center justify-center p-2 relative shadow-2xs">
+                    <img 
+                      src={perfilSueloImgUrl || activeDesign.perfil_suelo_img_url} 
+                      alt="Diseño Estructura Suelo" 
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex flex-col border border-slate-200 border-dashed rounded overflow-hidden flex-1 min-h-[180px] text-[10px] font-bold bg-slate-50 items-center justify-center text-slate-400 p-4 text-center leading-normal">
+                    <span className="material-symbols-outlined text-slate-350 text-[28px] mb-1.5">image</span>
+                    <span>Sin plano de perfil cargado</span>
+                    <span className="text-[8px] font-normal opacity-75 mt-1">Sube la foto del diseño técnico para visualizarla aquí</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Consolidado Semanal Textarea */}
         <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-sm">

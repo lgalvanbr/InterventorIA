@@ -6,12 +6,15 @@ export default function Sidebar({
   activeProjectId,
   isExpanded,
   onMouseEnter,
-  onMouseLeave
+  onMouseLeave,
+  isMobileOpen,
+  onCloseMobile
 }) {
   const menuItems = [
     { id: 'dashboard', label: 'Proyectos de Obra', icon: 'assignment' },
     { id: 'project-detail', label: 'Mapa y Frentes', icon: 'map' },
     { id: 'frentes-control', label: 'Control de Frentes', icon: 'layers' },
+    { id: 'project-info', label: 'Ficha de Proyecto', icon: 'info' },
     { id: 'reports', label: 'Actas y Reportes', icon: 'description' },
     { id: 'weekly-reports', label: 'Informes Semanales', icon: 'history' },
     { id: 'inspector-portal', label: 'Portal Inspectores', icon: 'share_location', isAction: true },
@@ -30,16 +33,30 @@ export default function Sidebar({
     } else {
       onViewChange(item.id);
     }
+    if (onCloseMobile) {
+      onCloseMobile();
+    }
   };
 
   return (
-    <aside 
-      className={`flex flex-col h-screen fixed left-0 top-0 bg-white border-r border-slate-200 z-50 transition-all duration-300 shadow-sm ${
-        isExpanded ? 'w-64' : 'w-16'
-      }`}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-    >
+    <>
+      {/* Mobile Backdrop Overlay */}
+      {isMobileOpen && (
+        <div 
+          onClick={onCloseMobile}
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 md:hidden transition-opacity duration-300"
+        />
+      )}
+
+      <aside 
+        className={`flex flex-col h-screen fixed left-0 top-0 bg-white border-r border-slate-200 z-50 transition-all duration-300 shadow-sm md:translate-x-0 ${
+          isMobileOpen ? 'translate-x-0 w-64' : '-translate-x-full w-64 md:w-auto'
+        } ${
+          isExpanded ? 'md:w-64' : 'md:w-16'
+        }`}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+      >
       {/* Brand Header */}
       <div className={`border-b border-slate-100 bg-[#f7f9fb]/50 flex items-center gap-3 overflow-hidden ${
         isExpanded ? 'p-6' : 'p-4 justify-center'
@@ -50,7 +67,7 @@ export default function Sidebar({
         {isExpanded && (
           <div className="animate-fade-in">
             <h1 className="font-headline-md text-base font-extrabold text-primary tracking-tight leading-none">
-              InterventorIA
+              INCOLTA SAS
             </h1>
             <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mt-1">Portal de Interventoría</p>
           </div>
@@ -114,5 +131,6 @@ export default function Sidebar({
         )}
       </div>
     </aside>
+    </>
   );
 }

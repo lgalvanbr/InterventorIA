@@ -9,6 +9,10 @@ let memoryReports = null;
 const memoryUploadedFiles = {}; // stores base64/buffers in memory to mock download
 
 async function getReportsFromSupabase() {
+  if (!SUPABASE_KEY) {
+    console.warn("Supabase key is missing. Skipping fetching from cloud.");
+    return null;
+  }
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/weekly_reports?id=eq.main_reports&select=data`, {
       headers: {
@@ -29,6 +33,10 @@ async function getReportsFromSupabase() {
 }
 
 async function saveReportsToSupabase(reportsData) {
+  if (!SUPABASE_KEY) {
+    console.warn("Supabase key is missing. Skipping saving to cloud.");
+    return false;
+  }
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/weekly_reports`, {
       method: 'POST',
@@ -94,7 +102,141 @@ async function uploadPhotoToSupabase(semana, frenteId, fileName, base64Data, buc
   }
 }
 
+async function uploadDesignToSupabase(civId, fileName, base64Data, bucketName = 'frentes-fotos') {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    throw new Error("Supabase credentials are missing");
+  }
+  
+  let base64Clean = base64Data;
+  if (base64Data.includes(';base64,')) {
+    base64Clean = base64Data.split(';base64,')[1];
+  }
+  
+  const buffer = Buffer.from(base64Clean, 'base64');
+  const contentType = 'application/pdf';
+  
+  const filePath = `disenos/design_${civId}.pdf`;
+  const url = `${SUPABASE_URL}/storage/v1/object/${bucketName}/${filePath}`;
 
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'apikey': SUPABASE_KEY,
+      'Content-Type': contentType
+    },
+    body: buffer
+  });
+
+  if (!response.ok) {
+    if (response.status === 409) {
+      const putResponse = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'apikey': SUPABASE_KEY,
+          'Content-Type': contentType
+        },
+        body: buffer
+      });
+      if (!putResponse.ok) {
+        throw new Error(`Failed to update design on Supabase: ${putResponse.status}`);
+      }
+    } else {
+      throw new Error(`Failed to upload design: ${response.status}`);
+    }
+  }
+
+  return `${SUPABASE_URL}/storage/v1/object/public/${bucketName}/${filePath}`;
+}
+
+async function getProjectInfoFromSupabase() {
+  if (!SUPABASE_KEY) return null;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/weekly_reports?id=eq.project_info&select=data`, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    if (res.ok) {
+      const rows = await res.json();
+      if (rows && rows.length > 0) {
+        return rows[0].data;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to fetch project info from Supabase:", e);
+  }
+  return null;
+}
+
+async function saveProjectInfoToSupabase(infoData) {
+  if (!SUPABASE_KEY) return false;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/weekly_reports`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        id: 'project_info',
+        data: infoData
+      })
+    });
+    return res.ok;
+  } catch (e) {
+    console.error("Failed to save project info to Supabase:", e);
+  }
+  return false;
+}
+
+async function getOverridesFromSupabase() {
+  if (!SUPABASE_KEY) return null;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/weekly_reports?id=eq.design_overrides&select=data`, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    if (res.ok) {
+      const rows = await res.json();
+      if (rows && rows.length > 0) {
+        return rows[0].data;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to fetch overrides from Supabase:", e);
+  }
+  return null;
+}
+
+async function saveOverridesToSupabase(overridesData) {
+  if (!SUPABASE_KEY) return false;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/weekly_reports`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        id: 'design_overrides',
+        data: overridesData
+      })
+    });
+    return res.ok;
+  } catch (e) {
+    console.error("Failed to save overrides to Supabase:", e);
+  }
+  return false;
+}
 
 // Load initial weekly reports from the JSON file
 function getInitialReports() {
@@ -136,7 +278,11 @@ export default async function handler(req, res) {
   }
 
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-  const pathname = url.pathname;
+  let pathname = url.pathname;
+  const pathParam = url.searchParams.get('path');
+  if (pathParam) {
+    pathname = '/' + pathParam;
+  }
 
   // GET /api/weekly-reports
   if (pathname === '/api/weekly-reports' && req.method === 'GET') {
@@ -194,15 +340,27 @@ export default async function handler(req, res) {
         return;
       }
 
+      // Try uploading to Supabase first if credentials are set
+      let fileKey = `/uploads/designs/design_${civId}.pdf`;
+      let uploadedToCloud = false;
+      if (SUPABASE_KEY) {
+        try {
+          const cloudUrl = await uploadDesignToSupabase(civId, fileName, base64);
+          fileKey = cloudUrl;
+          uploadedToCloud = true;
+        } catch (cloudErr) {
+          console.warn("Failed to upload design to Supabase Cloud:", cloudErr);
+        }
+      }
+
       let base64Data = base64;
       if (base64.includes(';base64,')) {
         base64Data = base64.split(';base64,')[1];
       }
       const buffer = Buffer.from(base64Data, 'base64');
-      const fileKey = `/uploads/designs/design_${civId}.pdf`;
-
+      
       // Save to memory storage
-      memoryUploadedFiles[fileKey] = {
+      memoryUploadedFiles[`/uploads/designs/design_${civId}.pdf`] = {
         buffer,
         contentType: 'application/pdf'
       };
@@ -218,10 +376,92 @@ export default async function handler(req, res) {
 
       res.status(200).json({ 
         url: fileKey,
-        message: "Design PDF uploaded to memory."
+        success: true,
+        persisted: uploadedToCloud,
+        message: uploadedToCloud ? "Design PDF saved to Supabase Cloud Storage." : "Design PDF saved in local memory."
       });
     } catch (err) {
       res.status(500).json({ error: 'Failed to process upload' });
+    }
+    return;
+  }
+
+  // GET /api/project-info
+  if (pathname === '/api/project-info' && req.method === 'GET') {
+    const cloudInfo = await getProjectInfoFromSupabase();
+    if (cloudInfo) {
+      res.status(200).json(cloudInfo);
+      return;
+    }
+    // Fallback: read from local file if exists
+    try {
+      const filePath = path.join(process.cwd(), 'src/data/saved_project_info.json');
+      if (fs.existsSync(filePath)) {
+        res.status(200).json(JSON.parse(fs.readFileSync(filePath, 'utf8')));
+        return;
+      }
+    } catch (e) {}
+    res.status(200).json({});
+    return;
+  }
+
+  // POST /api/project-info
+  if (pathname === '/api/project-info' && req.method === 'POST') {
+    try {
+      const body = await getBody(req);
+      const savedToCloud = await saveProjectInfoToSupabase(body);
+      
+      // Also write to local file for dev
+      try {
+        const filePath = path.join(process.cwd(), 'src/data/saved_project_info.json');
+        fs.writeFileSync(filePath, JSON.stringify(body, null, 2), 'utf8');
+      } catch (diskErr) {
+        console.warn("Disk write for project info failed:", diskErr);
+      }
+
+      res.status(200).json({ success: true, persisted: savedToCloud });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to process request' });
+    }
+    return;
+  }
+
+  // GET /api/design-overrides
+  if (pathname === '/api/design-overrides' && req.method === 'GET') {
+    const cloudOverrides = await getOverridesFromSupabase();
+    if (cloudOverrides) {
+      res.status(200).json(cloudOverrides);
+      return;
+    }
+    // Fallback: read from local file if exists
+    try {
+      const filePath = path.join(process.cwd(), 'src/data/saved_design_overrides.json');
+      if (fs.existsSync(filePath)) {
+        res.status(200).json(JSON.parse(fs.readFileSync(filePath, 'utf8')));
+        return;
+      }
+    } catch (e) {}
+    res.status(200).json({});
+    return;
+  }
+
+  // POST /api/design-overrides
+  if (pathname === '/api/design-overrides' && req.method === 'POST') {
+    try {
+      const body = await getBody(req);
+      const savedToCloud = await saveOverridesToSupabase(body);
+      
+      // Also write to local file for dev
+      try {
+        const filePath = path.join(process.cwd(), 'src/data/saved_design_overrides.json');
+        fs.writeFileSync(filePath, JSON.stringify(body, null, 2), 'utf8');
+      } catch (diskErr) {
+        console.warn("Disk write for overrides failed:", diskErr);
+      }
+
+      res.status(200).json({ success: true, persisted: savedToCloud });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to process request' });
     }
     return;
   }

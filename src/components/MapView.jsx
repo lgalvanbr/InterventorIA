@@ -124,63 +124,89 @@ export default function MapView({
 
     const bounds = [];
 
+    // Group frentes by rounded coordinates to detect stacking/overlap
+    const coordGroups = {};
     frentes.forEach(f => {
       const lat = parseFloat(f.latitude);
       const lng = parseFloat(f.longitude);
       if (isNaN(lat) || isNaN(lng)) return;
+      
+      const key = `${lat.toFixed(5)},${lng.toFixed(5)}`;
+      if (!coordGroups[key]) {
+        coordGroups[key] = [];
+      }
+      coordGroups[key].push(f);
+    });
 
-      bounds.push([lat, lng]);
+    Object.keys(coordGroups).forEach(key => {
+      const group = coordGroups[key];
+      const count = group.length;
 
-      // Distinguish type (Malla Vial vs Espacio Público)
-      const isMallaVial = f.id.includes('mv') || f.name.toLowerCase().includes('vial');
-      const typeClass = isMallaVial ? 'type-vial' : 'type-espacio';
-      const iconName = isMallaVial ? 'route' : 'park';
+      group.forEach((f, index) => {
+        let lat = parseFloat(f.latitude);
+        let lng = parseFloat(f.longitude);
+        
+        // If multiple frentes share the exact same coordinates, slightly fan them out in a small circle
+        if (count > 1) {
+          const angle = (index / count) * 2 * Math.PI;
+          const offsetRadius = 0.00012; // About 12 meters offset
+          lat += Math.cos(angle) * offsetRadius;
+          lng += Math.sin(angle) * offsetRadius;
+        }
 
-      // Distinguish compliance status (Inner Dot)
-      let statusClass = 'status-al-dia';
-      if (f.status === 'alerta') statusClass = 'status-alerta';
-      if (f.status === 'critico') statusClass = 'status-critico';
+        bounds.push([lat, lng]);
 
-      // Apply custom color if set
-      const customColor = customColors[f.id];
-      const pinStyle = customColor ? `background-color: ${customColor} !important;` : '';
+        // Distinguish type (Malla Vial vs Espacio Público)
+        const isMallaVial = f.id.includes('mv') || f.name.toLowerCase().includes('vial');
+        const typeClass = isMallaVial ? 'type-vial' : 'type-espacio';
+        const iconName = isMallaVial ? 'route' : 'park';
 
-      const customIcon = L.divIcon({
-        className: 'custom-html-marker',
-        html: `
-          <div class="marker-pin-wrapper">
-            <div class="marker-pin ${typeClass} ${statusClass} ${activeFrenteId === f.id ? 'active-pin' : ''}" style="${pinStyle}">
-              <span class="material-symbols-outlined marker-icon" style="font-size: 14px; color: white;">${iconName}</span>
+        // Distinguish compliance status (Inner Dot)
+        let statusClass = 'status-al-dia';
+        if (f.status === 'alerta') statusClass = 'status-alerta';
+        if (f.status === 'critico') statusClass = 'status-critico';
+
+        // Apply custom color if set
+        const customColor = customColors[f.id];
+        const pinStyle = customColor ? `background-color: ${customColor} !important;` : '';
+
+        const customIcon = L.divIcon({
+          className: 'custom-html-marker',
+          html: `
+            <div class="marker-pin-wrapper">
+              <div class="marker-pin ${typeClass} ${statusClass} ${activeFrenteId === f.id ? 'active-pin' : ''}" style="${pinStyle}">
+                <span class="material-symbols-outlined marker-icon" style="font-size: 14px; color: white;">${iconName}</span>
+              </div>
+              <div class="marker-label">Frente ${f.frente || ''}</div>
             </div>
-            <div class="marker-label">Fr. ${f.frente || ''}</div>
+          `,
+          iconSize: [28, 28],
+          iconAnchor: [14, 28]
+        });
+
+        const marker = L.marker([lat, lng], { icon: customIcon })
+          .addTo(map)
+          .on('click', () => onFrenteSelect(f.id));
+
+        // Add popup content
+        marker.bindPopup(`
+          <div style="font-family: 'Inter', sans-serif; color: #1e293b; padding: 4px; min-width: 180px;">
+            <span style="font-size: 8px; font-weight: 800; text-transform: uppercase; color: ${isMallaVial ? '#1e3a8a' : '#d97706'}; background-color: ${isMallaVial ? '#eff6ff' : '#fffbeb'}; border: 1px solid ${isMallaVial ? '#bfdbfe' : '#fef3c7'}; padding: 1px 4px; border-radius: 3px;">
+              ${isMallaVial ? 'Malla Vial' : 'Espacio Público'}
+            </span>
+            <h4 style="margin: 6px 0 4px 0; font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; color: #1e293b;">Frente ${f.frente} - ${f.name}</h4>
+            <p style="margin: 0 0 6px 0; font-size: 10px; color: #64748b; line-height: 1.3;">${f.description || 'Sin descripción'}</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 10px; border-top: 1px solid #f1f5f9; padding-top: 4px; margin-top: 4px;">
+              <span style="font-weight: 600;">Avance: ${f.progress}%</span>
+              <span style="text-transform: capitalize; padding: 1px 4px; border-radius: 3px; font-weight: 700; color: white; background-color: ${
+                f.status === 'al-dia' ? '#10b981' : f.status === 'alerta' ? '#f59e0b' : '#ef4444'
+              };">${f.status === 'al-dia' ? 'Al día' : f.status === 'alerta' ? 'Alerta' : 'Crítico'}</span>
+            </div>
           </div>
-        `,
-        iconSize: [28, 28],
-        iconAnchor: [14, 28]
+        `);
+
+        markersRef.current[f.id] = marker;
       });
-
-      const marker = L.marker([lat, lng], { icon: customIcon })
-        .addTo(map)
-        .on('click', () => onFrenteSelect(f.id));
-
-      // Add popup content
-      marker.bindPopup(`
-        <div style="font-family: 'Inter', sans-serif; color: #1e293b; padding: 4px; min-width: 180px;">
-          <span style="font-size: 8px; font-weight: 800; text-transform: uppercase; color: ${isMallaVial ? '#1e3a8a' : '#d97706'}; background-color: ${isMallaVial ? '#eff6ff' : '#fffbeb'}; border: 1px solid ${isMallaVial ? '#bfdbfe' : '#fef3c7'}; padding: 1px 4px; border-radius: 3px;">
-            ${isMallaVial ? 'Malla Vial' : 'Espacio Público'}
-          </span>
-          <h4 style="margin: 6px 0 4px 0; font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; color: #1e293b;">${f.name}</h4>
-          <p style="margin: 0 0 6px 0; font-size: 10px; color: #64748b; line-height: 1.3;">${f.description || 'Sin descripción'}</p>
-          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 10px; border-top: 1px solid #f1f5f9; padding-top: 4px; margin-top: 4px;">
-            <span style="font-weight: 600;">Avance: ${f.progress}%</span>
-            <span style="text-transform: capitalize; padding: 1px 4px; border-radius: 3px; font-weight: 700; color: white; background-color: ${
-              f.status === 'al-dia' ? '#10b981' : f.status === 'alerta' ? '#f59e0b' : '#ef4444'
-            };">${f.status === 'al-dia' ? 'Al día' : f.status === 'alerta' ? 'Alerta' : 'Crítico'}</span>
-          </div>
-        </div>
-      `);
-
-      markersRef.current[f.id] = marker;
     });
 
     // Auto-fit bounds if we have frentes and not currently editing/adding

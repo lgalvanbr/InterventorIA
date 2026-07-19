@@ -1,13 +1,16 @@
 {
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/api/:path*", "destination": "/api" },
-    { "source": "/uploads/:path*", "destination": "/api" },
+    { "source": "/api/:path*", "destination": "/api?path=api/:path*" },
+    { "source": "/uploads/:path*", "destination": "/api?path=uploads/:path*" },
     { "source": "/((?!api|uploads|frentes|assets).*)$", "destination": "/index.html" }
   ],
   "functions": {
     "api/index.js": {
-      "includeFiles": "public/uploads/**"
+      "includeFiles": [
+        "public/uploads/**",
+        "src/data/saved_weekly_reports.json"
+      ]
     }
   }
 }

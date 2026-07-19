@@ -11,6 +11,7 @@ import WeeklyReportPanel from './components/WeeklyReportPanel';
 import EngineersView from './components/EngineersView';
 import InspectorPortal from './components/InspectorPortal';
 import MapView from './components/MapView';
+import ProjectInfo from './components/ProjectInfo';
 import { initializeWeeklyReports, calculateConsolidatedMetrics } from './data/reportsWeekly';
 
 // Helper to initialize compliance list of checks for Colombian regulations
@@ -184,7 +185,7 @@ const generateFrentes = (rawList, isMallaVial) => {
       description: f.description || `Tramo: ${f.desde} hasta ${f.hasta} - Área: ${f.area} m2 - Malla: ${f.type || 'N/A'}`,
       latitude: f.lat,
       longitude: f.lng,
-      supervisor: f.supervisor,
+      supervisor: 'Ing. Luis Carlos Galvan',
       progress: f.progress,
       plannedProgress: f.plannedProgress,
       status: f.status,
@@ -253,6 +254,7 @@ export default function App() {
   const [selectedDetailFrenteId, setSelectedDetailFrenteId] = useState(null);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const [isInspectorMode, setIsInspectorMode] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Load from localStorage or set defaults
   useEffect(() => {
@@ -273,6 +275,26 @@ export default function App() {
       setProjects(loadedProjects);
       localStorage.setItem('geo_interventoria_projects_v7', JSON.stringify(loadedProjects));
     }
+
+    // Fetch design overrides from Supabase and save to local storage
+    fetch('/api/design-overrides')
+      .then(res => res.json())
+      .then(data => {
+        if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+          localStorage.setItem('geo_interventoria_design_overrides', JSON.stringify(data));
+        }
+      })
+      .catch(err => console.warn("Error loading design overrides from cloud:", err));
+
+    // Fetch project info from Supabase and save to local storage
+    fetch('/api/project-info')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.objeto) {
+          localStorage.setItem('geo_interventoria_project_info_v1', JSON.stringify(data));
+        }
+      })
+      .catch(err => console.warn("Error loading project info from cloud:", err));
 
     // Load weekly reports from local server API database or localStorage fallback
     const localWeekly = localStorage.getItem('geo_interventoria_weekly_reports');
@@ -474,11 +496,29 @@ export default function App() {
           isExpanded={isSidebarHovered}
           onMouseEnter={() => setIsSidebarHovered(true)}
           onMouseLeave={() => setIsSidebarHovered(false)}
+          isMobileOpen={isMobileSidebarOpen}
+          onCloseMobile={() => setIsMobileSidebarOpen(false)}
         />
       )}
 
       {/* Main Content routing with dynamic padding-left for sidebar offset */}
-      <div className={`flex-1 transition-all duration-300 min-w-0 ${(isInspectorMode || view === 'map-only') ? 'pl-0' : (isSidebarHovered ? 'pl-64' : 'pl-16')}`}>
+      <div className={`flex-1 transition-all duration-300 min-w-0 ${(isInspectorMode || view === 'map-only') ? 'pl-0' : (isSidebarHovered ? 'md:pl-64 pl-0' : 'md:pl-16 pl-0')}`}>
+        {/* Mobile Header Bar */}
+        {!isInspectorMode && view !== 'map-only' && (
+          <header className="flex items-center gap-3 bg-white border-b border-slate-200 px-4 py-3 md:hidden sticky top-0 z-30 shadow-xs">
+            <button 
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="p-1.5 text-slate-650 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer flex items-center justify-center border-none bg-transparent"
+              aria-label="Abrir menú"
+            >
+              <span className="material-symbols-outlined text-2xl">menu</span>
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary text-xl font-bold">construction</span>
+              <span className="font-headline-md text-sm font-black text-primary tracking-tight">INCOLTA SAS</span>
+            </div>
+          </header>
+        )}
         {view === 'dashboard' && (
           <Dashboard 
             projects={projects} 
@@ -531,6 +571,10 @@ export default function App() {
           <FrentesControl 
             projects={projects}
           />
+        )}
+
+        {view === 'project-info' && (
+          <ProjectInfo />
         )}
 
         {view === 'weekly-reports' && (
