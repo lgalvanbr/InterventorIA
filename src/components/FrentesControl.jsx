@@ -82,7 +82,7 @@ function MiniMap({ latitude, longitude, status }) {
   );
 }
 
-export default function FrentesControl({ projects }) {
+export default function FrentesControl({ projects, designOverrides, onUpdateDesignOverrides }) {
   const [selectedCiv, setSelectedCiv] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [localPdfFile, setLocalPdfFile] = useState(null);
@@ -220,7 +220,7 @@ export default function FrentesControl({ projects }) {
   // Get current active frente details
   const activeFrente = allFrentes.find(f => f.civ === selectedCiv);
   // Get technical design specifications
-  const activeDesign = selectedCiv ? getDisenoForCiv(selectedCiv) : null;
+  const activeDesign = selectedCiv ? (designOverrides[selectedCiv] || getDisenoForCiv(selectedCiv)) : null;
 
   const [isEditingModules, setIsEditingModules] = useState(false);
   const [editedDesign, setEditedDesign] = useState(null);
@@ -391,22 +391,14 @@ export default function FrentesControl({ projects }) {
         }
 
         // Save to global design override
-        const overrides = JSON.parse(localStorage.getItem('geo_interventoria_design_overrides') || '{}');
-        const existingDesign = getDisenoForCiv(selectedCiv);
+        const overrides = { ...designOverrides };
+        const existingDesign = designOverrides[selectedCiv] || getDisenoForCiv(selectedCiv);
         overrides[selectedCiv] = {
           ...existingDesign,
           perfil_suelo_img_url: previewUrl
         };
-        localStorage.setItem('geo_interventoria_design_overrides', JSON.stringify(overrides));
-        try {
-          await fetch('/api/design-overrides', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(overrides)
-          });
-        } catch (sErr) {}
+        onUpdateDesignOverrides(overrides);
         alert("Imagen de perfil de estructura de suelo guardada y vinculada.");
-        window.location.reload();
       } catch (err) {
         console.error("Error uploading profile image:", err);
       }
@@ -891,21 +883,14 @@ export default function FrentesControl({ projects }) {
                     </span>
                     {activeDesign.perfil_suelo_img_url && (
                       <button
-                        onClick={async () => {
-                          const overrides = JSON.parse(localStorage.getItem('geo_interventoria_design_overrides') || '{}');
-                          const existingDesign = getDisenoForCiv(selectedCiv);
-                          delete existingDesign.perfil_suelo_img_url;
-                          overrides[selectedCiv] = existingDesign;
-                          localStorage.setItem('geo_interventoria_design_overrides', JSON.stringify(overrides));
-                          try {
-                            await fetch('/api/design-overrides', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify(overrides)
-                            });
-                          } catch (e) {}
+                        onClick={() => {
+                          const overrides = { ...designOverrides };
+                          const existingDesign = designOverrides[selectedCiv] || getDisenoForCiv(selectedCiv);
+                          const updatedDesign = { ...existingDesign };
+                          delete updatedDesign.perfil_suelo_img_url;
+                          overrides[selectedCiv] = updatedDesign;
+                          onUpdateDesignOverrides(overrides);
                           alert("Imagen de perfil de suelo eliminada.");
-                          window.location.reload();
                         }}
                         className="text-[10px] font-bold text-rose-600 hover:text-rose-800 flex items-center gap-0.5 cursor-pointer"
                       >

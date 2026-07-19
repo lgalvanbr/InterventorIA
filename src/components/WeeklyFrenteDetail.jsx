@@ -65,6 +65,8 @@ const getVisualLayerStyle = (type) => {
 export default function WeeklyFrenteDetail({ 
   report, 
   frenteId, 
+  designOverrides,
+  onUpdateDesignOverrides,
   onClose, 
   onSave,
   onSaveWithoutClose,
@@ -98,7 +100,7 @@ export default function WeeklyFrenteDetail({
       setBitacoraNotas(frente.bitacora_notas || []);
       
       // Load from global design override first, fallback to weekly report frente's property
-      const globalDesign = getDisenoForCiv(frente.civ);
+      const globalDesign = designOverrides?.[frente.civ] || getDisenoForCiv(frente.civ);
       setPerfilSueloImgUrl(globalDesign?.perfil_suelo_img_url || frente.perfil_suelo_img_url || '');
       
       setActiveDayIdx(0); // Reset to Saturday (Day 0)
@@ -329,14 +331,6 @@ export default function WeeklyFrenteDetail({
     setFotos(prev => prev.filter(f => f.id !== photoId));
   };
 
-  const syncOverridesToCloud = (overrides) => {
-    fetch('/api/design-overrides', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(overrides)
-    }).catch(err => console.error("Error syncing design overrides to Supabase:", err));
-  };
-
   const handleNavigate = (direction) => {
     if (onSaveWithoutClose) {
       const updatedFrente = {
@@ -351,14 +345,13 @@ export default function WeeklyFrenteDetail({
       };
       
       try {
-        const overrides = JSON.parse(localStorage.getItem('geo_interventoria_design_overrides') || '{}');
-        const existingDesign = getDisenoForCiv(frente.civ);
+        const overrides = { ...designOverrides };
+        const existingDesign = designOverrides?.[frente.civ] || getDisenoForCiv(frente.civ);
         overrides[frente.civ] = {
           ...existingDesign,
           perfil_suelo_img_url: perfilSueloImgUrl
         };
-        localStorage.setItem('geo_interventoria_design_overrides', JSON.stringify(overrides));
-        syncOverridesToCloud(overrides);
+        onUpdateDesignOverrides(overrides);
       } catch (err) {
         console.error("Error writing design overrides:", err);
       }
@@ -383,14 +376,13 @@ export default function WeeklyFrenteDetail({
     };
 
     try {
-      const overrides = JSON.parse(localStorage.getItem('geo_interventoria_design_overrides') || '{}');
-      const existingDesign = getDisenoForCiv(frente.civ);
+      const overrides = { ...designOverrides };
+      const existingDesign = designOverrides?.[frente.civ] || getDisenoForCiv(frente.civ);
       overrides[frente.civ] = {
         ...existingDesign,
         perfil_suelo_img_url: perfilSueloImgUrl
       };
-      localStorage.setItem('geo_interventoria_design_overrides', JSON.stringify(overrides));
-      syncOverridesToCloud(overrides);
+      onUpdateDesignOverrides(overrides);
     } catch (err) {
       console.error("Error writing design overrides:", err);
     }

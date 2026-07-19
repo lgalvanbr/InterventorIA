@@ -123,7 +123,7 @@ const getIaCommentForFrente = (consolidadoIa, frenteNumber) => {
   return match ? match[1].trim() : '';
 };
 
-const PrintFrenteCard = ({ frente, printMode, allFrentes, consolidadoIa, getDayName, report }) => {
+const PrintFrenteCard = ({ frente, printMode, allFrentes, designOverrides, consolidadoIa, getDayName, report }) => {
   const isMv = frente.id.startsWith('f_mv');
   const activeNotes = frente.bitacora_notes?.filter(n => n.note.trim() !== '') || [];
   const activePhotos = frente.fotos || [];
@@ -253,7 +253,7 @@ const PrintFrenteCard = ({ frente, printMode, allFrentes, consolidadoIa, getDayN
               Perfil de Estructura del Suelo
             </p>
             {(() => {
-              const design = getDisenoForCiv(frente.civ);
+              const design = designOverrides?.[frente.civ] || getDisenoForCiv(frente.civ);
               const imgUrl = design?.perfil_suelo_img_url || frente.perfil_suelo_img_url;
               return imgUrl ? (
                 <div className="w-full h-[140px] overflow-hidden rounded border border-slate-200 relative bg-white flex items-center justify-center p-1 shadow-2xs">
@@ -384,6 +384,8 @@ export default function WeeklyReportPanel({
   weeklyReports,
   initialEditingFrenteId = null,
   allFrentes = [],
+  designOverrides,
+  onUpdateDesignOverrides,
   onClose, 
   onSaveFrente,
   onSaveReport
@@ -553,6 +555,8 @@ export default function WeeklyReportPanel({
       <WeeklyFrenteDetail
         report={report}
         frenteId={editingFrenteId}
+        designOverrides={designOverrides}
+        onUpdateDesignOverrides={onUpdateDesignOverrides}
         onClose={() => setEditingFrenteId(null)}
         onSave={(updatedFrente) => {
           onSaveFrente(updatedFrente);
@@ -1056,6 +1060,7 @@ export default function WeeklyReportPanel({
                     frente={frente} 
                     printMode={printMode} 
                     allFrentes={allFrentes} 
+                    designOverrides={designOverrides}
                     consolidadoIa={iaText} 
                     getDayName={getDayName} 
                     report={report}

@@ -253,8 +253,25 @@ export default function App() {
   const [selectedReportId, setSelectedReportId] = useState(null);
   const [selectedDetailFrenteId, setSelectedDetailFrenteId] = useState(null);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
-  const [isInspectorMode, setIsInspectorMode] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isInspectorMode, setIsInspectorMode] = useState(false);
+  const [designOverrides, setDesignOverrides] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('geo_interventoria_design_overrides') || '{}');
+    } catch (e) {
+      return {};
+    }
+  });
+
+  const handleUpdateDesignOverrides = (newOverrides) => {
+    setDesignOverrides(newOverrides);
+    localStorage.setItem('geo_interventoria_design_overrides', JSON.stringify(newOverrides));
+    fetch('/api/design-overrides', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newOverrides)
+    }).catch(err => console.error("Error syncing design overrides to Supabase:", err));
+  };
 
   // Load from localStorage or set defaults
   useEffect(() => {
@@ -282,6 +299,7 @@ export default function App() {
       .then(data => {
         if (data && typeof data === 'object' && Object.keys(data).length > 0) {
           localStorage.setItem('geo_interventoria_design_overrides', JSON.stringify(data));
+          setDesignOverrides(data);
         }
       })
       .catch(err => console.warn("Error loading design overrides from cloud:", err));
@@ -570,6 +588,8 @@ export default function App() {
         {view === 'frentes-control' && (
           <FrentesControl 
             projects={projects}
+            designOverrides={designOverrides}
+            onUpdateDesignOverrides={handleUpdateDesignOverrides}
           />
         )}
 
@@ -595,6 +615,8 @@ export default function App() {
             weeklyReports={weeklyReports}
             initialEditingFrenteId={selectedDetailFrenteId}
             allFrentes={projects.flatMap(p => p.frentes || [])}
+            designOverrides={designOverrides}
+            onUpdateDesignOverrides={handleUpdateDesignOverrides}
             onClose={() => {
               setView('weekly-reports');
               setSelectedReportId(null);
