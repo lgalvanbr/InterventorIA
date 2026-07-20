@@ -216,23 +216,23 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
     return [...new Set(lightboxPhotos.map(p => p.semana))].sort((a, b) => b - a);
   };
 
-  // Find active week report for dates metadata display
+  // Find active week report for dates display
   const activeReport = (weeklyReports || []).find(r => r.numero_semana === Number(selectedWeek));
 
   return (
     <div className="flex-1 p-gutter max-w-container-max mx-auto grid-bg min-h-screen pb-16 relative">
       
-      {/* 1. Header Hero Banner */}
-      <section className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white rounded-2xl p-8 mb-8 shadow-md">
-        <div className="relative z-10 max-w-3xl">
+      {/* 1. Header Hero Banner with INCOLTA SAS and Radar Telemetry */}
+      <section className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white rounded-2xl p-8 mb-8 shadow-md no-print">
+        <div className="relative z-10 max-w-2xl">
           <span className="bg-indigo-500/20 text-indigo-300 font-extrabold text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full border border-indigo-500/30 inline-block mb-3.5">
-            {isContractorMode ? 'CONSOLA DE CONSULTA DEL CONTRATISTA' : 'CONSOLA DE CONTROL GENERAL'}
+            {isContractorMode ? 'INCOLTA SAS • PORTAL DEL CONTRATISTA' : 'INCOLTA SAS • CONSOLA DE AUDITORÍA'}
           </span>
           <h1 className="text-3xl md:text-4xl font-black font-headline tracking-tight text-white mb-2 leading-tight">
-            Control Visual de <span className="text-cyan-400">Frentes de Obra</span>
+            INCOLTA <span className="text-cyan-400">SAS</span> — Control de Frentes
           </h1>
-          <p className="text-slate-350 text-xs md:text-sm leading-relaxed mb-6 font-medium max-w-2xl">
-            Tablero interactivo y didáctico consolidado de tramos viales. Consulta avances de obra, planos de suelo certificados y la bitácora fotográfica recolectada en campo por la interventoría.
+          <p className="text-slate-350 text-xs md:text-sm leading-relaxed mb-6 font-medium max-w-xl">
+            Plataforma didáctica de interventoría y control. Navega por semanas de avance físico, visualiza las estructuras de suelo certificadas y consulta registros fotográficos de campo.
           </p>
           
           <div className="flex items-center gap-3">
@@ -261,16 +261,28 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
           </div>
         </div>
         
-        {/* Decorative background */}
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 opacity-15 pointer-events-none hidden md:block">
-          <svg className="w-full h-full text-indigo-400" viewBox="0 0 100 100" fill="currentColor">
-            <path d="M50 0 L100 25 L100 75 L50 100 L0 75 L0 25 Z" />
-          </svg>
+        {/* Animated Telemetry Hologram */}
+        <div className="absolute right-6 top-6 bottom-6 w-1/3 pointer-events-none hidden lg:block overflow-hidden rounded-xl border border-white/5 bg-white/5 shadow-inner z-0">
+          <div className="absolute inset-0 opacity-15 bg-[linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] bg-[size:16px_16px]" />
+          
+          {/* Pulse Radar Rings */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 border border-cyan-400/25 rounded-full animate-ping opacity-25" style={{ animationDuration: '3s' }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 border border-indigo-400/35 rounded-full animate-ping opacity-40" style={{ animationDuration: '2s' }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 border border-cyan-400/50 rounded-full animate-pulse opacity-60" />
+          
+          {/* Animated Nodes (Frentes telemetry simulation) */}
+          <div className="absolute top-1/4 left-1/3 w-3 h-3 bg-cyan-400 rounded-full shadow-[0_0_8px_#22d3ee] animate-pulse" />
+          <div className="absolute top-2/3 left-1/4 w-2.5 h-2.5 bg-emerald-400 rounded-full shadow-[0_0_8px_#34d399] animate-pulse" style={{ animationDelay: '0.4s' }} />
+          <div className="absolute top-1/2 left-3/4 w-3.5 h-3.5 bg-indigo-400 rounded-full shadow-[0_0_8px_#818cf8] animate-pulse" style={{ animationDelay: '0.8s' }} />
+          <div className="absolute top-3/4 left-2/3 w-2 h-2 bg-amber-400 rounded-full shadow-[0_0_8px_#fbbf24] animate-pulse" style={{ animationDelay: '1.2s' }} />
+
+          {/* Laser scanning line */}
+          <div className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent top-0 animate-scan" />
         </div>
       </section>
 
-      {/* 2. Search & Week Selector Toolbar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+      {/* 2. Search, Week Selector & Print Toolbar */}
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 mb-6 no-print">
         
         {/* Search Input */}
         <div className="flex-1 w-full relative">
@@ -288,7 +300,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
         <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 justify-between md:justify-start">
           <div className="flex items-center gap-1.5">
             <Calendar size={14} className="text-primary" />
-            <span className="text-[10px] text-slate-450 font-bold uppercase tracking-wider">Semana de Control:</span>
+            <span className="text-[10px] text-slate-455 font-bold uppercase tracking-wider">Semana:</span>
           </div>
           <select
             value={selectedWeek}
@@ -308,15 +320,44 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
           </div>
         )}
 
+        {/* Print Report Button */}
+        <button
+          onClick={() => window.print()}
+          className="bg-[#00236f] hover:bg-slate-800 text-white text-xs font-black px-4.5 py-2 rounded-lg transition-all active:scale-95 duration-100 flex items-center gap-1.5 shadow-sm cursor-pointer shrink-0 w-full md:w-auto justify-center"
+        >
+          <span className="material-symbols-outlined text-sm font-bold">print</span>
+          Imprimir Informe
+        </button>
+
         <div className="text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg shrink-0 w-full md:w-auto text-center">
           Frentes: <strong className="text-slate-700 font-mono-numbers">{filteredFrentes.length}</strong> de <strong className="text-slate-700 font-mono-numbers">{frentes.length}</strong>
         </div>
 
       </div>
 
+      {/* Print-only Report Header */}
+      <div className="hidden print-report-header mb-6 pb-4 border-b-2 border-slate-800">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">INCOLTA SAS</h1>
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-0.5">INFORME DE SUPERVISIÓN Y CONTROL DE FRENTES DE OBRA</p>
+          </div>
+          <div className="text-right">
+            <span className="bg-slate-100 border border-slate-250 text-slate-800 font-black px-3 py-1 rounded text-xs">
+              SEMANA {selectedWeek}
+            </span>
+            {activeReport && (
+              <p className="text-[10px] text-slate-500 font-mono font-bold mt-1.5">
+                Corte: {activeReport.fecha_inicial_corte} al {activeReport.fecha_final_corte}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* 3. Main Views Layout */}
       {viewMode === 'map' ? (
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm h-[550px] flex flex-col">
+        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm h-[550px] flex flex-col no-print">
           <MapView 
             frentes={filteredFrentes}
             isUnified={true}
@@ -333,7 +374,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
             return (
               <div 
                 key={frente.id} 
-                className="bg-white border border-slate-200 rounded-xl p-6 shadow-premium flex flex-col justify-between hover:border-primary/20 transition-all duration-300 relative overflow-hidden"
+                className="bg-white border border-slate-200 rounded-xl p-6 shadow-premium flex flex-col justify-between hover:border-primary/20 transition-all duration-300 relative overflow-hidden print-card-break"
               >
                 
                 {/* Frente Header */}
@@ -386,7 +427,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                             alt="Perfil de Estructura del Suelo" 
                             className="w-full h-full object-contain group-hover:scale-102 transition-transform p-1" 
                           />
-                          <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10">
+                          <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10 no-print">
                             <button
                               onClick={() => {
                                 setLightboxPhotos([{ id: 'design_soil', url: soilImgUrl, caption: 'Diseño de Estructura de Suelo Aprobado', semana: 'Diseño', date: 'Plano Contractual' }]);
@@ -443,7 +484,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                             className="w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-2xs shrink-0 cursor-pointer hover:border-primary transition-all relative group bg-slate-900"
                           >
                             <img src={photo.url} alt={photo.caption} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-0.5 text-white">
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-0.5 text-white no-print">
                               <Eye size={12} />
                               <span className="text-[7.5px] font-black uppercase tracking-wider">Ver Foto</span>
                             </div>
@@ -462,7 +503,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                 </div>
 
                 {/* Program Link tag at the bottom */}
-                <div className="mt-4 border-t border-slate-100 pt-3 flex justify-between items-center text-[10.5px]">
+                <div className="mt-4 border-t border-slate-100 pt-3 flex justify-between items-center text-[10.5px] no-print">
                   <button
                     onClick={() => onSelectProject(frente.projectId)}
                     className="text-primary hover:underline font-extrabold flex items-center gap-0.5 border-none bg-transparent cursor-pointer"
@@ -487,7 +528,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
 
       {/* 4. LIGHTBOX Carousel Modal */}
       {lightboxPhotos && lightboxPhotos.length > 0 && activePhoto && (
-        <div className="fixed inset-0 z-50 bg-slate-950/95 flex flex-col items-center justify-center p-4 select-none">
+        <div className="fixed inset-0 z-50 bg-slate-950/95 flex flex-col items-center justify-center p-4 select-none no-print">
           {/* Top Info Header */}
           <div className="absolute top-4 left-4 right-4 flex justify-between items-center text-white z-10">
             <div className="space-y-1">
@@ -569,7 +610,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
         </div>
       )}
 
-      {/* Inline styles for Pavement patterns */}
+      {/* Inline styles for Pavement patterns and Keyframes */}
       <style dangerouslySetInnerHTML={{__html: `
         .pattern-concrete {
           background-image: radial-gradient(rgba(0, 0, 0, 0.15) 1px, transparent 0);
@@ -582,6 +623,54 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
         .pattern-sand {
           background-image: radial-gradient(rgba(217, 119, 6, 0.25) 1px, transparent 0);
           background-size: 5px 5px;
+        }
+        @keyframes scan {
+          0% { top: 0%; opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { top: 100%; opacity: 0; }
+        }
+        .animate-scan {
+          animation: scan 4.5s linear infinite;
+        }
+
+        /* PRINT MEDIA STYLES FOR PDF GENERATION */
+        @media print {
+          body, .flex-1, .grid-bg {
+            background: white !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            color: #0f172a !important;
+          }
+          .p-gutter {
+            padding: 0 !important;
+          }
+          aside, .sidebar, header, .no-print, button, select, input {
+            display: none !important;
+          }
+          .print-report-header {
+            display: block !important;
+          }
+          .grid {
+            grid-template-columns: 1fr !important;
+            gap: 0 !important;
+          }
+          .print-card-break {
+            border: 2px solid #e2e8f0 !important;
+            box-shadow: none !important;
+            page-break-after: always;
+            margin-bottom: 3rem !important;
+            padding: 2rem !important;
+          }
+          /* Keep cards side-by-side inside print */
+          .grid-cols-1.md\\:grid-cols-2 {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 1.5rem !important;
+          }
+          .w-full.h-36 {
+            height: 160px !important;
+          }
         }
       `}} />
 
