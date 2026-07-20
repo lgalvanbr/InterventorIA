@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import MapView from './MapView';
 
-export default function Dashboard({ projects = [], onSelectProject, onAddProject }) {
+export default function Dashboard({ projects = [], onSelectProject, onAddProject, isContractorMode }) {
   const [showModal, setShowModal] = useState(false);
   const [selectedQuickViewProj, setSelectedQuickViewProj] = useState(null);
   
@@ -213,13 +213,15 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
           </p>
           
           <div className="flex flex-wrap gap-3">
-            <button 
-              onClick={() => setShowModal(true)}
-              className="bg-primary hover:bg-primary-container text-white text-xs font-bold px-4 py-2.5 rounded-lg transition-all active:scale-95 duration-100 flex items-center gap-1.5 shadow"
-            >
-              <Plus size={15} />
-              Crear Proyecto de Interventoría
-            </button>
+            {!isContractorMode && (
+              <button 
+                onClick={() => setShowModal(true)}
+                className="bg-primary hover:bg-primary-container text-white text-xs font-bold px-4 py-2.5 rounded-lg transition-all active:scale-95 duration-100 flex items-center gap-1.5 shadow"
+              >
+                <Plus size={15} />
+                Crear Proyecto de Interventoría
+              </button>
+            )}
             <a 
               href="#navegador-proyectos"
               className="bg-white/10 hover:bg-white/15 text-slate-100 text-xs font-bold px-4 py-2.5 rounded-lg transition-all flex items-center gap-1.5 border border-white/10"

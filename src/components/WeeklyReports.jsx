@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { calculateConsolidatedMetrics, cloneWeeklyReport } from '../data/reportsWeekly';
 import { Calendar, Unlock, Save, PlusCircle, CheckCircle2, Search, TrendingUp, HelpCircle, DollarSign, Activity, Image as ImageIcon, FileText, ChevronRight } from 'lucide-react';
 
-export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onNavigateToDetail }) {
+export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onNavigateToDetail, isContractorMode }) {
   const [activeReportId, setActiveReportId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [editedFrentes, setEditedFrentes] = useState([]);
@@ -179,13 +179,15 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
             </select>
           </div>
 
-          <button
-            onClick={handleCreateNextWeek}
-            className="bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-bold px-4 py-2 rounded transition-all flex items-center gap-1.5"
-          >
-            <PlusCircle size={14} />
-            Crear Semana Siguiente
-          </button>
+          {!isContractorMode && (
+            <button
+              onClick={handleCreateNextWeek}
+              className="bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-bold px-4 py-2 rounded transition-all flex items-center gap-1.5"
+            >
+              <PlusCircle size={14} />
+              Crear Semana Siguiente
+            </button>
+          )}
 
           <button
             onClick={() => onNavigateToDetail(activeReportId, null)}
@@ -222,9 +224,11 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
               <div className="space-y-3.5 text-xs">
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-slate-500">Estado del Informe:</span>
-                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
-                    <Unlock size={10} className="text-emerald-600" />
-                    ACTIVO (Editable)
+                  <span className={`${
+                    isContractorMode ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                  } text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1`}>
+                    <Unlock size={10} className={isContractorMode ? 'text-amber-600' : 'text-emerald-600'} />
+                    {isContractorMode ? 'SOLO LECTURA' : 'ACTIVO (Editable)'}
                   </span>
                 </div>
 
@@ -232,9 +236,10 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Fecha Inicial</label>
                   <input
                     type="date"
+                    disabled={isContractorMode}
                     value={editedStartDate}
                     onChange={(e) => setEditedStartDate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-xs font-semibold focus:ring-1 focus:ring-primary focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-xs font-semibold focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-75 disabled:bg-slate-100"
                   />
                 </div>
 
@@ -242,9 +247,10 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Fecha Final</label>
                   <input
                     type="date"
+                    disabled={isContractorMode}
                     value={editedEndDate}
                     onChange={(e) => setEditedEndDate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-xs font-semibold focus:ring-1 focus:ring-primary focus:outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-xs font-semibold focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-75 disabled:bg-slate-100"
                   />
                 </div>
               </div>
@@ -269,9 +275,10 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
                         type="number"
                         step="0.01"
                         max="1.0"
+                        disabled={isContractorMode}
                         value={editedMvProg}
                         onChange={(e) => setEditedMvProg(e.target.value)}
-                        className="w-16 bg-white border border-slate-200 text-center font-mono-numbers text-sm font-bold p-1 rounded focus:outline-none"
+                        className="w-16 bg-white border border-slate-200 text-center font-mono-numbers text-sm font-bold p-1 rounded focus:outline-none disabled:bg-slate-100 disabled:text-slate-500"
                       />
                       <span className="text-[10px] text-slate-400">x100</span>
                     </div>
@@ -314,9 +321,10 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
                         type="number"
                         step="0.01"
                         max="1.0"
+                        disabled={isContractorMode}
                         value={editedEpProg}
                         onChange={(e) => setEditedEpProg(e.target.value)}
-                        className="w-16 bg-white border border-slate-200 text-center font-mono-numbers text-sm font-bold p-1 rounded focus:outline-none"
+                        className="w-16 bg-white border border-slate-200 text-center font-mono-numbers text-sm font-bold p-1 rounded focus:outline-none disabled:bg-slate-100 disabled:text-slate-500"
                       />
                       <span className="text-[10px] text-slate-400">x100</span>
                     </div>
@@ -350,7 +358,7 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
               <div>
                 <h3 className="font-bold text-slate-700 text-sm">Avances de Obra por Frente</h3>
                 <p className="text-[11px] text-slate-400 font-medium">
-                  {activeReport.estado_informe === 'cerrado' ? '🔒 Registros archivados de solo lectura. Habilita edición arriba para cambiar.' : '✍️ Edita los hitos de avance o haz clic en "Ver Detalle" para subir fotos y bitácoras'}
+                  {isContractorMode ? '📋 Consola de Consulta del Contratista (Solo Lectura).' : activeReport.estado_informe === 'cerrado' ? '🔒 Registros archivados de solo lectura. Habilita edición arriba para cambiar.' : '✍️ Edita los hitos de avance o haz clic en "Ver Detalle" para subir fotos y bitácoras'}
                 </p>
               </div>
 
@@ -385,7 +393,7 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
                 <tbody className="divide-y divide-slate-100 text-slate-700">
                   {filteredFrentes.length > 0 ? (
                     filteredFrentes.map((f) => {
-                      const isClosed = false;
+                      const isClosed = isContractorMode;
                       const fotoCount = f.fotos?.length || 0;
                       const notaCount = f.bitacora_notas?.length || 0;
                       
@@ -516,20 +524,25 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
               <div className="flex gap-1.5 items-center text-[11px] text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100 max-w-md">
                 <HelpCircle size={16} className="shrink-0" />
                 <span>
-                  <strong>Información de Edición:</strong> Las modificaciones se aplican en tiempo real al hacer clic en Guardar Cambios.
+                  {isContractorMode 
+                    ? <strong>Modo de Consulta: Estás visualizando los informes semanales validados por la Interventoría. Haz clic en "Ver Informe" para previsualizar o descargar el PDF oficial.</strong>
+                    : <strong>Información de Edición: Las modificaciones se aplican en tiempo real al hacer clic en Guardar Cambios.</strong>
+                  }
                 </span>
               </div>
 
-              <div className="flex gap-3">
-                <button
-                  onClick={handleSaveDraft}
-                  disabled={isSaving}
-                  className="bg-primary hover:bg-primary-container text-white text-xs font-bold px-5 py-2 rounded transition-all flex items-center gap-1.5 shadow"
-                >
-                  <Save size={14} />
-                  {isSaving ? 'Guardando...' : 'Guardar Cambios'}
-                </button>
-              </div>
+              {!isContractorMode && (
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleSaveDraft}
+                    disabled={isSaving}
+                    className="bg-primary hover:bg-primary-container text-white text-xs font-bold px-5 py-2 rounded transition-all flex items-center gap-1.5 shadow"
+                  >
+                    <Save size={14} />
+                    {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+                  </button>
+                </div>
+              )}
             </div>
 
           </div>

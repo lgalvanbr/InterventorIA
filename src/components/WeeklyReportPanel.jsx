@@ -557,6 +557,7 @@ export default function WeeklyReportPanel({
         frenteId={editingFrenteId}
         designOverrides={designOverrides}
         onUpdateDesignOverrides={onUpdateDesignOverrides}
+        isContractorMode={isContractorMode}
         onClose={() => setEditingFrenteId(null)}
         onSave={(updatedFrente) => {
           onSaveFrente(updatedFrente);
@@ -852,110 +853,123 @@ export default function WeeklyReportPanel({
           <div className="flex flex-col lg:flex-row gap-6 items-start w-full">
             
             {/* Left Sidebar: Editor Panel (Hidden in Print) */}
-            <div className="w-full lg:w-[320px] flex flex-col gap-5 shrink-0 no-print bg-white p-5 rounded-xl border border-slate-200 shadow-sm sticky top-[95px]">
-              <div>
-                <div className="flex items-center gap-2 text-primary">
-                  <span className="material-symbols-outlined text-[20px] font-bold">psychology</span>
-                  <h3 className="font-extrabold text-sm text-slate-800">Asistente de Redacción</h3>
+            {!isContractorMode && (
+              <div className="w-full lg:w-[320px] flex flex-col gap-5 shrink-0 no-print bg-white p-5 rounded-xl border border-slate-200 shadow-sm sticky top-[95px]">
+                <div>
+                  <div className="flex items-center gap-2 text-primary">
+                    <span className="material-symbols-outlined text-[20px] font-bold">psychology</span>
+                    <h3 className="font-extrabold text-sm text-slate-800">Asistente de Redacción</h3>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1 leading-normal">
+                    Copia las bitácoras de frentes, procésalas con tu asistente y pega la respuesta consolidada aquí para incluirla en el reporte.
+                  </p>
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1 leading-normal">
-                  Copia las bitácoras de frentes, procésalas con tu asistente y pega la respuesta consolidada aquí para incluirla en el reporte.
-                </p>
-              </div>
 
-              {/* Action 1: Copy Data */}
-              <button
-                onClick={handleCopyInfo}
-                className="w-full bg-primary hover:bg-primary/95 text-white text-xs font-bold py-2.5 px-3 rounded-lg shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[15px]">content_copy</span>
-                Copiar Datos de Frentes
-              </button>
+                {/* Action 1: Copy Data */}
+                <button
+                  onClick={handleCopyInfo}
+                  className="w-full bg-primary hover:bg-primary/95 text-white text-xs font-bold py-2.5 px-3 rounded-lg shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[15px]">content_copy</span>
+                  Copiar Datos de Frentes
+                </button>
 
-              <hr className="border-slate-100" />
+                <hr className="border-slate-100" />
 
-              {/* Action 2: Input Text */}
-              <div className="flex flex-col gap-1.5">
-                <div className="flex justify-between items-center text-[10.5px] font-bold text-slate-700">
-                  <span>Consolidado de Interventoría</span>
-                  {iaText !== report.consolidado_ia && (
-                    <span className="text-[9px] text-amber-600 font-extrabold animate-pulse">Sin guardar</span>
-                  )}
+                {/* Action 2: Input Text */}
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex justify-between items-center text-[10.5px] font-bold text-slate-700">
+                    <span>Consolidado de Interventoría</span>
+                    {iaText !== report.consolidado_ia && (
+                      <span className="text-[9px] text-amber-600 font-extrabold animate-pulse">Sin guardar</span>
+                    )}
+                  </div>
+                  <textarea
+                    rows={9}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-[11px] leading-relaxed font-semibold focus:bg-white focus:outline-none resize-none focus:ring-1 focus:ring-primary/20"
+                    placeholder="Pega el resumen consolidado de interventoría aquí..."
+                    value={iaText}
+                    onChange={(e) => setIaText(e.target.value)}
+                    onBlur={handleBlur}
+                  />
                 </div>
-                <textarea
-                  rows={9}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-[11px] leading-relaxed font-semibold focus:bg-white focus:outline-none resize-none focus:ring-1 focus:ring-primary/20"
-                  placeholder="Pega el resumen consolidado de interventoría aquí..."
-                  value={iaText}
-                  onChange={(e) => setIaText(e.target.value)}
-                  onBlur={handleBlur}
-                />
-              </div>
 
-              <button
-                onClick={handleSaveIAConsolidated}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded-lg shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[15px]">save</span>
-                Guardar Consolidado
-              </button>
+                <button
+                  onClick={handleSaveIAConsolidated}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded-lg shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[15px]">save</span>
+                  Guardar Consolidado
+                </button>
 
-              <hr className="border-slate-100" />
+                <hr className="border-slate-100" />
 
-              {/* Action 3: Printing Modes */}
-              <div className="flex flex-col gap-2">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Modo de Impresión PDF</span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setPrintMode('full');
-                      setTimeout(() => { window.print(); }, 150);
-                    }}
-                    className={`flex-1 text-[10.5px] font-extrabold py-2 px-1 rounded-lg border shadow-2xs transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
-                      printMode === 'full' 
-                        ? 'bg-slate-900 border-slate-900 text-white' 
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[16px]">print</span>
-                    Completo
-                  </button>
-                  <button
-                    onClick={() => {
-                      setPrintMode('simplified');
-                      setTimeout(() => { window.print(); }, 150);
-                    }}
-                    className={`flex-1 text-[10.5px] font-extrabold py-2 px-1 rounded-lg border shadow-2xs transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
-                      printMode === 'simplified' 
-                        ? 'bg-slate-900 border-slate-900 text-white' 
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[16px]">description</span>
-                    Simplificado
-                  </button>
+                {/* Action 3: Printing Modes */}
+                <div className="flex flex-col gap-2">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Modo de Impresión PDF</span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setPrintMode('full');
+                        setTimeout(() => { window.print(); }, 150);
+                      }}
+                      className={`flex-1 text-[10.5px] font-extrabold py-2 px-1 rounded-lg border shadow-2xs transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                        printMode === 'full' 
+                          ? 'bg-slate-900 border-slate-900 text-white' 
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[16px]">print</span>
+                      Completo
+                    </button>
+                    <button
+                      onClick={() => {
+                        setPrintMode('simplified');
+                        setTimeout(() => { window.print(); }, 150);
+                      }}
+                      className={`flex-1 text-[10.5px] font-extrabold py-2 px-1 rounded-lg border shadow-2xs transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                        printMode === 'simplified' 
+                          ? 'bg-slate-900 border-slate-900 text-white' 
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[16px]">description</span>
+                      Simplificado
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Right Column: PDF Preview Column */}
             <div className="flex-1 w-full space-y-4">
               
               {/* Info Banner */}
-              <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm flex items-center justify-between no-print">
+              <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm flex items-center justify-between no-print flex-wrap gap-3">
                 <div>
                   <h3 className="font-bold text-xs text-slate-800">
-                    Vista Previa ({printMode === 'full' ? 'Completo con todo' : 'Simplificado: Análisis + Fotos'})
+                    Vista Previa ({printMode === 'full' ? 'Completo' : 'Simplificado'})
                   </h3>
                   <p className="text-[10px] text-slate-500">Muestra el diseño exacto que se exportará al PDF.</p>
                 </div>
-                <button
-                  onClick={() => setPrintMode(printMode === 'full' ? 'simplified' : 'full')}
-                  className="bg-slate-50 hover:bg-slate-100 text-slate-700 text-[10px] font-extrabold py-1.5 px-3 rounded-lg border border-slate-250 transition-all cursor-pointer flex items-center gap-1"
-                >
-                  <span className="material-symbols-outlined text-[14px]">swap_horiz</span>
-                  Cambiar a {printMode === 'full' ? 'Simplificado' : 'Completo'}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPrintMode(printMode === 'full' ? 'simplified' : 'full')}
+                    className="bg-slate-50 hover:bg-slate-100 text-slate-700 text-[10px] font-extrabold py-1.5 px-3 rounded-lg border border-slate-250 transition-all cursor-pointer flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">swap_horiz</span>
+                    {printMode === 'full' ? 'Simplificado' : 'Completo'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setTimeout(() => { window.print(); }, 150);
+                    }}
+                    className="bg-primary hover:bg-primary-container text-white text-[10px] font-extrabold py-1.5 px-3.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">print</span>
+                    Descargar PDF / Imprimir
+                  </button>
+                </div>
               </div>
 
               {/* A4 Simulator Preview */}
@@ -1139,7 +1153,7 @@ export default function WeeklyReportPanel({
                             onClick={() => setEditingFrenteId(frente.id)}
                             className="bg-primary/5 hover:bg-primary/10 text-primary font-bold text-[10px] py-1.5 px-3 rounded-lg border border-primary/10 transition-all cursor-pointer"
                           >
-                            Editar Reporte
+                            {isContractorMode ? 'Ver Bitácora' : 'Editar Reporte'}
                           </button>
                         </td>
                       </tr>

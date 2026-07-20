@@ -70,7 +70,8 @@ export default function WeeklyFrenteDetail({
   onClose, 
   onSave,
   onSaveWithoutClose,
-  onNavigateFrente
+  onNavigateFrente,
+  isContractorMode
 }) {
   const frente = report?.frentes?.find(f => f.id === frenteId) || null;
 
@@ -470,19 +471,29 @@ export default function WeeklyFrenteDetail({
         </div>
 
         <div className="flex gap-3">
-          <button 
-            onClick={onClose}
-            className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-bold px-4 py-2.5 rounded transition-all"
-          >
-            Cancelar
-          </button>
-          <button 
-            onClick={handleSave}
-            className="bg-primary hover:bg-primary-container text-white text-xs font-bold px-5 py-2.5 rounded shadow transition-all flex items-center gap-1.5"
-          >
-            <CheckCircle2 size={15} />
-            Guardar Cambios
-          </button>
+          {isContractorMode ? (
+            <button 
+              onClick={onClose}
+              className="bg-primary hover:bg-primary-container text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-all shadow cursor-pointer"
+            >
+              Cerrar Vista
+            </button>
+          ) : (
+            <>
+              <button 
+                onClick={onClose}
+                className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-lg transition-all cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleSave}
+                className="bg-primary hover:bg-primary-container text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-all shadow cursor-pointer"
+              >
+                Guardar Cambios
+              </button>
+            </>
+          )}
         </div>
       </section>
 
@@ -511,17 +522,19 @@ export default function WeeklyFrenteDetail({
                   min="0" 
                   max="100" 
                   step="1"
+                  disabled={isContractorMode}
                   value={porcentajeAvance}
                   onChange={(e) => setPorcentajeAvance(Number(e.target.value))}
-                  className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-primary"
+                  className="w-full h-1.5 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-primary disabled:opacity-50"
                 />
                 <input 
                   type="number" 
                   min="0" 
                   max="100"
+                  disabled={isContractorMode}
                   value={porcentajeAvance}
                   onChange={(e) => setPorcentajeAvance(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
-                  className="w-16 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs text-center font-bold font-mono text-slate-700 focus:outline-none focus:bg-white"
+                  className="w-16 bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs text-center font-bold font-mono text-slate-700 focus:outline-none focus:bg-white disabled:bg-slate-100 disabled:text-slate-500"
                 />
               </div>
             </div>
@@ -534,9 +547,10 @@ export default function WeeklyFrenteDetail({
                 <input 
                   type="number"
                   min="0"
+                  disabled={isContractorMode}
                   value={ejecucionPresupuestal}
                   onChange={(e) => setEjecucionPresupuestal(Math.max(0, parseInt(e.target.value) || 0))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded pl-7 pr-3 py-1.5 text-xs font-bold font-mono text-slate-700 focus:bg-white focus:outline-none"
+                  className="w-full bg-slate-50 border border-slate-200 rounded pl-7 pr-3 py-1.5 text-xs font-bold font-mono text-slate-700 focus:bg-white focus:outline-none disabled:bg-slate-100 disabled:text-slate-500"
                   placeholder="Monto de inversión"
                 />
               </div>
@@ -550,8 +564,9 @@ export default function WeeklyFrenteDetail({
               <label className="text-xs font-bold text-slate-650">Estado del PMT</label>
               <select 
                 value={pmtEstado}
+                disabled={isContractorMode}
                 onChange={(e) => setPmtEstado(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-xs font-bold text-slate-700 cursor-pointer focus:bg-white focus:outline-none"
+                className="w-full bg-slate-50 border border-slate-200 rounded px-3 py-2 text-xs font-bold text-slate-700 cursor-pointer focus:bg-white focus:outline-none disabled:bg-slate-100 disabled:text-slate-500"
               >
                 <option value="Aprobado">Aprobado</option>
                 <option value="En revisión">En revisión</option>
@@ -567,83 +582,89 @@ export default function WeeklyFrenteDetail({
                 <div className="relative border border-slate-200 rounded p-1 flex items-center gap-2 bg-slate-50 h-[34px]">
                   <img src={perfilSueloImgUrl} alt="Perfil" className="w-8 h-8 object-cover rounded" />
                   <span className="text-[9px] font-bold text-slate-500 truncate flex-1">Imagen cargada</span>
-                  <button 
-                    type="button"
-                    onClick={() => setPerfilSueloImgUrl('')}
-                    className="p-1 text-red-500 hover:bg-red-50 rounded"
-                    title="Eliminar imagen"
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  {!isContractorMode && (
+                    <button 
+                      type="button"
+                      onClick={() => setPerfilSueloImgUrl('')}
+                      className="p-1 text-red-500 hover:bg-red-50 rounded cursor-pointer"
+                      title="Eliminar imagen"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
                 </div>
               ) : (
-                <label className="flex flex-col items-center justify-center border border-dashed border-slate-300 hover:bg-slate-50 rounded p-1 text-center cursor-pointer min-h-[34px] bg-slate-50/50">
-                  <div className="flex items-center gap-1">
-                    <Plus size={12} className="text-slate-400" />
-                    <span className="text-[9.5px] font-bold text-slate-500">Subir Plano/Diseño</span>
-                  </div>
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        try {
-                          const base64 = await compressImage(file);
-                          const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
-                          const fileName = `perfil_${Date.now()}_${cleanName}`;
-                          
-                          let finalUrl = base64;
-                          
-                          let uploadedToSupabase = false;
-                          if (supabaseConfig && supabaseConfig.supabaseUrl && supabaseConfig.supabaseKey) {
-                            try {
-                              const cloudUrl = await uploadToSupabase(
-                                supabaseConfig.supabaseUrl,
-                                supabaseConfig.supabaseKey,
-                                supabaseConfig.supabaseBucket || 'frentes-fotos',
-                                `semana_${report.numero_semana}/frente_${frente.id}/${fileName}`,
-                                base64
-                              );
-                              finalUrl = cloudUrl;
-                              uploadedToSupabase = true;
-                            } catch (sErr) {
-                              console.error("Error uploading soil profile to Supabase:", sErr);
-                            }
-                          }
-
-                          if (!uploadedToSupabase) {
-                            try {
-                              const response = await fetch('/api/upload-photo', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  semana: report.numero_semana,
-                                  frenteId: frente.id,
-                                  fileName: fileName,
-                                  base64: base64
-                                })
-                              });
-                              if (response.ok) {
-                                const result = await response.json();
-                                const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-                                if (result.url && isLocal) {
-                                  finalUrl = result.url;
-                                }
+                isContractorMode ? (
+                  <span className="text-[10px] italic text-slate-400 mt-1.5 block">Sin plano cargado</span>
+                ) : (
+                  <label className="flex flex-col items-center justify-center border border-dashed border-slate-300 hover:bg-slate-50 rounded p-1 text-center cursor-pointer min-h-[34px] bg-slate-50/50">
+                    <div className="flex items-center gap-1">
+                      <Plus size={12} className="text-slate-400" />
+                      <span className="text-[9.5px] font-bold text-slate-500">Subir Plano/Diseño</span>
+                    </div>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          try {
+                            const base64 = await compressImage(file);
+                            const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+                            const fileName = `perfil_${Date.now()}_${cleanName}`;
+                            
+                            let finalUrl = base64;
+                            
+                            let uploadedToSupabase = false;
+                            if (supabaseConfig && supabaseConfig.supabaseUrl && supabaseConfig.supabaseKey) {
+                              try {
+                                const cloudUrl = await uploadToSupabase(
+                                  supabaseConfig.supabaseUrl,
+                                  supabaseConfig.supabaseKey,
+                                  supabaseConfig.supabaseBucket || 'frentes-fotos',
+                                  `semana_${report.numero_semana}/frente_${frente.id}/${fileName}`,
+                                  base64
+                                );
+                                finalUrl = cloudUrl;
+                                uploadedToSupabase = true;
+                              } catch (sErr) {
+                                console.error("Error uploading soil profile to Supabase:", sErr);
                               }
-                            } catch (apiErr) {
-                              console.warn("Could not save to server, using base64:", apiErr);
                             }
+
+                            if (!uploadedToSupabase) {
+                              try {
+                                const response = await fetch('/api/upload-photo', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    semana: report.numero_semana,
+                                    frenteId: frente.id,
+                                    fileName: fileName,
+                                    base64: base64
+                                  })
+                                });
+                                if (response.ok) {
+                                  const result = await response.json();
+                                  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                                  if (result.url && isLocal) {
+                                    finalUrl = result.url;
+                                  }
+                                }
+                              } catch (apiErr) {
+                                console.warn("Could not save to server, using base64:", apiErr);
+                              }
+                            }
+                            setPerfilSueloImgUrl(finalUrl);
+                          } catch (err) {
+                            console.error("Error uploading soil profile:", err);
                           }
-                          setPerfilSueloImgUrl(finalUrl);
-                        } catch (err) {
-                          console.error("Error uploading soil profile:", err);
                         }
-                      }
-                    }}
-                    className="hidden" 
-                  />
-                </label>
+                      }}
+                      className="hidden" 
+                    />
+                  </label>
+                )
               )}
             </div>
 
@@ -831,8 +852,9 @@ export default function WeeklyFrenteDetail({
 
                 <textarea
                   rows={8}
-                  className="w-full bg-white border border-slate-200 rounded-lg p-3 text-xs leading-relaxed font-semibold focus:outline-none focus:ring-1 focus:ring-primary shadow-sm resize-none"
-                  placeholder={`Describa detalladamente el avance técnico, el clima, maquinaria, ensayos y personal de este día en la obra...`}
+                  disabled={isContractorMode}
+                  className="w-full bg-white border border-slate-200 rounded-lg p-3 text-xs leading-relaxed font-semibold focus:outline-none focus:ring-1 focus:ring-primary shadow-sm resize-none disabled:bg-slate-105 disabled:text-slate-550"
+                  placeholder={isContractorMode ? "Sin novedades registradas este día." : `Describa detalladamente el avance técnico, el clima, maquinaria, ensayos y personal de este día en la obra...`}
                   value={activeDayNote}
                   onChange={(e) => handleActiveDayNoteChange(e.target.value)}
                 />
@@ -851,17 +873,19 @@ export default function WeeklyFrenteDetail({
                     Registro Fotográfico ({activeDayPhotos.length})
                   </h4>
 
-                  <label className="bg-primary/5 hover:bg-primary/10 text-primary border border-primary/15 font-bold text-[10px] px-2.5 py-1 rounded-md cursor-pointer transition-all inline-flex items-center gap-1">
-                    <Plus size={12} />
-                    Subir Fotos
-                    <input 
-                      type="file" 
-                      multiple 
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={handlePhotoUpload}
-                    />
-                  </label>
+                  {!isContractorMode && (
+                    <label className="bg-primary/5 hover:bg-primary/10 text-primary border border-primary/15 font-bold text-[10px] px-2.5 py-1 rounded-md cursor-pointer transition-all inline-flex items-center gap-1">
+                      <Plus size={12} />
+                      Subir Fotos
+                      <input 
+                        type="file" 
+                        multiple 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handlePhotoUpload}
+                      />
+                    </label>
+                  )}
                 </div>
 
                 {activeDayPhotos.length === 0 ? (
@@ -889,22 +913,25 @@ export default function WeeklyFrenteDetail({
                           >
                             <Eye size={12} /> Ampliar
                           </button>
-                          <button
-                            onClick={() => handleDeletePhoto(foto.id)}
-                            className="absolute top-1.5 right-1.5 bg-red-600 hover:bg-red-750 text-white p-1 rounded-full shadow transition-all opacity-0 group-hover:opacity-100"
-                            title="Eliminar"
-                          >
-                            <Trash2 size={11} />
-                          </button>
+                          {!isContractorMode && (
+                            <button
+                              onClick={() => handleDeletePhoto(foto.id)}
+                              className="absolute top-1.5 right-1.5 bg-red-600 hover:bg-red-750 text-white p-1 rounded-full shadow transition-all opacity-0 group-hover:opacity-100 cursor-pointer"
+                              title="Eliminar"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          )}
                         </div>
 
                         <div className="p-2 bg-slate-50/50 flex-1 flex flex-col">
                           <input 
                             type="text"
+                            disabled={isContractorMode}
                             placeholder="Descripción..."
                             value={foto.caption || ''}
                             onChange={(e) => handleUpdateCaption(foto.id, e.target.value)}
-                            className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary mt-auto"
+                            className="w-full bg-white border border-slate-200 rounded px-2 py-1 text-[9px] font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary mt-auto disabled:bg-slate-100 disabled:text-slate-500"
                           />
                         </div>
                       </div>

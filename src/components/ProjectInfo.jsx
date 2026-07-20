@@ -4,7 +4,7 @@ import {
   MapPin, UserCheck, Link as LinkIcon, Edit2, Save, CloudLightning, Loader2
 } from 'lucide-react';
 
-export default function ProjectInfo() {
+export default function ProjectInfo({ isContractorMode }) {
   const [activeTab, setActiveTab] = useState('technical'); // 'technical' or 'legal'
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -100,7 +100,7 @@ export default function ProjectInfo() {
         alert("Ficha de Proyecto guardada y sincronizada correctamente en la base de datos.");
         setIsEditing(false);
       } else {
-        alert("Se guardó localmente. Hubo un problema al subir a la nube.");
+        alert("Guardado localmente. Error al sincronizar con la base de datos de Supabase.");
       }
     } catch (err) {
       console.error(err);
@@ -144,34 +144,36 @@ export default function ProjectInfo() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          {isEditing ? (
-            <>
+        {!isContractorMode && (
+          <div className="flex items-center gap-3">
+            {isEditing ? (
+              <>
+                <button
+                  onClick={() => setIsEditing(false)}
+                  className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition-all cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+                  Guardar Cambios
+                </button>
+              </>
+            ) : (
               <button
-                onClick={() => setIsEditing(false)}
-                className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition-all cursor-pointer"
+                onClick={() => setIsEditing(true)}
+                className="bg-primary hover:bg-primary/90 text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow"
               >
-                Cancelar
+                <Edit2 size={15} />
+                Editar Ficha Técnica
               </button>
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
-              >
-                {isSaving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-                Guardar Cambios
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => setIsEditing(true)}
-              className="bg-primary hover:bg-primary/90 text-white text-xs font-bold px-5 py-2.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shadow"
-            >
-              <Edit2 size={15} />
-              Editar Ficha Técnica
-            </button>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Main Tab selector bar */}

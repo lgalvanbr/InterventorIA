@@ -80,7 +80,8 @@ export default function ProjectDetail({
   isUnified = false,
   activeFrenteId: controlledActiveFrenteId = null,
   onFrenteSelect: controlledOnFrenteSelect = null,
-  onResetToUnified = null
+  onResetToUnified = null,
+  isContractorMode
 }) {
   const [localActiveFrenteId, setLocalActiveFrenteId] = useState(
     project.frentes && project.frentes.length > 0 ? project.frentes[0].id : null
@@ -396,6 +397,7 @@ export default function ProjectDetail({
                 frente={activeFrente} 
                 onUpdateCompliance={handleUpdateCompliance}
                 onUpdateFrenteData={handleUpdateFrenteData}
+                isContractorMode={isContractorMode}
               />
               
               {/* Image logs photo gallery */}
@@ -403,6 +405,7 @@ export default function ProjectDetail({
                 frente={activeFrente}
                 onAddPhoto={handleAddPhoto}
                 onDeletePhoto={handleDeletePhoto}
+                isContractorMode={isContractorMode}
               />
             </>
           ) : (
@@ -448,7 +451,7 @@ export default function ProjectDetail({
               </div>
             )}
 
-            {!isUnified && (
+            {!isUnified && !isContractorMode && (
               <button 
                 onClick={() => setShowFrenteModal(true)}
                 className="bg-primary text-on-primary font-bold text-[11px] px-3 py-1.5 rounded hover:bg-primary-container transition-all flex items-center gap-1"

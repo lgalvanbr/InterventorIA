@@ -14,7 +14,7 @@ const COMPONENT_METADATA = {
   sst: { label: 'SST', icon: ShieldAlert, color: '#f59e0b' },
 };
 
-export default function ComplianceTabs({ frente, onUpdateCompliance, onUpdateFrenteData }) {
+export default function ComplianceTabs({ frente, onUpdateCompliance, onUpdateFrenteData, isContractorMode }) {
   const [activeTab, setActiveTab] = useState('tecnico');
   const [savedMessage, setSavedMessage] = useState('');
 
@@ -213,13 +213,16 @@ export default function ComplianceTabs({ frente, onUpdateCompliance, onUpdateFre
             {currentData.checklist.map((item) => (
               <div 
                 key={item.id} 
-                onClick={() => handleCheckboxToggle(item.id)}
-                className="flex items-start gap-3 p-3 bg-slate-50/50 border border-slate-200 rounded cursor-pointer transition-all hover:bg-slate-50"
+                onClick={() => !isContractorMode && handleCheckboxToggle(item.id)}
+                className={`flex items-start gap-3 p-3 bg-slate-50/50 border border-slate-200 rounded transition-all ${
+                  isContractorMode ? 'cursor-default' : 'cursor-pointer hover:bg-slate-50'
+                }`}
               >
                 <input 
                   type="checkbox" 
                   className="rounded border-slate-300 text-primary focus:ring-primary mt-0.5" 
                   checked={item.checked}
+                  disabled={isContractorMode}
                   onChange={() => {}} // Controlled click on card
                 />
                 <div>
@@ -246,50 +249,52 @@ export default function ComplianceTabs({ frente, onUpdateCompliance, onUpdateFre
               </h4>
 
               {/* Add Concrete Test Form */}
-              <form onSubmit={handleAddConcreteTest} className="grid grid-cols-2 gap-3 mb-4 border-b border-slate-100 pb-4">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Fecha Ensayo</label>
-                  <input 
-                    type="date" 
-                    required 
-                    className="w-full bg-white border border-slate-200 rounded text-xs p-1.5 focus:ring-1 focus:ring-primary focus:outline-none" 
-                    value={testDate}
-                    onChange={(e) => setTestDate(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Cilindro MPa Requerido</label>
-                  <select 
-                    className="w-full bg-white border border-slate-200 rounded text-xs p-1.5 focus:ring-1 focus:ring-primary focus:outline-none" 
-                    value={strengthRequired}
-                    onChange={(e) => {
-                      setStrengthRequired(e.target.value);
-                      setMixDesign(e.target.value === '28' ? '4000 PSI (28 MPa)' : e.target.value === '21' ? '3000 PSI (21 MPa)' : '3500 PSI (24 MPa)');
-                    }}
-                  >
-                    <option value="28">28 MPa (4000 PSI)</option>
-                    <option value="21">21 MPa (3000 PSI)</option>
-                    <option value="24">24 MPa (3500 PSI)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Rotura Laboratorio (MPa)</label>
-                  <input 
-                    type="number" 
-                    step="0.1" 
-                    required 
-                    placeholder="Ej. 29.2" 
-                    className="w-full bg-white border border-slate-200 rounded text-xs p-1.5 font-mono-numbers focus:ring-1 focus:ring-primary focus:outline-none" 
-                    value={strengthResult}
-                    onChange={(e) => setStrengthResult(e.target.value)}
-                  />
-                </div>
-                <div className="flex items-end">
-                  <button type="submit" className="w-full bg-[#00236f] text-white text-xs font-bold py-2 rounded transition-transform active:scale-95 flex items-center justify-center gap-1">
-                    <Plus size={12} /> Registrar Ensayo
-                  </button>
-                </div>
-              </form>
+              {!isContractorMode && (
+                <form onSubmit={handleAddConcreteTest} className="grid grid-cols-2 gap-3 mb-4 border-b border-slate-100 pb-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Fecha Ensayo</label>
+                    <input 
+                      type="date" 
+                      required 
+                      className="w-full bg-white border border-slate-200 rounded text-xs p-1.5 focus:ring-1 focus:ring-primary focus:outline-none" 
+                      value={testDate}
+                      onChange={(e) => setTestDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Cilindro MPa Requerido</label>
+                    <select 
+                      className="w-full bg-white border border-slate-200 rounded text-xs p-1.5 focus:ring-1 focus:ring-primary focus:outline-none" 
+                      value={strengthRequired}
+                      onChange={(e) => {
+                        setStrengthRequired(e.target.value);
+                        setMixDesign(e.target.value === '28' ? '4000 PSI (28 MPa)' : e.target.value === '21' ? '3000 PSI (21 MPa)' : '3500 PSI (24 MPa)');
+                      }}
+                    >
+                      <option value="28">28 MPa (4000 PSI)</option>
+                      <option value="21">21 MPa (3000 PSI)</option>
+                      <option value="24">24 MPa (3500 PSI)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Rotura Laboratorio (MPa)</label>
+                    <input 
+                      type="number" 
+                      step="0.1" 
+                      required 
+                      placeholder="Ej. 29.2" 
+                      className="w-full bg-white border border-slate-200 rounded text-xs p-1.5 font-mono-numbers focus:ring-1 focus:ring-primary focus:outline-none" 
+                      value={strengthResult}
+                      onChange={(e) => setStrengthResult(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <button type="submit" className="w-full bg-[#00236f] text-white text-xs font-bold py-2 rounded transition-transform active:scale-95 flex items-center justify-center gap-1">
+                      <Plus size={12} /> Registrar Ensayo
+                    </button>
+                  </div>
+                </form>
+              )}
 
               {/* Concrete Tests Log Table */}
               <div className="overflow-x-auto max-h-48">
@@ -300,13 +305,13 @@ export default function ComplianceTabs({ frente, onUpdateCompliance, onUpdateFre
                       <th className="pb-1.5">Requerido</th>
                       <th className="pb-1.5">Resultado</th>
                       <th className="pb-1.5">Estado</th>
-                      <th className="pb-1.5 text-right">Acción</th>
+                      {!isContractorMode && <th className="pb-1.5 text-right">Acción</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {concreteTests.length === 0 ? (
                       <tr>
-                        <td colSpan="5" className="text-slate-400 italic py-2 text-center">No se han registrado ensayos de rotura.</td>
+                        <td colSpan={isContractorMode ? "4" : "5"} className="text-slate-400 italic py-2 text-center">No se han registrado ensayos de rotura.</td>
                       </tr>
                     ) : (
                       concreteTests.map((t) => (
@@ -321,11 +326,13 @@ export default function ComplianceTabs({ frente, onUpdateCompliance, onUpdateFre
                               {t.status === 'passed' ? 'Aprobado' : 'Falla'}
                             </span>
                           </td>
-                          <td className="py-2 text-right">
-                            <button onClick={() => handleDeleteConcreteTest(t.id)} className="text-red-500 hover:text-red-700">
-                              <Trash2 size={12} />
-                            </button>
-                          </td>
+                          {!isContractorMode && (
+                            <td className="py-2 text-right">
+                              <button onClick={() => handleDeleteConcreteTest(t.id)} className="text-red-500 hover:text-red-700">
+                                <Trash2 size={12} />
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       ))
                     )}
@@ -348,7 +355,8 @@ export default function ComplianceTabs({ frente, onUpdateCompliance, onUpdateFre
                   <label className="text-[10px] font-bold text-slate-400 block mb-1 uppercase">Horas de Maquinaria Pesada</label>
                   <input 
                     type="number" 
-                    className="w-full bg-white border border-slate-200 rounded p-1.5 font-mono-numbers" 
+                    disabled={isContractorMode}
+                    className="w-full bg-white border border-slate-200 rounded p-1.5 font-mono-numbers disabled:bg-slate-100 disabled:text-slate-500" 
                     value={paga.machineryHours || 15}
                     onChange={(e) => handlePagaChange('machineryHours', e.target.value)}
                   />
@@ -363,7 +371,8 @@ export default function ComplianceTabs({ frente, onUpdateCompliance, onUpdateFre
                   <label className="text-[10px] font-bold text-slate-400 block mb-1 uppercase">Mano de Obra Local (%)</label>
                   <input 
                     type="number" 
-                    className="w-full bg-white border border-slate-200 rounded p-1.5 font-mono-numbers" 
+                    disabled={isContractorMode}
+                    className="w-full bg-white border border-slate-200 rounded p-1.5 font-mono-numbers disabled:bg-slate-100 disabled:text-slate-500" 
                     value={paga.localLabor || 80}
                     onChange={(e) => handlePagaChange('localLabor', e.target.value)}
                   />
@@ -372,7 +381,8 @@ export default function ComplianceTabs({ frente, onUpdateCompliance, onUpdateFre
                   <label className="text-[10px] font-bold text-slate-400 block mb-1 uppercase">Cuota de Equidad de Género (%)</label>
                   <input 
                     type="number" 
-                    className="w-full bg-white border border-slate-200 rounded p-1.5 font-mono-numbers" 
+                    disabled={isContractorMode}
+                    className="w-full bg-white border border-slate-200 rounded p-1.5 font-mono-numbers disabled:bg-slate-100 disabled:text-slate-500" 
                     value={paga.femaleLabor || 25}
                     onChange={(e) => handlePagaChange('femaleLabor', e.target.value)}
                   />
@@ -401,7 +411,8 @@ export default function ComplianceTabs({ frente, onUpdateCompliance, onUpdateFre
                   <label className="text-[10px] font-bold text-slate-400 block mb-1 uppercase">Presupuesto Asignado Frente ($ COP)</label>
                   <input 
                     type="number" 
-                    className="w-full bg-white border border-slate-200 rounded p-1.5 font-mono-numbers" 
+                    disabled={isContractorMode}
+                    className="w-full bg-white border border-slate-200 rounded p-1.5 font-mono-numbers disabled:bg-slate-100 disabled:text-slate-500" 
                     value={financial.totalBudget || 500000000}
                     onChange={(e) => handleFinancieroChange('totalBudget', e.target.value)}
                   />
@@ -410,7 +421,8 @@ export default function ComplianceTabs({ frente, onUpdateCompliance, onUpdateFre
                   <label className="text-[10px] font-bold text-slate-400 block mb-1 uppercase">Presupuesto Ejecutado ($ COP)</label>
                   <input 
                     type="number" 
-                    className="w-full bg-white border border-slate-200 rounded p-1.5 font-mono-numbers" 
+                    disabled={isContractorMode}
+                    className="w-full bg-white border border-slate-200 rounded p-1.5 font-mono-numbers disabled:bg-slate-100 disabled:text-slate-500" 
                     value={financial.executedBudget || 150000000}
                     onChange={(e) => handleFinancieroChange('executedBudget', e.target.value)}
                   />
@@ -419,7 +431,8 @@ export default function ComplianceTabs({ frente, onUpdateCompliance, onUpdateFre
                   <label className="text-[10px] font-bold text-slate-400 block mb-1 uppercase">Amortización de Anticipo (%)</label>
                   <input 
                     type="number" 
-                    className="w-full bg-white border border-slate-200 rounded p-1.5 font-mono-numbers" 
+                    disabled={isContractorMode}
+                    className="w-full bg-white border border-slate-200 rounded p-1.5 font-mono-numbers disabled:bg-slate-100 disabled:text-slate-500" 
                     value={financial.advanceAmortized || 20}
                     onChange={(e) => handleFinancieroChange('advanceAmortized', e.target.value)}
                   />
@@ -488,22 +501,25 @@ export default function ComplianceTabs({ frente, onUpdateCompliance, onUpdateFre
           )}
         </div>
         <textarea
-          className="w-full bg-slate-50 border border-slate-200 rounded p-3 text-xs text-slate-700 focus:ring-1 focus:ring-primary focus:outline-none leading-relaxed"
+          disabled={isContractorMode}
+          className="w-full bg-slate-50 border border-slate-200 rounded p-3 text-xs text-slate-700 focus:ring-1 focus:ring-primary focus:outline-none leading-relaxed disabled:bg-slate-100 disabled:text-slate-500"
           rows="4"
-          placeholder={`Escribe aquí las observaciones técnicas, hallazgos, recomendaciones o justificaciones del componente ${COMPONENT_METADATA[activeTab].label.toLowerCase()} de este frente de obra...`}
+          placeholder={isContractorMode ? "Sin observaciones registradas." : `Escribe aquí las observaciones técnicas, hallazgos, recomendaciones o justificaciones del componente ${COMPONENT_METADATA[activeTab].label.toLowerCase()} de este frente de obra...`}
           value={currentData.notes || ''}
           onChange={handleNotesChange}
         />
-        <div className="mt-3.5 flex justify-end">
-          <button 
-            type="button" 
-            className="bg-white border border-slate-300 text-slate-700 font-bold text-xs px-4 py-2 rounded hover:bg-slate-50 flex items-center gap-1.5 transition-colors shadow-sm" 
-            onClick={triggerSaveNotification}
-          >
-            <Save size={13} />
-            Asentar en Bitácora
-          </button>
-        </div>
+        {!isContractorMode && (
+          <div className="mt-3.5 flex justify-end">
+            <button 
+              type="button" 
+              className="bg-white border border-slate-300 text-slate-700 font-bold text-xs px-4 py-2 rounded hover:bg-slate-50 flex items-center gap-1.5 transition-colors shadow-sm" 
+              onClick={triggerSaveNotification}
+            >
+              <Save size={13} />
+              Asentar en Bitácora
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -255,6 +255,7 @@ export default function App() {
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isInspectorMode, setIsInspectorMode] = useState(false);
+  const [isContractorMode, setIsContractorMode] = useState(false);
   const [designOverrides, setDesignOverrides] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('geo_interventoria_design_overrides') || '{}');
@@ -379,6 +380,9 @@ export default function App() {
     if (params.get('mode') === 'inspector') {
       setIsInspectorMode(true);
       setView('inspector-portal');
+    } else if (params.get('mode') === 'contractor') {
+      setIsContractorMode(true);
+      setView('dashboard');
     } else if (params.get('mode') === 'map') {
       setView('map-only');
     }
@@ -516,6 +520,7 @@ export default function App() {
           onMouseLeave={() => setIsSidebarHovered(false)}
           isMobileOpen={isMobileSidebarOpen}
           onCloseMobile={() => setIsMobileSidebarOpen(false)}
+          isContractorMode={isContractorMode}
         />
       )}
 
@@ -533,7 +538,9 @@ export default function App() {
             </button>
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-primary text-xl font-bold">construction</span>
-              <span className="font-headline-md text-sm font-black text-primary tracking-tight">INCOLTA SAS</span>
+              <span className="font-headline-md text-sm font-black text-primary tracking-tight">
+                {isContractorMode ? 'INCOLTA • Hub Contratista' : 'INCOLTA SAS'}
+              </span>
             </div>
           </header>
         )}
@@ -542,12 +549,14 @@ export default function App() {
             projects={projects} 
             onSelectProject={handleSelectProject} 
             onAddProject={handleAddProject}
+            isContractorMode={isContractorMode}
           />
         )}
 
         {view === 'project-detail' && (
           <ProjectDetail 
             project={activeProject || getUnifiedProject()} 
+            isContractorMode={isContractorMode}
             onBack={() => {
               setView('dashboard');
               setActiveProjectId(null);
@@ -594,13 +603,14 @@ export default function App() {
         )}
 
         {view === 'project-info' && (
-          <ProjectInfo />
+          <ProjectInfo isContractorMode={isContractorMode} />
         )}
 
         {view === 'weekly-reports' && (
           <WeeklyReports 
             weeklyReports={weeklyReports}
             onUpdateReports={handleUpdateWeeklyReports}
+            isContractorMode={isContractorMode}
             onNavigateToDetail={(reportId, frenteId) => {
               setSelectedReportId(reportId);
               setSelectedDetailFrenteId(frenteId);
@@ -617,6 +627,7 @@ export default function App() {
             allFrentes={projects.flatMap(p => p.frentes || [])}
             designOverrides={designOverrides}
             onUpdateDesignOverrides={handleUpdateDesignOverrides}
+            isContractorMode={isContractorMode}
             onClose={() => {
               setView('weekly-reports');
               setSelectedReportId(null);

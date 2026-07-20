@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Camera, Image as ImageIcon, Upload, X, Trash2, Calendar, Tag, AlertCircle } from 'lucide-react';
 
-export default function PhotoGallery({ frente, onAddPhoto, onDeletePhoto }) {
+export default function PhotoGallery({ frente, onAddPhoto, onDeletePhoto, isContractorMode }) {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
@@ -140,7 +140,7 @@ export default function PhotoGallery({ frente, onAddPhoto, onDeletePhoto }) {
       </div>
 
       {/* Upload Box */}
-      {!isUploading ? (
+      {!isContractorMode && !isUploading ? (
         <div 
           className="upload-area" 
           onClick={() => fileInputRef.current.click()}
@@ -298,19 +298,21 @@ export default function PhotoGallery({ frente, onAddPhoto, onDeletePhoto }) {
             </div>
 
             <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
-              <button 
-                type="button" 
-                className="btn btn-danger"
-                onClick={() => {
-                  if (confirm('¿Estás seguro de que deseas eliminar este registro fotográfico documental?')) {
-                    onDeletePhoto(frente.id, activePhoto.id);
-                    setActivePhoto(null);
-                  }
-                }}
-                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '0.5rem 1rem' }}
-              >
-                <Trash2 size={14} /> Eliminar Evidencia
-              </button>
+              {!isContractorMode && (
+                <button 
+                  type="button" 
+                  className="btn btn-danger"
+                  onClick={() => {
+                    if (confirm('¿Estás seguro de que deseas eliminar este registro fotográfico documental?')) {
+                      onDeletePhoto(frente.id, activePhoto.id);
+                      setActivePhoto(null);
+                    }
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '0.5rem 1rem' }}
+                >
+                  <Trash2 size={14} /> Eliminar Evidencia
+                </button>
+              )}
               <button onClick={() => setActivePhoto(null)} className="btn btn-secondary">Cerrar</button>
             </div>
           </div>

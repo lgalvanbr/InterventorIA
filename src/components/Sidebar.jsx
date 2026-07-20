@@ -8,19 +8,33 @@ export default function Sidebar({
   onMouseEnter,
   onMouseLeave,
   isMobileOpen,
-  onCloseMobile
+  onCloseMobile,
+  isContractorMode
 }) {
-  const menuItems = [
+  const baseMenuItems = [
     { id: 'dashboard', label: 'Proyectos de Obra', icon: 'assignment' },
     { id: 'project-detail', label: 'Mapa y Frentes', icon: 'map' },
     { id: 'frentes-control', label: 'Control de Frentes', icon: 'layers' },
     { id: 'project-info', label: 'Ficha de Proyecto', icon: 'info' },
+    { id: 'weekly-reports', label: 'Informes Semanales', icon: 'history' }
+  ];
+
+  const internalMenuItems = [
     { id: 'reports', label: 'Actas y Reportes', icon: 'description' },
-    { id: 'weekly-reports', label: 'Informes Semanales', icon: 'history' },
+    { id: 'contractor-hub', label: 'Compartir Hub Contratista', icon: 'share', isAction: true },
     { id: 'inspector-portal', label: 'Portal Inspectores', icon: 'share_location', isAction: true },
     { id: 'engineers', label: 'Perfiles de Ingenieros', icon: 'badge' },
     { id: 'config', label: 'Configuración', icon: 'settings' }
   ];
+
+  const menuItems = isContractorMode 
+    ? baseMenuItems 
+    : [
+        ...baseMenuItems.slice(0, 4), // Proyectos, Mapa, Control, Ficha
+        internalMenuItems[0],          // Actas y Reportes
+        baseMenuItems[4],             // Informes Semanales
+        ...internalMenuItems.slice(1)  // Compartir, Inspectores, Ingenieros, Config
+      ];
 
   const handleItemClick = (item) => {
     if (item.isAction) {
@@ -28,6 +42,11 @@ export default function Sidebar({
         const portalUrl = `${window.location.origin}/?mode=inspector`;
         navigator.clipboard.writeText(portalUrl)
           .then(() => alert(`¡Enlace copiado al portapapeles!\n\nComparte este link por WhatsApp o correo con los inspectores de obra para que reporten fotos y notas:\n\n${portalUrl}`))
+          .catch(() => alert(`Por favor, copia y comparte este enlace:\n\n${portalUrl}`));
+      } else if (item.id === 'contractor-hub') {
+        const portalUrl = `${window.location.origin}/?mode=contractor`;
+        navigator.clipboard.writeText(portalUrl)
+          .then(() => alert(`¡Enlace del Hub del Contratista copiado!\n\nComparte este enlace con el contratista de obra para que consulte los mapas, planos y reportes semanales en modo de lectura:\n\n${portalUrl}`))
           .catch(() => alert(`Por favor, copia y comparte este enlace:\n\n${portalUrl}`));
       }
     } else {
@@ -69,7 +88,9 @@ export default function Sidebar({
             <h1 className="font-headline-md text-base font-extrabold text-primary tracking-tight leading-none">
               INCOLTA SAS
             </h1>
-            <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mt-1">Portal de Interventoría</p>
+            <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mt-1">
+              {isContractorMode ? 'Hub del Contratista' : 'Portal de Interventoría'}
+            </p>
           </div>
         )}
       </div>
@@ -120,13 +141,19 @@ export default function Sidebar({
       <div className={`border-t border-slate-200 bg-slate-50/50 flex items-center overflow-hidden ${
         isExpanded ? 'p-4 gap-3' : 'p-3 justify-center'
       }`}>
-        <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-bold text-sm shadow-sm shrink-0">
-          LG
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-sm shrink-0 ${
+          isContractorMode ? 'bg-amber-600 text-white' : 'bg-primary text-white'
+        }`}>
+          {isContractorMode ? 'CO' : 'LG'}
         </div>
         {isExpanded && (
           <div className="animate-fade-in min-w-0">
-            <p className="text-sm font-bold text-slate-800 truncate leading-tight">Ing. Luis Carlos Galvan</p>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-0.5 truncate">Director de Interventoría</p>
+            <p className="text-sm font-bold text-slate-800 truncate leading-tight">
+              {isContractorMode ? 'Contratista de Obra' : 'Ing. Luis Carlos Galvan'}
+            </p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-0.5 truncate">
+              {isContractorMode ? 'Consorcio Vial Usaquén' : 'Director de Interventoría'}
+            </p>
           </div>
         )}
       </div>
