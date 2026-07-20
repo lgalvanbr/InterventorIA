@@ -70,8 +70,9 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'map'
   
   // Lightbox State
-  const [lightboxPhotos, setLightboxPhotos] = useState(null);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [lightboxPhotos, setLightboxPhotos] = useState(null); // stores all photos for active frente
+  const [lightboxIndex, setLightboxIndex] = useState(0);      // index inside visiblePhotos
+  const [selectedLightboxWeek, setSelectedLightboxWeek] = useState('all'); // 'all' or week number
 
   // Compile all active frentes across all projects
   const frentes = projects.flatMap(proj => {
@@ -107,7 +108,8 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
           photos.push({
             ...photo,
             semana: report.numero_semana,
-            fechaCorte: report.fecha_final_corte
+            fechaCorte: report.fecha_final_corte,
+            fechaInicial: report.fecha_inicial_corte
           });
         });
       }
@@ -132,15 +134,48 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
     );
   });
 
+  // Lightbox opening handler
+  const handleOpenLightbox = (photosList, photoIndex) => {
+    const clickedPhoto = photosList[photoIndex];
+    setLightboxPhotos(photosList);
+    setSelectedLightboxWeek(clickedPhoto.semana); // filter lightbox to the week of the clicked photo
+    
+    // Find index of clicked photo within that week's photos
+    const weekPhotos = photosList.filter(p => p.semana === clickedPhoto.semana);
+    const indexInWeek = weekPhotos.findIndex(p => p.id === clickedPhoto.id);
+    setLightboxIndex(indexInWeek >= 0 ? indexInWeek : 0);
+  };
+
+  // Get active photo list based on week filter
+  const getVisiblePhotos = () => {
+    if (!lightboxPhotos) return [];
+    if (selectedLightboxWeek === 'all') return lightboxPhotos;
+    return lightboxPhotos.filter(p => p.semana === Number(selectedLightboxWeek));
+  };
+
+  const visiblePhotos = getVisiblePhotos();
+  const activePhoto = visiblePhotos[lightboxIndex] || visiblePhotos[0] || null;
+
   // Lightbox handlers
   const handlePrevPhoto = () => {
-    if (!lightboxPhotos) return;
-    setLightboxIndex(prev => (prev === 0 ? lightboxPhotos.length - 1 : prev - 1));
+    if (visiblePhotos.length <= 1) return;
+    setLightboxIndex(prev => (prev === 0 ? visiblePhotos.length - 1 : prev - 1));
   };
 
   const handleNextPhoto = () => {
-    if (!lightboxPhotos) return;
-    setLightboxIndex(prev => (prev === lightboxPhotos.length - 1 ? 0 : prev + 1));
+    if (visiblePhotos.length <= 1) return;
+    setLightboxIndex(prev => (prev === visiblePhotos.length - 1 ? 0 : prev + 1));
+  };
+
+  const handleWeekChange = (weekVal) => {
+    setSelectedLightboxWeek(weekVal);
+    setLightboxIndex(0); // reset page index on week change
+  };
+
+  // Unique weeks list with photos for active lightbox
+  const getLightboxWeeks = () => {
+    if (!lightboxPhotos) return [];
+    return [...new Set(lightboxPhotos.map(p => p.semana))].sort((a, b) => b - a);
   };
 
   return (
@@ -265,11 +300,40 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
 
                   <hr className="border-slate-100 mb-4" />
 
+                  {/* Georreferenciación & Diseño Info Blocks */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    {/* Georreferenciación */}
+                    <div className="text-[9.5px] bg-slate-50 border border-slate-150 rounded-lg p-2.5 space-y-1">
+                      <span className="font-bold text-slate-450 uppercase tracking-wider block">Georreferenciación</span>
+                      <div className="flex flex-col gap-0.5 text-slate-650 font-semibold leading-relaxed">
+                        <div>
+                          Límites: <strong className="text-slate-900">{frente.desde || 'N/A'} - {frente.hasta || 'N/A'}</strong>
+                        </div>
+                        <div>
+                          Coords: <strong className="text-slate-900 font-mono-numbers">{frente.lat?.toFixed(5) || 'N/A'}, {frente.lng?.toFixed(5) || 'N/A'}</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Diseño Resumen */}
+                    <div className="text-[9.5px] bg-slate-50 border border-slate-150 rounded-lg p-2.5 space-y-1">
+                      <span className="font-bold text-slate-450 uppercase tracking-wider block">Ficha de Diseño</span>
+                      <div className="flex flex-col gap-0.5 text-slate-655 font-semibold leading-relaxed">
+                        <div>
+                          Grupo: <strong className="text-slate-900">{design?.grupo || 'N/A'}</strong>
+                        </div>
+                        <div className="truncate" title={design?.tecnologia_aprobada}>
+                          Tipo: <strong className="text-slate-900">{design?.tecnologia_aprobada ? design.tecnologia_aprobada.split(' ')[0] : 'N/A'}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Physical Progress indicator */}
                   <div className="space-y-1.5 mb-4">
                     <div className="flex justify-between items-center text-[10.5px] font-extrabold text-slate-700">
                       <span>Progreso Físico Real</span>
-                      <span className="text-emerald-700">{frente.progress}%</span>
+                      <span className="text-emerald-700 font-mono-numbers">{frente.progress}%</span>
                     </div>
                     <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
                       <div 
@@ -281,11 +345,11 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
 
                   {/* Approved Layers - Technical Didactic visual */}
                   <div className="space-y-1.5 mb-4">
-                    <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block">Diseño Aprobado Interventoría</span>
+                    <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block">Capas de Suelo Aprobadas</span>
                     {design ? (
                       <LayerStack layers={design.paquete_estructural_capas} />
                     ) : (
-                      <div className="text-[9px] text-slate-450 italic bg-slate-50 p-2 rounded border border-slate-150 text-center">
+                      <div className="text-[9px] text-slate-455 italic bg-slate-50 p-2 rounded border border-slate-150 text-center">
                         Sin paquete de capas especificado.
                       </div>
                     )}
@@ -300,19 +364,17 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                         <span>Galería Reciente</span>
                         <span>({photos.length} fotos)</span>
                       </div>
-                      <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-slate-300">
+                      <div className="flex gap-2.5 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-slate-300">
                         {photos.map((photo, pIdx) => (
                           <div 
                             key={photo.id}
-                            onClick={() => {
-                              setLightboxPhotos(photos);
-                              setLightboxIndex(pIdx);
-                            }}
-                            className="w-14 h-14 rounded-lg overflow-hidden border border-slate-200 shadow-2xs shrink-0 cursor-pointer hover:border-primary transition-all relative group bg-slate-900"
+                            onClick={() => handleOpenLightbox(photos, pIdx)}
+                            className="w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-2xs shrink-0 cursor-pointer hover:border-primary transition-all relative group bg-slate-900"
                           >
                             <img src={photo.url} alt={photo.caption} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                            <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                              <Eye size={12} className="text-white" />
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-0.5 text-white">
+                              <Eye size={12} />
+                              <span className="text-[7.5px] font-black uppercase tracking-wider">Ver Foto</span>
                             </div>
                             <div className="absolute bottom-0 inset-x-0 bg-slate-900/65 text-[7.5px] text-white text-center font-bold font-mono">
                               Sem {photo.semana}
@@ -322,7 +384,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                       </div>
                     </div>
                   ) : (
-                    <div className="text-[9.5px] text-slate-455 italic bg-slate-50/50 p-2.5 rounded-lg border border-slate-150 border-dashed text-center">
+                    <div className="text-[9.5px] text-slate-450 italic bg-slate-50/50 p-2.5 rounded-lg border border-slate-150 border-dashed text-center">
                       No hay registros fotográficos cargados.
                     </div>
                   )}
@@ -335,47 +397,68 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
       )}
 
       {/* 4. LIGHTBOX Carousel Modal */}
-      {lightboxPhotos && lightboxPhotos.length > 0 && (
+      {lightboxPhotos && lightboxPhotos.length > 0 && activePhoto && (
         <div className="fixed inset-0 z-50 bg-slate-950/95 flex flex-col items-center justify-center p-4 select-none">
           {/* Top Info Header */}
           <div className="absolute top-4 left-4 right-4 flex justify-between items-center text-white z-10">
-            <div>
-              <h4 className="font-extrabold font-headline text-sm text-slate-105">
+            <div className="space-y-1">
+              <h4 className="font-extrabold font-headline text-sm text-slate-100">
                 Visualizador del Hub de Frentes
               </h4>
               <p className="text-[10px] text-slate-450 font-bold font-mono">
-                Semana {lightboxPhotos[lightboxIndex].semana} — Registrada: {lightboxPhotos[lightboxIndex].date}
+                Semana {activePhoto.semana} — Período: {activePhoto.fechaInicial || 'N/A'} al {activePhoto.fechaCorte || 'N/A'} — Registrada: {activePhoto.date}
               </p>
             </div>
-            
-            <button 
-              onClick={() => setLightboxPhotos(null)}
-              className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full transition-all text-slate-300 hover:text-white cursor-pointer"
-            >
-              <X size={18} />
-            </button>
+
+            {/* Weekly Navigation Dropdown inside Lightbox */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1">
+                <span className="text-[10px] text-slate-400 font-bold uppercase">Cambiar Semana:</span>
+                <select
+                  value={selectedLightboxWeek}
+                  onChange={(e) => handleWeekChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                  className="bg-transparent text-white text-xs font-black focus:outline-none cursor-pointer border-none py-0.5 pr-2"
+                >
+                  <option value="all" className="bg-slate-900 text-white">Todas las semanas</option>
+                  {getLightboxWeeks().map(wNum => (
+                    <option key={wNum} value={wNum} className="bg-slate-900 text-white">Semana {wNum}</option>
+                  ))}
+                </select>
+              </div>
+
+              <button 
+                onClick={() => setLightboxPhotos(null)}
+                className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full transition-all text-slate-300 hover:text-white cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
 
           {/* Left Arrow */}
-          <button 
-            onClick={handlePrevPhoto}
-            className="absolute left-6 top-1/2 -translate-y-1/2 p-3 bg-slate-900/60 hover:bg-slate-850 text-white rounded-full transition-all border border-slate-800 shadow cursor-pointer z-10"
-          >
-            <ChevronLeft size={24} />
-          </button>
+          {visiblePhotos.length > 1 && (
+            <button 
+              onClick={handlePrevPhoto}
+              className="absolute left-6 top-1/2 -translate-y-1/2 p-3 bg-slate-900/60 hover:bg-slate-850 text-white rounded-full transition-all border border-slate-800 shadow cursor-pointer z-10"
+            >
+              <ChevronLeft size={24} />
+            </button>
+          )}
 
           {/* Right Arrow */}
-          <button 
-            onClick={handleNextPhoto}
-            className="absolute right-6 top-1/2 -translate-y-1/2 p-3 bg-slate-900/60 hover:bg-slate-850 text-white rounded-full transition-all border border-slate-800 shadow cursor-pointer z-10"
-          >
-            <ChevronRight size={24} />
-          </button>
+          {visiblePhotos.length > 1 && (
+            <button 
+              onClick={handleNextPhoto}
+              className="absolute right-6 top-1/2 -translate-y-1/2 p-3 bg-slate-900/60 hover:bg-slate-850 text-white rounded-full transition-all border border-slate-800 shadow cursor-pointer z-10"
+            >
+              <ChevronRight size={24} />
+            </button>
+          )}
 
           {/* Large Image container */}
-          <div className="max-w-4xl max-h-[70vh] flex flex-col items-center justify-center p-2">
+          <div className="max-w-4xl max-h-[70vh] flex flex-col items-center justify-center p-2 mt-8">
             <img 
-              src={lightboxPhotos[lightboxIndex].url} 
+              src={activePhoto.url} 
               alt="Ampliada" 
               className="max-w-full max-h-[65vh] object-contain rounded-lg shadow-2xl border border-slate-800"
             />
@@ -384,10 +467,10 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
           {/* Caption Overlay */}
           <div className="mt-6 max-w-2xl text-center px-4 space-y-2">
             <p className="text-white text-xs font-semibold leading-relaxed">
-              {lightboxPhotos[lightboxIndex].caption || <span className="text-slate-550 italic">Sin descripción registrada</span>}
+              {activePhoto.caption || <span className="text-slate-550 italic">Sin descripción registrada</span>}
             </p>
             <div className="flex justify-center items-center gap-2 text-[10px] text-slate-400 font-bold font-mono">
-              <span>Foto {lightboxIndex + 1} de {lightboxPhotos.length}</span>
+              <span>Foto {lightboxIndex + 1} de {visiblePhotos.length}</span>
             </div>
           </div>
         </div>
