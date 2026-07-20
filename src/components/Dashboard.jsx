@@ -1,67 +1,75 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, SlidersHorizontal, Lock, Plus, Calendar, MapPin, 
   Activity, ChevronLeft, ChevronRight, X, Eye, Image as ImageIcon, ArrowRight, Layers
 } from 'lucide-react';
 import { getDisenoForCiv } from '../data/frentesDisenos';
 import MapView from './MapView';
+import L from 'leaflet';
 
-// Soil Layer Visual Stack Component
-function LayerStack({ layers }) {
-  if (!layers || layers.length === 0) {
+// Import Leaflet icons fixes for Vite bundling
+import iconUrl from 'leaflet/dist/images/marker-icon.png';
+import iconShadowUrl from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+  iconUrl,
+  shadowUrl: iconShadowUrl,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+});
+
+// Mini Interactive Map component for each frente card
+function MiniFrenteMap({ lat, lng, frenteId }) {
+  const containerRef = useRef(null);
+  const mapRef = useRef(null);
+
+  useEffect(() => {
+    if (!containerRef.current || !lat || !lng) return;
+    if (mapRef.current) return; // already initialized
+
+    const map = L.map(containerRef.current, {
+      center: [lat, lng],
+      zoom: 14,
+      zoomControl: false,
+      attributionControl: false,
+      dragging: false,
+      scrollWheelZoom: false,
+      doubleClickZoom: false,
+      boxZoom: false,
+      touchZoom: false,
+      keyboard: false
+    });
+
+    mapRef.current = map;
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 20
+    }).addTo(map);
+
+    L.marker([lat, lng], { icon: DefaultIcon }).addTo(map);
+
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, [lat, lng]);
+
+  if (!lat || !lng) {
     return (
-      <div className="text-[10px] text-slate-450 italic bg-slate-50 p-2.5 rounded-lg border border-slate-200 border-dashed text-center">
-        Sin capas de diseño registradas.
+      <div className="w-full h-24 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-[10px] text-slate-400 italic">
+        Sin georreferenciación asignada
       </div>
     );
   }
-  
+
   return (
-    <div className="flex flex-col border border-slate-150 rounded-lg overflow-hidden bg-slate-50 w-full text-[9px] shadow-2xs">
-      {layers.map((layer, idx) => {
-        const hasThickness = layer.espesor_cm > 0;
-        const heightStyle = hasThickness ? `${Math.max(22, layer.espesor_cm * 1.8)}px` : '5px';
-        
-        let bgColor = 'bg-slate-300';
-        let textColor = 'text-slate-800';
-        let patternClass = '';
-        
-        if (layer.tipo_material === 'asfalto') {
-          bgColor = 'bg-slate-800';
-          textColor = 'text-slate-100';
-          patternClass = 'pattern-asphalt';
-        } else if (layer.tipo_material === 'concreto') {
-          bgColor = 'bg-slate-200';
-          textColor = 'text-slate-800';
-          patternClass = 'pattern-concrete';
-        } else if (layer.tipo_material === 'base_cemento') {
-          bgColor = 'bg-amber-100';
-          textColor = 'text-amber-900';
-        } else if (layer.tipo_material === 'geomalla' || layer.tipo_material === 'geocelda') {
-          bgColor = 'bg-indigo-100';
-          textColor = 'text-indigo-950';
-        } else if (layer.tipo_material === 'geotextil' || layer.tipo_material === 'imprimacion') {
-          bgColor = 'bg-slate-400';
-          textColor = 'text-white';
-        } else if (layer.tipo_material === 'arena') {
-          bgColor = 'bg-amber-50';
-          textColor = 'text-amber-950';
-          patternClass = 'pattern-sand';
-        }
-        
-        return (
-          <div 
-            key={idx} 
-            className={`border-b border-white/20 flex items-center justify-between px-2.5 py-0.5 leading-tight font-bold ${bgColor} ${patternClass} ${textColor}`}
-            style={{ minHeight: heightStyle }}
-            title={`${layer.nombre} (${layer.espesor_cm} cm)`}
-          >
-            <span className="truncate max-w-[80%]">{layer.nombre}</span>
-            {hasThickness && <span className="font-mono text-[9px] shrink-0">{layer.espesor_cm} cm</span>}
-          </div>
-        );
-      })}
-    </div>
+    <div 
+      ref={containerRef} 
+      className="w-full h-24 rounded-lg border border-slate-200 overflow-hidden shadow-2xs bg-slate-50 relative z-0" 
+    />
   );
 }
 
@@ -257,6 +265,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredFrentes.map((frente) => {
             const design = getDisenoForCiv(frente.civ);
+            const soilImgUrl = design?.perfil_suelo_img_url || frente.perfil_suelo_img_url;
             const photos = getFrentePhotos(frente.id);
             
             return (
@@ -305,7 +314,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                     {/* Georreferenciación */}
                     <div className="text-[9.5px] bg-slate-50 border border-slate-150 rounded-lg p-2.5 space-y-1">
                       <span className="font-bold text-slate-450 uppercase tracking-wider block">Georreferenciación</span>
-                      <div className="flex flex-col gap-0.5 text-slate-650 font-semibold leading-relaxed">
+                      <div className="flex flex-col gap-0.5 text-slate-655 font-semibold leading-relaxed">
                         <div>
                           Límites: <strong className="text-slate-900">{frente.desde || 'N/A'} - {frente.hasta || 'N/A'}</strong>
                         </div>
@@ -329,6 +338,12 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                     </div>
                   </div>
 
+                  {/* Mini Map */}
+                  <div className="space-y-1.5 mb-4">
+                    <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block">Ubicación Georreferenciada</span>
+                    <MiniFrenteMap lat={frente.lat} lng={frente.lng} frenteId={frente.id} />
+                  </div>
+
                   {/* Physical Progress indicator */}
                   <div className="space-y-1.5 mb-4">
                     <div className="flex justify-between items-center text-[10.5px] font-extrabold text-slate-700">
@@ -343,14 +358,28 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                     </div>
                   </div>
 
-                  {/* Approved Layers - Technical Didactic visual */}
+                  {/* Soil Image - Uploaded Design Table */}
                   <div className="space-y-1.5 mb-4">
-                    <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block">Capas de Suelo Aprobadas</span>
-                    {design ? (
-                      <LayerStack layers={design.paquete_estructural_capas} />
+                    <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block">Diseño Estructura Suelo (Plano Aprobado)</span>
+                    {soilImgUrl ? (
+                      <div className="w-full h-32 rounded-lg overflow-hidden border border-slate-200 shadow-2xs relative bg-slate-100 group">
+                        <img src={soilImgUrl} alt="Estructura de Suelo Aprobada" className="w-full h-full object-cover group-hover:scale-102 transition-transform" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10">
+                          <button
+                            onClick={() => {
+                              setLightboxPhotos([{ id: 'design_soil', url: soilImgUrl, caption: 'Diseño de Estructura de Suelo Aprobado', semana: 'Diseño', date: 'Plano Contractual' }]);
+                              setLightboxIndex(0);
+                              setSelectedLightboxWeek('all');
+                            }}
+                            className="bg-white/95 text-slate-800 text-[10px] font-black px-2.5 py-1.5 rounded-md shadow-sm border border-slate-200 cursor-pointer hover:bg-white transition-all active:scale-95"
+                          >
+                            Ampliar Plano
+                          </button>
+                        </div>
+                      </div>
                     ) : (
-                      <div className="text-[9px] text-slate-455 italic bg-slate-50 p-2 rounded border border-slate-150 text-center">
-                        Sin paquete de capas especificado.
+                      <div className="text-[9.5px] text-slate-400 italic bg-slate-50 p-4 rounded-lg border border-slate-200 border-dashed text-center">
+                        Sin plano de estructura de suelo vinculado.
                       </div>
                     )}
                   </div>
@@ -412,19 +441,21 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
 
             {/* Weekly Navigation Dropdown inside Lightbox */}
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1">
-                <span className="text-[10px] text-slate-400 font-bold uppercase">Cambiar Semana:</span>
-                <select
-                  value={selectedLightboxWeek}
-                  onChange={(e) => handleWeekChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                  className="bg-transparent text-white text-xs font-black focus:outline-none cursor-pointer border-none py-0.5 pr-2"
-                >
-                  <option value="all" className="bg-slate-900 text-white">Todas las semanas</option>
-                  {getLightboxWeeks().map(wNum => (
-                    <option key={wNum} value={wNum} className="bg-slate-900 text-white">Semana {wNum}</option>
-                  ))}
-                </select>
-              </div>
+              {activePhoto.id !== 'design_soil' && (
+                <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1">
+                  <span className="text-[10px] text-slate-400 font-bold uppercase">Cambiar Semana:</span>
+                  <select
+                    value={selectedLightboxWeek}
+                    onChange={(e) => handleWeekChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                    className="bg-transparent text-white text-xs font-black focus:outline-none cursor-pointer border-none py-0.5 pr-2"
+                  >
+                    <option value="all" className="bg-slate-900 text-white">Todas las semanas</option>
+                    {getLightboxWeeks().map(wNum => (
+                      <option key={wNum} value={wNum} className="bg-slate-900 text-white">Semana {wNum}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <button 
                 onClick={() => setLightboxPhotos(null)}
@@ -469,9 +500,11 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
             <p className="text-white text-xs font-semibold leading-relaxed">
               {activePhoto.caption || <span className="text-slate-550 italic">Sin descripción registrada</span>}
             </p>
-            <div className="flex justify-center items-center gap-2 text-[10px] text-slate-400 font-bold font-mono">
-              <span>Foto {lightboxIndex + 1} de {visiblePhotos.length}</span>
-            </div>
+            {activePhoto.id !== 'design_soil' && (
+              <div className="flex justify-center items-center gap-2 text-[10px] text-slate-400 font-bold font-mono">
+                <span>Foto {lightboxIndex + 1} de {visiblePhotos.length}</span>
+              </div>
+            )}
           </div>
         </div>
       )}
