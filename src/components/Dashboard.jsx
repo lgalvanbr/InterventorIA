@@ -85,22 +85,27 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'map'
   
+  // Extract all unique weeks available from weeklyReports
+  const availableWeeks = [...new Set((weeklyReports || []).map(r => r.numero_semana))].sort((a, b) => b - a);
+  
+  // Selected global week state
+  const [selectedWeek, setSelectedWeek] = useState(availableWeeks[0] || 29);
+  
   // Lightbox State
   const [lightboxPhotos, setLightboxPhotos] = useState(null); // stores all photos for active frente
   const [lightboxIndex, setLightboxIndex] = useState(0);      // index inside visiblePhotos
   const [selectedLightboxWeek, setSelectedLightboxWeek] = useState('all'); // 'all' or week number
 
-  // Compile all active frentes across all projects
+  // Compile frentes with stats representing the selected week
   const frentes = projects.flatMap(proj => {
     return (proj.frentes || []).map(f => {
-      // Find latest weekly report physical progress for this frente
-      const compiledWeeklyReports = (weeklyReports || [])
-        .filter(r => r.frentes?.some(rf => rf.id === f.id))
-        .sort((a, b) => b.numero_semana - a.numero_semana);
+      // Find report corresponding to the selected week
+      const reportForWeek = (weeklyReports || []).find(r => r.numero_semana === Number(selectedWeek));
+      const reportFrente = reportForWeek?.frentes?.find(rf => rf.id === f.id);
       
-      const latestReportFrente = compiledWeeklyReports[0]?.frentes?.find(rf => rf.id === f.id);
-      const currentProgress = latestReportFrente ? latestReportFrente.progress : f.progress;
-      const currentStatus = latestReportFrente ? latestReportFrente.status : f.status;
+      // Fallback to the project base stats if selectedWeek has no report
+      const currentProgress = reportFrente ? reportFrente.progress : f.progress;
+      const currentStatus = reportFrente ? reportFrente.status : f.status;
 
       return {
         ...f,
@@ -114,7 +119,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
     });
   });
 
-  // Extract photos for a given frente across all weekly reports
+  // Extract photos for a given frente across all weekly reports (for the lightbox history)
   const getFrentePhotos = (frenteId) => {
     const photos = [];
     (weeklyReports || []).forEach(report => {
@@ -130,8 +135,25 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
         });
       }
     });
-    // Sort by week descending, then by date descending
     return photos.sort((a, b) => b.semana - a.semana || new Date(b.date) - new Date(a.date));
+  };
+
+  // Get photos specifically uploaded during the selected week
+  const getFrentePhotosForWeek = (frenteId, weekNum) => {
+    const photos = [];
+    const report = (weeklyReports || []).find(r => r.numero_semana === Number(weekNum));
+    const reportFrente = report?.frentes?.find(rf => rf.id === frenteId);
+    if (reportFrente && reportFrente.fotos) {
+      reportFrente.fotos.forEach(photo => {
+        photos.push({
+          ...photo,
+          semana: report.numero_semana,
+          fechaCorte: report.fecha_final_corte,
+          fechaInicial: report.fecha_inicial_corte
+        });
+      });
+    }
+    return photos;
   };
 
   // Filter frentes by text search
@@ -194,6 +216,9 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
     return [...new Set(lightboxPhotos.map(p => p.semana))].sort((a, b) => b - a);
   };
 
+  // Find active week report for dates metadata display
+  const activeReport = (weeklyReports || []).find(r => r.numero_semana === Number(selectedWeek));
+
   return (
     <div className="flex-1 p-gutter max-w-container-max mx-auto grid-bg min-h-screen pb-16 relative">
       
@@ -236,7 +261,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
           </div>
         </div>
         
-        {/* Subtle decorative background graphic */}
+        {/* Decorative background */}
         <div className="absolute right-0 top-0 bottom-0 w-1/3 opacity-15 pointer-events-none hidden md:block">
           <svg className="w-full h-full text-indigo-400" viewBox="0 0 100 100" fill="currentColor">
             <path d="M50 0 L100 25 L100 75 L50 100 L0 75 L0 25 Z" />
@@ -244,8 +269,10 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
         </div>
       </section>
 
-      {/* 2. Search Toolbar */}
+      {/* 2. Search & Week Selector Toolbar */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+        
+        {/* Search Input */}
         <div className="flex-1 w-full relative">
           <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
           <input
@@ -256,9 +283,35 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <div className="text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg shrink-0 w-full md:w-auto text-center">
-          Mostrando <strong className="text-slate-700 font-mono-numbers">{filteredFrentes.length}</strong> de <strong className="text-slate-700 font-mono-numbers">{frentes.length}</strong> frentes totales
+
+        {/* Global Week Selector */}
+        <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 justify-between md:justify-start">
+          <div className="flex items-center gap-1.5">
+            <Calendar size={14} className="text-primary" />
+            <span className="text-[10px] text-slate-450 font-bold uppercase tracking-wider">Semana de Control:</span>
+          </div>
+          <select
+            value={selectedWeek}
+            onChange={(e) => setSelectedWeek(Number(e.target.value))}
+            className="bg-transparent text-slate-900 text-xs font-black focus:outline-none cursor-pointer border-none py-0.5 pr-2"
+          >
+            {availableWeeks.map(wNum => (
+              <option key={wNum} value={wNum}>Semana {wNum}</option>
+            ))}
+          </select>
         </div>
+
+        {/* Dates Range Label */}
+        {activeReport && (
+          <div className="text-[10px] font-bold text-slate-500 bg-indigo-50/50 border border-indigo-100 px-3 py-2 rounded-lg shrink-0 w-full md:w-auto text-center font-mono">
+            Período: {activeReport.fecha_inicial_corte} al {activeReport.fecha_final_corte}
+          </div>
+        )}
+
+        <div className="text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg shrink-0 w-full md:w-auto text-center">
+          Frentes: <strong className="text-slate-700 font-mono-numbers">{filteredFrentes.length}</strong> de <strong className="text-slate-700 font-mono-numbers">{frentes.length}</strong>
+        </div>
+
       </div>
 
       {/* 3. Main Views Layout */}
@@ -274,7 +327,8 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
           {filteredFrentes.map((frente) => {
             const design = getDisenoForCiv(frente.civ);
             const soilImgUrl = design?.perfil_suelo_img_url || frente.perfil_suelo_img_url;
-            const photos = getFrentePhotos(frente.id);
+            const photos = getFrentePhotosForWeek(frente.id, selectedWeek);
+            const allPhotosHistory = getFrentePhotos(frente.id);
             
             return (
               <div 
@@ -360,8 +414,8 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
 
                   {/* Physical Progress indicator */}
                   <div className="space-y-1.5 mb-4">
-                    <div className="flex justify-between items-center text-[10.5px] font-extrabold text-slate-750">
-                      <span>Progreso Físico Real</span>
+                    <div className="flex justify-between items-center text-[10.5px] font-extrabold text-slate-755">
+                      <span>Progreso Físico Real en Semana {selectedWeek}</span>
                       <span className="text-emerald-700 font-mono-numbers">{frente.progress}%</span>
                     </div>
                     <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -378,14 +432,14 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                   {photos.length > 0 ? (
                     <div className="space-y-1.5">
                       <div className="flex justify-between items-center text-[10px] font-bold text-slate-450 uppercase tracking-wider">
-                        <span>Galería Reciente</span>
+                        <span>Avances Visuales Registrados (Semana {selectedWeek})</span>
                         <span>({photos.length} fotos)</span>
                       </div>
                       <div className="flex gap-2.5 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-slate-300">
                         {photos.map((photo, pIdx) => (
                           <div 
                             key={photo.id}
-                            onClick={() => handleOpenLightbox(photos, pIdx)}
+                            onClick={() => handleOpenLightbox(allPhotosHistory, allPhotosHistory.findIndex(p => p.id === photo.id))}
                             className="w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-2xs shrink-0 cursor-pointer hover:border-primary transition-all relative group bg-slate-900"
                           >
                             <img src={photo.url} alt={photo.caption} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
@@ -402,7 +456,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                     </div>
                   ) : (
                     <div className="text-[9.5px] text-slate-450 italic bg-slate-50/50 p-2.5 rounded-lg border border-slate-150 border-dashed text-center">
-                      No hay registros fotográficos cargados.
+                      No hay fotos de campo registradas en la Semana {selectedWeek}.
                     </div>
                   )}
                 </div>
