@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Activity, FileText, CheckCircle2, Trash2, ArrowLeft, Image as ImageIcon, Plus, ChevronLeft, ChevronRight, X, Eye } from 'lucide-react';
+import { Calendar, Activity, FileText, CheckCircle2, Trash2, ArrowLeft, Image as ImageIcon, Plus, ChevronLeft, ChevronRight, X, Eye, Lock } from 'lucide-react';
 import { getDisenoForCiv } from '../data/frentesDisenos';
 
 const getVisualLayerStyle = (type) => {
@@ -501,17 +501,27 @@ export default function WeeklyFrenteDetail({
       <div className="flex flex-col gap-6">
         
         {/* Top Panel: Avances e Indicadores */}
-        <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-sm">
-          <h3 className="font-bold text-slate-700 text-xs uppercase tracking-wider mb-4 flex items-center gap-1.5 border-b border-slate-100 pb-2">
-            <Activity size={16} className="text-primary" />
-            Avances e Indicadores Semanales (Consolidado)
+        <div className={`bg-white border rounded-lg p-6 shadow-premium ${isContractorMode ? 'read-only-container' : 'border-slate-200'}`}>
+          <h3 className="font-bold text-slate-700 text-xs uppercase tracking-wider mb-4 flex items-center justify-between border-b border-slate-100 pb-2">
+            <span className="flex items-center gap-1.5">
+              <Activity size={16} className="text-primary" />
+              Avances e Indicadores Semanales (Consolidado)
+            </span>
+            {isContractorMode && (
+              <span className="read-only-badge">
+                <Lock size={10} /> Solo Consulta
+              </span>
+            )}
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
             {/* Avance Físico % */}
             <div className="flex flex-col gap-2">
               <div className="flex justify-between items-center">
-                <label className="text-xs font-bold text-slate-650">Porcentaje de Avance Físico</label>
+                <label className="text-xs font-bold text-slate-650 flex items-center gap-1">
+                  Porcentaje de Avance Físico
+                  {isContractorMode && <Lock size={10} className="text-slate-400" />}
+                </label>
                 <span className="bg-emerald-50 text-emerald-800 border border-emerald-100 text-xs font-extrabold px-2.5 py-0.5 rounded-full font-mono">
                   {porcentajeAvance}%
                 </span>
@@ -541,7 +551,10 @@ export default function WeeklyFrenteDetail({
 
             {/* Inversión Financiera */}
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-bold text-slate-650">Inversión en la Semana (COP)</label>
+              <label className="text-xs font-bold text-slate-650 flex items-center gap-1">
+                Inversión en la Semana (COP)
+                {isContractorMode && <Lock size={10} className="text-slate-400" />}
+              </label>
               <div className="relative">
                 <span className="absolute left-3 top-2 text-slate-400 font-bold text-xs">$</span>
                 <input 
@@ -561,7 +574,10 @@ export default function WeeklyFrenteDetail({
 
             {/* PMT Dropdown */}
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-bold text-slate-650">Estado del PMT</label>
+              <label className="text-xs font-bold text-slate-650 flex items-center gap-1">
+                Estado del PMT
+                {isContractorMode && <Lock size={10} className="text-slate-400" />}
+              </label>
               <select 
                 value={pmtEstado}
                 disabled={isContractorMode}
@@ -839,15 +855,22 @@ export default function WeeklyFrenteDetail({
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 bg-slate-50/20 p-5 border border-slate-150 rounded-lg animate-fade-in">
               
               {/* Left Side: Daily Log Notes (7/12 width) */}
-              <div className="lg:col-span-6 flex flex-col gap-4">
+              <div className={`lg:col-span-6 flex flex-col gap-4 ${isContractorMode ? 'read-only-container' : ''}`}>
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider flex items-center gap-1.5">
                     <FileText size={15} className="text-primary" />
                     Bitácora Diaria — {getDayName(weekDates[activeDayIdx])} {getDayLabel(weekDates[activeDayIdx])}
                   </h4>
-                  <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-mono">
-                    {activeDateStr}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {isContractorMode && (
+                      <span className="read-only-badge">
+                        <Lock size={10} /> Bitácora
+                      </span>
+                    )}
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-mono">
+                      {activeDateStr}
+                    </span>
+                  </div>
                 </div>
 
                 <textarea
@@ -866,14 +889,18 @@ export default function WeeklyFrenteDetail({
               </div>
 
               {/* Right Side: Upload and Photos Grid (5/12 width) */}
-              <div className="lg:col-span-6 border-t lg:border-t-0 lg:border-l border-slate-200 pt-6 lg:pt-0 lg:pl-6 flex flex-col gap-4">
+              <div className={`lg:col-span-6 border-t lg:border-t-0 lg:border-l border-slate-200 pt-6 lg:pt-0 lg:pl-6 flex flex-col gap-4 ${isContractorMode ? 'read-only-container' : ''}`}>
                 <div className="flex justify-between items-center">
                   <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider flex items-center gap-1.5">
                     <ImageIcon size={15} className="text-primary" />
                     Registro Fotográfico ({activeDayPhotos.length})
                   </h4>
 
-                  {!isContractorMode && (
+                  {isContractorMode ? (
+                    <span className="read-only-badge">
+                      <Lock size={10} /> Registro
+                    </span>
+                  ) : (
                     <label className="bg-primary/5 hover:bg-primary/10 text-primary border border-primary/15 font-bold text-[10px] px-2.5 py-1 rounded-md cursor-pointer transition-all inline-flex items-center gap-1">
                       <Plus size={12} />
                       Subir Fotos

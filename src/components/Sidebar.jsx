@@ -108,14 +108,14 @@ export default function Sidebar({
               key={item.id}
               onClick={() => !isDisabled && handleItemClick(item)}
               disabled={isDisabled}
-              className={`w-full flex items-center rounded-md transition-all text-left overflow-hidden ${
+              className={`w-full flex items-center rounded-md transition-all duration-200 text-left overflow-hidden ${
                 isExpanded ? 'px-4 py-3 gap-3' : 'p-3 justify-center'
               } ${
                 isActive
-                  ? 'bg-[#00236f]/8 text-primary font-bold border-r-4 border-primary'
+                  ? 'bg-[#00236f]/8 text-primary font-bold border-r-4 border-primary shadow-2xs scale-102'
                   : isDisabled
                     ? 'text-slate-300 cursor-not-allowed opacity-50'
-                    : 'text-slate-650 hover:bg-slate-50 hover:text-slate-900'
+                    : 'text-slate-650 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-1'
               }`}
               title={!isExpanded ? item.label : (isDisabled ? 'Selecciona primero un proyecto de la lista' : '')}
             >
@@ -147,12 +147,17 @@ export default function Sidebar({
           {isContractorMode ? 'CO' : 'LG'}
         </div>
         {isExpanded && (
-          <div className="animate-fade-in min-w-0">
-            <p className="text-sm font-bold text-slate-800 truncate leading-tight">
+          <div className="animate-fade-in min-w-0 flex-1">
+            <p className="text-sm font-bold text-slate-800 truncate leading-tight flex items-center gap-1.5">
               {isContractorMode ? 'Contratista de Obra' : 'Ing. Luis Carlos Galvan'}
+              {isContractorMode && (
+                <span className="material-symbols-outlined text-[12px] text-amber-600 font-bold" title="Acceso de Consulta (Solo Lectura)">
+                  lock
+                </span>
+              )}
             </p>
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-0.5 truncate">
-              {isContractorMode ? 'Consorcio Vial Usaquén' : 'Director de Interventoría'}
+              {isContractorMode ? 'Consorcio Vial' : 'Director de Interventoría'}
             </p>
           </div>
         )}

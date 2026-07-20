@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   Wrench, DollarSign, FileText, Scale, Leaf, Users, ShieldAlert, CheckCircle2, 
-  AlertTriangle, Save, ClipboardList, BookOpen, Plus, Trash2, Globe 
+  AlertTriangle, Save, ClipboardList, BookOpen, Plus, Trash2, Globe, Lock 
 } from 'lucide-react';
 
 const COMPONENT_METADATA = {
@@ -204,10 +204,17 @@ export default function ComplianceTabs({ frente, onUpdateCompliance, onUpdateFre
 
       {/* Checklist Grid Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div>
-          <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider mb-3 flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-sm text-slate-500">checklist</span>
-            Lista de Requisitos de Control
+        <div className={isContractorMode ? 'read-only-container' : ''}>
+          <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider mb-3 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-sm text-slate-500">checklist</span>
+              Lista de Requisitos de Control
+            </span>
+            {isContractorMode && (
+              <span className="read-only-badge">
+                <Lock size={10} /> Solo Consulta
+              </span>
+            )}
           </h4>
           <div className="space-y-2">
             {currentData.checklist.map((item) => (
@@ -242,10 +249,17 @@ export default function ComplianceTabs({ frente, onUpdateCompliance, onUpdateFre
         <div>
           {/* TECHNICAL TAB: Concrete Laboratory break tests (NSR-10) */}
           {activeTab === 'tecnico' && (
-            <div className="border border-slate-200 rounded p-4 bg-slate-50/30">
-              <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-sm text-primary">biotech</span>
-                Ensayos de Concreto NSR-10
+            <div className={`border rounded p-4 shadow-2xs ${isContractorMode ? 'read-only-container' : 'border-slate-200 bg-slate-50/30'}`}>
+              <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider mb-3 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm text-primary">biotech</span>
+                  Ensayos de Concreto NSR-10
+                </span>
+                {isContractorMode && (
+                  <span className="read-only-badge">
+                    <Lock size={10} /> Ensayo
+                  </span>
+                )}
               </h4>
 
               {/* Add Concrete Test Form */}
@@ -344,10 +358,17 @@ export default function ComplianceTabs({ frente, onUpdateCompliance, onUpdateFre
 
           {/* ENVIRONMENTAL TAB: PAGA metrics editor */}
           {activeTab === 'ambiental' && (
-            <div className="border border-slate-200 rounded p-4 bg-slate-50/30 space-y-4">
-              <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-sm text-green-600">carbon</span>
-                Métricas PAGA (Ambiental & Social)
+            <div className={`border rounded p-4 shadow-2xs space-y-4 ${isContractorMode ? 'read-only-container' : 'border-slate-200 bg-slate-50/30'}`}>
+              <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider flex items-center justify-between border-b border-slate-100 pb-2">
+                <span className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm text-green-600">carbon</span>
+                  Métricas PAGA (Ambiental & Social)
+                </span>
+                {isContractorMode && (
+                  <span className="read-only-badge">
+                    <Lock size={10} /> Ambiental
+                  </span>
+                )}
               </h4>
               
               <div className="grid grid-cols-2 gap-4 text-xs">
@@ -400,10 +421,17 @@ export default function ComplianceTabs({ frente, onUpdateCompliance, onUpdateFre
 
           {/* FINANCIAL TAB: Budget, Amortization & Curva S */}
           {activeTab === 'financiero' && (
-            <div className="border border-slate-200 rounded p-4 bg-slate-50/30 space-y-4">
-              <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-sm text-green-600">finance</span>
-                Balance Financiero del Frente
+            <div className={`border rounded p-4 shadow-2xs space-y-4 ${isContractorMode ? 'read-only-container' : 'border-slate-200 bg-slate-50/30'}`}>
+              <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider flex items-center justify-between border-b border-slate-100 pb-2">
+                <span className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm text-green-600">finance</span>
+                  Balance Financiero del Frente
+                </span>
+                {isContractorMode && (
+                  <span className="read-only-badge">
+                    <Lock size={10} /> Financiero
+                  </span>
+                )}
               </h4>
               
               <div className="space-y-3 text-xs">
@@ -448,10 +476,17 @@ export default function ComplianceTabs({ frente, onUpdateCompliance, onUpdateFre
 
           {/* LEGAL & ADMINISTRATIVO TAB: Parafiscales, SECOP II and bitacora */}
           {activeTab === 'legal' && (
-            <div className="border border-slate-200 rounded p-4 bg-slate-50/30 space-y-4">
-              <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-sm text-indigo-600">gavel</span>
-                Sincronización Contractual (SECOP II)
+            <div className={`border rounded p-4 shadow-2xs space-y-4 ${isContractorMode ? 'read-only-container' : 'border-slate-200 bg-slate-50/30'}`}>
+              <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider flex items-center justify-between border-b border-slate-100 pb-2">
+                <span className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm text-indigo-600">gavel</span>
+                  Sincronización Contractual (SECOP II)
+                </span>
+                {isContractorMode && (
+                  <span className="read-only-badge">
+                    <Lock size={10} /> Legal
+                  </span>
+                )}
               </h4>
               
               <div className="space-y-3.5 text-xs">
@@ -477,9 +512,16 @@ export default function ComplianceTabs({ frente, onUpdateCompliance, onUpdateFre
 
           {/* Default details placeholder for other tabs */}
           {activeTab !== 'tecnico' && activeTab !== 'ambiental' && activeTab !== 'financiero' && activeTab !== 'legal' && (
-            <div className="border border-slate-200 rounded p-4 bg-slate-50/30">
-              <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider mb-2">Requisitos de Control y Bitácora</h4>
-              <p className="text-slate-500 text-xs leading-relaxed">
+            <div className={`border rounded p-4 shadow-2xs ${isContractorMode ? 'read-only-container' : 'border-slate-200 bg-slate-50/30'}`}>
+              <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider mb-2 flex items-center justify-between border-b border-slate-100 pb-2">
+                <span>Requisitos de Control y Bitácora</span>
+                {isContractorMode && (
+                  <span className="read-only-badge">
+                    <Lock size={10} /> Registro
+                  </span>
+                )}
+              </h4>
+              <p className="text-slate-500 text-xs leading-relaxed mt-2">
                 Utilice el diario de campo inferior para consignar anotaciones específicas sobre el control de {COMPONENT_METADATA[activeTab].label.toLowerCase()} de este frente de obra. Marque los requisitos a la izquierda para certificar el cumplimiento.
               </p>
             </div>
@@ -488,16 +530,22 @@ export default function ComplianceTabs({ frente, onUpdateCompliance, onUpdateFre
       </div>
 
       {/* Diary of Campo Section */}
-      <div className="border-t border-slate-100 pt-5 mt-5">
+      <div className={`border-t border-slate-100 pt-5 mt-5 ${isContractorMode ? 'read-only-container' : ''}`}>
         <div className="flex justify-between items-center mb-3">
           <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
             <ActiveIcon size={15} style={{ color: activeColor }} />
             Bitácora de Campo y Diario de Obra ({COMPONENT_METADATA[activeTab].label})
           </label>
-          {savedMessage && (
-            <span className="text-xs text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded border border-green-100">
-              {savedMessage}
+          {isContractorMode ? (
+            <span className="read-only-badge">
+              <Lock size={10} /> Bitácora
             </span>
+          ) : (
+            savedMessage && (
+              <span className="text-xs text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded border border-green-100 font-mono">
+                {savedMessage}
+              </span>
+            )
           )}
         </div>
         <textarea
