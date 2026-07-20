@@ -388,7 +388,8 @@ export default function WeeklyReportPanel({
   onUpdateDesignOverrides,
   onClose, 
   onSaveFrente,
-  onSaveReport
+  onSaveReport,
+  isContractorMode
 }) {
   const [activeTab, setActiveTab] = useState('comite'); // 'comite', 'pdf', 'frentes'
   const [activeDayIdx, setActiveDayIdx] = useState(0);

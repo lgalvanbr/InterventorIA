@@ -119,11 +119,16 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
   // Filter frentes by text search
   const filteredFrentes = frentes.filter(f => {
     const searchLower = searchTerm.toLowerCase();
+    const frenteVal = String(f.frente || '').toLowerCase();
+    const ejeVal = String(f.eje || '').toLowerCase();
+    const civVal = String(f.civ || '');
+    const projNameVal = String(f.projectName || '').toLowerCase();
+    
     return (
-      f.frente.toLowerCase().includes(searchLower) ||
-      f.eje.toLowerCase().includes(searchLower) ||
-      String(f.civ).includes(searchLower) ||
-      f.projectName.toLowerCase().includes(searchLower)
+      frenteVal.includes(searchLower) ||
+      ejeVal.includes(searchLower) ||
+      civVal.includes(searchLower) ||
+      projNameVal.includes(searchLower)
     );
   });
 
