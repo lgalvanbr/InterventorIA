@@ -49,7 +49,15 @@ function MiniFrenteMap({ lat, lng, frenteId }) {
 
     L.marker([lat, lng], { icon: DefaultIcon }).addTo(map);
 
+    // Fix grey screen issue by invalidating map sizes after DOM rendering is fully calculated
+    const timer = setTimeout(() => {
+      if (mapRef.current) {
+        mapRef.current.invalidateSize();
+      }
+    }, 250);
+
     return () => {
+      clearTimeout(timer);
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -59,7 +67,7 @@ function MiniFrenteMap({ lat, lng, frenteId }) {
 
   if (!lat || !lng) {
     return (
-      <div className="w-full h-24 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-[10px] text-slate-400 italic">
+      <div className="w-full h-36 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-[10px] text-slate-400 italic">
         Sin georreferenciación asignada
       </div>
     );
@@ -68,7 +76,7 @@ function MiniFrenteMap({ lat, lng, frenteId }) {
   return (
     <div 
       ref={containerRef} 
-      className="w-full h-24 rounded-lg border border-slate-200 overflow-hidden shadow-2xs bg-slate-50 relative z-0" 
+      className="w-full h-36 rounded-lg border border-slate-200 overflow-hidden shadow-2xs bg-slate-50 relative z-0" 
     />
   );
 }
@@ -262,7 +270,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
           />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
           {filteredFrentes.map((frente) => {
             const design = getDisenoForCiv(frente.civ);
             const soilImgUrl = design?.perfil_suelo_img_url || frente.perfil_suelo_img_url;
@@ -271,117 +279,97 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
             return (
               <div 
                 key={frente.id} 
-                className="bg-white border border-slate-200 rounded-xl p-5 shadow-premium flex flex-col justify-between hover:border-primary/20 transition-all duration-300 relative overflow-hidden"
+                className="bg-white border border-slate-200 rounded-xl p-6 shadow-premium flex flex-col justify-between hover:border-primary/20 transition-all duration-300 relative overflow-hidden"
               >
                 
                 {/* Frente Header */}
                 <div>
                   <div className="flex justify-between items-start mb-2">
                     <div>
-                      <span className="bg-slate-100 text-slate-700 text-[9px] font-extrabold px-2 py-0.5 rounded tracking-wide border border-slate-200 inline-block mb-1">
-                        CIV {frente.civ}
-                      </span>
-                      <h3 className="font-headline font-black text-slate-900 text-base leading-tight">
-                        Frente {frente.frente}
+                      <h3 className="font-headline font-black text-slate-900 text-lg leading-tight uppercase">
+                        FRENTE {frente.frente} — CIV {frente.civ}
                       </h3>
-                      <p className="text-xs text-slate-550 font-bold leading-normal mt-0.5">
-                        {frente.eje}
+                      <p className="text-xs text-slate-550 font-bold leading-normal mt-1">
+                        Ubicación: <span className="text-slate-700 font-semibold">{frente.eje}</span>
                       </p>
                     </div>
                     
-                    <span className={`px-2.5 py-0.5 rounded-full font-black text-[9px] uppercase border ${
-                      frente.status === 'critico' ? 'bg-red-50 text-red-700 border-red-100' :
-                      frente.status === 'alerta' ? 'bg-amber-50 text-amber-800 border-amber-100' :
-                      'bg-emerald-50 text-emerald-800 border-emerald-100'
-                    }`}>
-                      {frente.status || 'Al día'}
+                    <span className="text-xs font-black uppercase text-slate-400 tracking-wider">
+                      {frente.projectName?.toUpperCase() || 'MALLA VIAL'}
                     </span>
                   </div>
 
-                  {/* Program Link tag */}
-                  <button
-                    onClick={() => onSelectProject(frente.projectId)}
-                    className="text-[10px] text-primary hover:underline font-bold flex items-center gap-0.5 mb-4 text-left border-none bg-transparent cursor-pointer"
-                  >
-                    <span>Contrato: {frente.contractNo}</span>
-                    <ArrowRight size={10} />
-                  </button>
+                  <hr className="border-slate-100 mb-5" />
 
-                  <hr className="border-slate-100 mb-4" />
-
-                  {/* Georreferenciación & Diseño Info Blocks */}
-                  <div className="grid grid-cols-2 gap-3 mb-4">
-                    {/* Georreferenciación */}
-                    <div className="text-[9.5px] bg-slate-50 border border-slate-150 rounded-lg p-2.5 space-y-1">
-                      <span className="font-bold text-slate-450 uppercase tracking-wider block">Georreferenciación</span>
-                      <div className="flex flex-col gap-0.5 text-slate-655 font-semibold leading-relaxed">
-                        <div>
-                          Límites: <strong className="text-slate-900">{frente.desde || 'N/A'} - {frente.hasta || 'N/A'}</strong>
-                        </div>
-                        <div>
-                          Coords: <strong className="text-slate-900 font-mono-numbers">{frente.lat?.toFixed(5) || 'N/A'}, {frente.lng?.toFixed(5) || 'N/A'}</strong>
-                        </div>
+                  {/* Side-by-Side Cards Grid (mockup style) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                    {/* Left Card: Ubicación Georreferenciada */}
+                    <div className="border border-slate-200 rounded-xl p-4 flex flex-col bg-white">
+                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider mb-3 text-center">
+                        UBICACIÓN GEORREFERENCIADA
+                      </h4>
+                      
+                      {/* Map Container */}
+                      <MiniFrenteMap lat={frente.lat} lng={frente.lng} frenteId={frente.id} />
+                      
+                      {/* Coordenadas Footer */}
+                      <div className="text-[10px] font-black text-slate-700 text-center mt-3 uppercase tracking-wider font-mono">
+                        COORDENADAS: {frente.lat?.toFixed(5) || '0.00000'}, {frente.lng?.toFixed(5) || '0.00000'}
                       </div>
                     </div>
 
-                    {/* Diseño Resumen */}
-                    <div className="text-[9.5px] bg-slate-50 border border-slate-150 rounded-lg p-2.5 space-y-1">
-                      <span className="font-bold text-slate-450 uppercase tracking-wider block">Ficha de Diseño</span>
-                      <div className="flex flex-col gap-0.5 text-slate-655 font-semibold leading-relaxed">
-                        <div>
-                          Grupo: <strong className="text-slate-900">{design?.grupo || 'N/A'}</strong>
+                    {/* Right Card: Perfil de Estructura del Suelo */}
+                    <div className="border border-slate-200 rounded-xl p-4 flex flex-col bg-white">
+                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider mb-3 text-center">
+                        PERFIL DE ESTRUCTURA DEL SUELO
+                      </h4>
+                      
+                      {/* Soil Image Container */}
+                      {soilImgUrl ? (
+                        <div className="w-full h-36 rounded-lg overflow-hidden border border-slate-150 relative bg-slate-50 group flex items-center justify-center">
+                          <img 
+                            src={soilImgUrl} 
+                            alt="Perfil de Estructura del Suelo" 
+                            className="w-full h-full object-contain group-hover:scale-102 transition-transform p-1" 
+                          />
+                          <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10">
+                            <button
+                              onClick={() => {
+                                setLightboxPhotos([{ id: 'design_soil', url: soilImgUrl, caption: 'Diseño de Estructura de Suelo Aprobado', semana: 'Diseño', date: 'Plano Contractual' }]);
+                                setLightboxIndex(0);
+                                setSelectedLightboxWeek('all');
+                              }}
+                              className="bg-white/95 text-slate-800 text-[9px] font-black px-2.5 py-1.5 rounded-md shadow-sm border border-slate-200 cursor-pointer hover:bg-white transition-all active:scale-95"
+                            >
+                              Ampliar Plano
+                            </button>
+                          </div>
                         </div>
-                        <div className="truncate" title={design?.tecnologia_aprobada}>
-                          Tipo: <strong className="text-slate-900">{design?.tecnologia_aprobada ? design.tecnologia_aprobada.split(' ')[0] : 'N/A'}</strong>
+                      ) : (
+                        <div className="w-full h-36 rounded-lg border border-slate-200 border-dashed bg-slate-50 flex items-center justify-center text-[10px] text-slate-400 italic text-center px-4">
+                          Sin plano de estructura de suelo vinculado.
                         </div>
+                      )}
+
+                      {/* Footer Text */}
+                      <div className="text-[10px] font-black text-slate-700 text-center mt-3 uppercase tracking-wider">
+                        ESTRUCTURA DE PAVIMENTO APROBADA
                       </div>
                     </div>
-                  </div>
-
-                  {/* Mini Map */}
-                  <div className="space-y-1.5 mb-4">
-                    <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block">Ubicación Georreferenciada</span>
-                    <MiniFrenteMap lat={frente.lat} lng={frente.lng} frenteId={frente.id} />
                   </div>
 
                   {/* Physical Progress indicator */}
                   <div className="space-y-1.5 mb-4">
-                    <div className="flex justify-between items-center text-[10.5px] font-extrabold text-slate-700">
+                    <div className="flex justify-between items-center text-[10.5px] font-extrabold text-slate-750">
                       <span>Progreso Físico Real</span>
                       <span className="text-emerald-700 font-mono-numbers">{frente.progress}%</span>
                     </div>
-                    <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden">
                       <div 
                         className="gradient-progress h-full rounded-full transition-all duration-500" 
                         style={{ width: `${frente.progress}%` }}
                       ></div>
                     </div>
-                  </div>
-
-                  {/* Soil Image - Uploaded Design Table */}
-                  <div className="space-y-1.5 mb-4">
-                    <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block">Diseño Estructura Suelo (Plano Aprobado)</span>
-                    {soilImgUrl ? (
-                      <div className="w-full h-32 rounded-lg overflow-hidden border border-slate-200 shadow-2xs relative bg-slate-100 group">
-                        <img src={soilImgUrl} alt="Estructura de Suelo Aprobada" className="w-full h-full object-cover group-hover:scale-102 transition-transform" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-10">
-                          <button
-                            onClick={() => {
-                              setLightboxPhotos([{ id: 'design_soil', url: soilImgUrl, caption: 'Diseño de Estructura de Suelo Aprobado', semana: 'Diseño', date: 'Plano Contractual' }]);
-                              setLightboxIndex(0);
-                              setSelectedLightboxWeek('all');
-                            }}
-                            className="bg-white/95 text-slate-800 text-[10px] font-black px-2.5 py-1.5 rounded-md shadow-sm border border-slate-200 cursor-pointer hover:bg-white transition-all active:scale-95"
-                          >
-                            Ampliar Plano
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-[9.5px] text-slate-400 italic bg-slate-50 p-4 rounded-lg border border-slate-200 border-dashed text-center">
-                        Sin plano de estructura de suelo vinculado.
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -417,6 +405,24 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                       No hay registros fotográficos cargados.
                     </div>
                   )}
+                </div>
+
+                {/* Program Link tag at the bottom */}
+                <div className="mt-4 border-t border-slate-100 pt-3 flex justify-between items-center text-[10.5px]">
+                  <button
+                    onClick={() => onSelectProject(frente.projectId)}
+                    className="text-primary hover:underline font-extrabold flex items-center gap-0.5 border-none bg-transparent cursor-pointer"
+                  >
+                    <span>Ver Detalles Contractuales ({frente.contractNo})</span>
+                    <ArrowRight size={11} />
+                  </button>
+                  <span className={`px-2 py-0.5 rounded-full font-black text-[9px] uppercase border ${
+                    frente.status === 'critico' ? 'bg-red-50 text-red-700 border-red-100' :
+                    frente.status === 'alerta' ? 'bg-amber-50 text-amber-800 border-amber-100' :
+                    'bg-emerald-50 text-emerald-800 border-emerald-100'
+                  }`}>
+                    Estado: {frente.status || 'Al día'}
+                  </span>
                 </div>
 
               </div>
