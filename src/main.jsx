@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import '@fontsource-variable/material-symbols-outlined'
 import App from './App.jsx'
 
 if (window.self !== window.top) {
