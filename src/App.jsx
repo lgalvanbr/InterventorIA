@@ -550,6 +550,7 @@ export default function App() {
             onSelectProject={handleSelectProject} 
             onAddProject={handleAddProject}
             isContractorMode={isContractorMode}
+            weeklyReports={weeklyReports}
           />
         )}
 
