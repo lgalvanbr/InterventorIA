@@ -19,6 +19,7 @@ let DefaultIcon = L.icon({
   popupAnchor: [1, -34],
 });
 
+
 // Mini Interactive Map component for each frente card
 function MiniFrenteMap({ lat, lng, frenteId }) {
   const containerRef = useRef(null);
@@ -28,8 +29,12 @@ function MiniFrenteMap({ lat, lng, frenteId }) {
     if (!containerRef.current || !lat || !lng) return;
     if (mapRef.current) return; // already initialized
 
+    const parsedLat = parseFloat(lat);
+    const parsedLng = parseFloat(lng);
+    if (isNaN(parsedLat) || isNaN(parsedLng)) return;
+
     const map = L.map(containerRef.current, {
-      center: [lat, lng],
+      center: [parsedLat, parsedLng],
       zoom: 14,
       zoomControl: false,
       attributionControl: false,
@@ -47,7 +52,7 @@ function MiniFrenteMap({ lat, lng, frenteId }) {
       maxZoom: 20
     }).addTo(map);
 
-    L.marker([lat, lng], { icon: DefaultIcon }).addTo(map);
+    L.marker([parsedLat, parsedLng], { icon: DefaultIcon }).addTo(map);
 
     // Fix grey screen issue by invalidating map sizes after DOM rendering is fully calculated
     const timer = setTimeout(() => {
@@ -80,6 +85,35 @@ function MiniFrenteMap({ lat, lng, frenteId }) {
     />
   );
 }
+
+const getLayerColor = (type) => {
+  switch (type) {
+    case 'asfalto':
+      return 'bg-slate-900 text-white font-bold';
+    case 'concreto':
+      return 'bg-slate-200 text-slate-800 font-bold border border-slate-350';
+    case 'imprimacion':
+      return 'bg-slate-50 text-slate-455 border border-slate-200';
+    case 'base_cemento':
+    case 'subbase_cemento':
+      return 'bg-stone-200 text-stone-850 font-bold border border-stone-300';
+    case 'subbase':
+      return 'bg-amber-100 text-amber-900 font-bold border border-amber-200';
+    case 'geomalla':
+      return 'bg-indigo-100 text-indigo-900 font-bold border border-indigo-200';
+    case 'geocelda':
+      return 'bg-orange-100 text-orange-950 font-bold border border-orange-200';
+    case 'geotextil':
+    case 'geotextil_nt':
+      return 'bg-blue-50 text-blue-900 border border-blue-200';
+    case 'arena':
+      return 'bg-yellow-100 text-yellow-800 font-bold border border-yellow-250';
+    case 'subrasante':
+      return 'bg-amber-700 text-white font-bold';
+    default:
+      return 'bg-slate-100 text-slate-700 border border-slate-200';
+  }
+};
 
 export default function Dashboard({ projects = [], onSelectProject, onAddProject, isContractorMode, weeklyReports = [] }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -405,11 +439,11 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                       </h4>
                       
                       {/* Map Container */}
-                      <MiniFrenteMap lat={frente.lat} lng={frente.lng} frenteId={frente.id} />
+                      <MiniFrenteMap lat={frente.latitude} lng={frente.longitude} frenteId={frente.id} />
                       
                       {/* Coordenadas Footer */}
                       <div className="text-[10px] font-black text-slate-700 text-center mt-3 uppercase tracking-wider font-mono">
-                        COORDENADAS: {frente.lat?.toFixed(5) || '0.00000'}, {frente.lng?.toFixed(5) || '0.00000'}
+                        COORDENADAS: {parseFloat(frente.latitude || 0).toFixed(5)}, {parseFloat(frente.longitude || 0).toFixed(5)}
                       </div>
                     </div>
 
@@ -419,7 +453,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                         PERFIL DE ESTRUCTURA DEL SUELO
                       </h4>
                       
-                      {/* Soil Image Container */}
+                      {/* Soil Image / Dynamic Layer Table Container */}
                       {soilImgUrl ? (
                         <div className="w-full h-36 rounded-lg overflow-hidden border border-slate-150 relative bg-slate-50 group flex items-center justify-center">
                           <img 
@@ -439,6 +473,57 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                               Ampliar Plano
                             </button>
                           </div>
+                        </div>
+                      ) : design ? (
+                        <div className="w-full h-36 rounded-lg border border-slate-200 overflow-y-auto bg-white scrollbar-thin">
+                          <table className="w-full text-[8px] text-slate-750 border-collapse leading-tight">
+                            <thead>
+                              <tr className="bg-[#00236f] text-white font-bold sticky top-0 z-10">
+                                <th className="py-1 px-1.5 text-left border-r border-[#00236f]/10">Material</th>
+                                <th className="py-1 px-1 text-center border-r border-[#00236f]/10">Espesor (cm)</th>
+                                <th className="py-1 px-1 text-center border-r border-[#00236f]/10">Especif. IDU</th>
+                                <th className="py-1 px-1 text-center">Módulo (psi)</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {design.paquete_estructural_capas?.map((layer, idx) => (
+                                <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/50">
+                                  <td className="py-1 px-1.5 font-semibold text-slate-700 truncate max-w-[110px]" title={layer.nombre}>
+                                    {layer.nombre}
+                                  </td>
+                                  <td className="py-1 px-1 text-center">
+                                    {layer.espesor_cm > 0 ? (
+                                      <span className={`inline-block px-1 py-0.5 rounded text-[7px] font-extrabold min-w-[16px] ${getLayerColor(layer.tipo_material)}`}>
+                                        {layer.espesor_cm}
+                                      </span>
+                                    ) : (
+                                      <span className="text-slate-400">-</span>
+                                    )}
+                                  </td>
+                                  <td className="py-1 px-1 text-center font-mono font-bold text-slate-450">
+                                    {layer.especificacion_idu || '-'}
+                                  </td>
+                                  <td className="py-1 px-1 text-center font-mono font-semibold text-slate-500">
+                                    {layer.modulo_psi ? layer.modulo_psi.toLocaleString() : '-'}
+                                  </td>
+                                </tr>
+                              ))}
+                              {design.datos_geotecnicos?.modulo_resiliente_saturado_psi && (
+                                <tr className="bg-amber-50/30 border-b border-slate-150 font-bold">
+                                  <td className="py-1 px-1.5 text-slate-800">Subrasante</td>
+                                  <td className="py-1 px-1 text-center">
+                                    <span className="inline-block px-1 py-0.5 rounded text-[7px] min-w-[16px] bg-amber-700 text-white">
+                                      -
+                                    </span>
+                                  </td>
+                                  <td className="py-1 px-1 text-center text-slate-400 font-mono">-</td>
+                                  <td className="py-1 px-1 text-center font-mono text-amber-800">
+                                    {design.datos_geotecnicos.modulo_resiliente_saturado_psi.toLocaleString()}
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
                         </div>
                       ) : (
                         <div className="w-full h-36 rounded-lg border border-slate-200 border-dashed bg-slate-50 flex items-center justify-center text-[10px] text-slate-400 italic text-center px-4">
