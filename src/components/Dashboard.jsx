@@ -228,7 +228,64 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
     });
   });
 
-  // Extract photos for a given frente across all weekly reports (for the lightbox history)
+  // Selected daily report status filter: 'all', 'pending' (missing today's upload), 'reported'
+  const [dailyReportFilter, setDailyReportFilter] = useState('all');
+
+  // Helper to extract timestamp from photo for strict chronological ordering (oldest -> newest)
+  const getPhotoTimestamp = (photo) => {
+    const dateStr = photo.date || photo.fechaCorte || photo.fechaInicial;
+    if (!dateStr || dateStr === 'Sin fecha') return 0;
+    try {
+      let d;
+      if (typeof dateStr === 'string' && dateStr.includes('-')) {
+        const parts = dateStr.split('T')[0].split('-');
+        if (parts.length === 3) {
+          d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        }
+      } else if (typeof dateStr === 'string' && dateStr.includes('/')) {
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+          d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        }
+      }
+      if (!d || isNaN(d.getTime())) {
+        d = new Date(dateStr);
+      }
+      return !isNaN(d.getTime()) ? d.getTime() : 0;
+    } catch (e) {
+      return 0;
+    }
+  };
+
+  // Helper to check if an active frente has uploaded daily photos/notes for today or current corte date
+  const getFrenteDailyUploadStatus = (frente) => {
+    const reportForWeek = (weeklyReports || []).find(r => r.numero_semana === Number(selectedWeek));
+    const reportFrente = reportForWeek?.frentes?.find(rf => rf.id === frente.id);
+    
+    const photos = reportFrente?.fotos || frente.fotos || [];
+    const notes = reportFrente?.bitacora_notes || reportFrente?.bitacora_notas || frente.bitacora_notes || frente.bitacora_notas || [];
+    
+    const todayStr = new Date().toISOString().split('T')[0];
+    const corteDate = reportForWeek?.fecha_final_corte || todayStr;
+
+    // Has notes or photos registered for today or for the current week corte
+    const hasPhotoToday = photos.some(p => p.date === todayStr || p.date === corteDate || p.semana === Number(selectedWeek));
+    const hasNoteToday = notes.some(n => (n.date === todayStr || n.date === corteDate) && n.note?.trim() !== '');
+
+    const hasUploadToday = hasPhotoToday || hasNoteToday;
+    const isActive = frente.status !== 'Cerrado' && frente.status !== 'Inactivo' && (frente.progress === undefined || frente.progress < 100);
+
+    // Active frente without daily upload is flagged as missing report
+    const isMissingUpload = isActive && !hasUploadToday;
+
+    return {
+      isActive,
+      hasUploadToday,
+      isMissingUpload
+    };
+  };
+
+  // Extract photos for a given frente across all weekly reports sorted strictly chronologically
   const getFrentePhotos = (frenteId) => {
     const photos = [];
     (weeklyReports || []).forEach(report => {
@@ -244,10 +301,11 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
         });
       }
     });
-    return photos.sort((a, b) => b.semana - a.semana || new Date(b.date) - new Date(a.date));
+    // Sort strictly chronologically by date (oldest to newest)
+    return photos.sort((a, b) => getPhotoTimestamp(a) - getPhotoTimestamp(b) || a.semana - b.semana);
   };
 
-  // Group photos of a frente by month
+  // Group photos of a frente by month (sorted chronologically)
   const getFrentePhotosGroupedByMonth = (frenteId) => {
     const allPhotos = getFrentePhotos(frenteId);
     const groupsMap = new Map();
@@ -261,12 +319,18 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
     });
 
     const groups = Array.from(groupsMap.values());
-    // Sort groups descending by month key
-    groups.sort((a, b) => b.key.localeCompare(a.key));
+    // Sort groups chronologically (ascending month key)
+    groups.sort((a, b) => a.key.localeCompare(b.key));
+
+    // Sort photos inside each group chronologically
+    groups.forEach(g => {
+      g.photos.sort((a, b) => getPhotoTimestamp(a) - getPhotoTimestamp(b));
+    });
+
     return groups;
   };
 
-  // Get photos specifically uploaded during the selected week
+  // Get photos specifically uploaded during the selected week (sorted chronologically)
   const getFrentePhotosForWeek = (frenteId, weekNum) => {
     const photos = [];
     const report = (weeklyReports || []).find(r => r.numero_semana === Number(weekNum));
@@ -281,10 +345,10 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
         });
       });
     }
-    return photos;
+    return photos.sort((a, b) => getPhotoTimestamp(a) - getPhotoTimestamp(b));
   };
 
-  // Filter frentes by text search
+  // Filter frentes by text search & daily report status
   const filteredFrentes = frentes.filter(f => {
     const searchLower = searchTerm.toLowerCase();
     const frenteVal = String(f.frente || '').toLowerCase();
@@ -292,12 +356,20 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
     const civVal = String(f.civ || '');
     const projNameVal = String(f.projectName || '').toLowerCase();
     
-    return (
+    const matchesSearch = (
       frenteVal.includes(searchLower) ||
       ejeVal.includes(searchLower) ||
       civVal.includes(searchLower) ||
       projNameVal.includes(searchLower)
     );
+
+    if (!matchesSearch) return false;
+
+    const { isMissingUpload, hasUploadToday } = getFrenteDailyUploadStatus(f);
+    if (dailyReportFilter === 'pending') return isMissingUpload;
+    if (dailyReportFilter === 'reported') return hasUploadToday;
+
+    return true;
   });
 
   // Lightbox opening handler
@@ -435,7 +507,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
       </section>
 
       {/* 2. Search, Month/Week Filter & Print Toolbar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row justify-between items-center gap-3 mb-6 no-print">
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row justify-between items-center gap-3 mb-4 no-print">
         
         {/* Search Input */}
         <div className="flex-1 w-full relative">
@@ -530,6 +602,58 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
 
       </div>
 
+      {/* 2.5 Daily Upload Verification Filter Bar */}
+      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm mb-6 flex flex-col md:flex-row items-center justify-between gap-3 no-print">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-primary text-base">verified</span>
+            Verificación Reporte Diario:
+          </span>
+          {(() => {
+            const pendingCount = frentes.filter(f => getFrenteDailyUploadStatus(f).isMissingUpload).length;
+            const reportedCount = frentes.filter(f => getFrenteDailyUploadStatus(f).hasUploadToday).length;
+            return (
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setDailyReportFilter('all')}
+                  className={`px-3 py-1 text-[11px] font-extrabold rounded-md border transition-all cursor-pointer ${
+                    dailyReportFilter === 'all' ? 'bg-slate-800 text-white border-slate-800' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  Todos ({frentes.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDailyReportFilter('pending')}
+                  className={`px-3 py-1 text-[11px] font-extrabold rounded-md border transition-all cursor-pointer flex items-center gap-1 ${
+                    dailyReportFilter === 'pending' 
+                      ? 'bg-amber-500 text-white border-amber-600 shadow-sm animate-pulse' 
+                      : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-xs">warning</span>
+                  ⚠️ Pendientes Hoy ({pendingCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDailyReportFilter('reported')}
+                  className={`px-3 py-1 text-[11px] font-extrabold rounded-md border transition-all cursor-pointer flex items-center gap-1 ${
+                    dailyReportFilter === 'reported' ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-xs">check_circle</span>
+                  ✓ Al Día ({reportedCount})
+                </button>
+              </div>
+            );
+          })()}
+        </div>
+        <p className="text-[10px] text-slate-500 font-medium">
+          💡 Los frentes activos que <strong>no registran subida de reporte hoy</strong> se destacan con borde y alerta amarilla.
+        </p>
+      </div>
+
       {/* Print-only Report Header */}
       <div className="hidden print-report-header mb-6 pb-4 border-b-2 border-slate-800">
         <div className="flex justify-between items-center">
@@ -565,13 +689,31 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
             const soilImgUrl = design?.perfil_suelo_img_url || frente.perfil_suelo_img_url;
             const photos = getFrentePhotosForWeek(frente.id, selectedWeek);
             const allPhotosHistory = getFrentePhotos(frente.id);
+            const { isMissingUpload, hasUploadToday } = getFrenteDailyUploadStatus(frente);
             
             return (
               <div 
                 key={frente.id} 
-                className="bg-white border border-slate-200 rounded-xl p-6 shadow-premium flex flex-col justify-between hover:border-primary/20 transition-all duration-300 relative overflow-hidden print-card-break"
+                className={`rounded-xl p-6 shadow-premium flex flex-col justify-between transition-all duration-300 relative overflow-hidden print-card-break ${
+                  isMissingUpload
+                    ? 'bg-gradient-to-b from-amber-50/80 via-amber-50/30 to-white border-2 border-amber-500 shadow-md shadow-amber-300/30 ring-2 ring-amber-400/20'
+                    : 'bg-white border border-slate-200 hover:border-primary/20'
+                }`}
               >
                 
+                {/* Warning Banner at Top of Box if Daily Report is Missing */}
+                {isMissingUpload && (
+                  <div className="bg-amber-500 text-white font-extrabold text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-lg mb-3 flex items-center justify-between shadow-xs no-print">
+                    <span className="flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-sm animate-bounce">warning</span>
+                      ALERTA DE CONTROL: FRENTE ACTIVO SIN REPORTE REGISTRADO HOY
+                    </span>
+                    <span className="bg-amber-700/60 px-2 py-0.5 rounded text-[8.5px] font-mono">
+                      Reporte Faltante
+                    </span>
+                  </div>
+                )}
+
                 {/* Frente Header */}
                 <div>
                   <div className="flex justify-between items-start mb-2">
@@ -727,7 +869,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
 
                       if (totalPhotosCount === 0) {
                         return (
-                          <div className="text-[9.5px] text-slate-450 italic bg-slate-50/50 p-2.5 rounded-lg border border-slate-150 border-dashed text-center">
+                          <div className="text-[9.5px] text-slate-455 italic bg-slate-50/50 p-2.5 rounded-lg border border-slate-150 border-dashed text-center">
                             {selectedMonth === 'all' 
                               ? 'No hay fotos de campo registradas en este frente.' 
                               : `No hay fotos de campo registradas en ${availableMonths.find(m => m.key === selectedMonth)?.label || 'el mes seleccionado'}.`
@@ -741,7 +883,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                           <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-1">
                             <span className="flex items-center gap-1 text-primary">
                               <Calendar size={12} />
-                              Fotos Agrupadas por Mes ({totalPhotosCount} en total)
+                              Fotos Agrupadas por Mes ({totalPhotosCount} en total, Orden Cronológico)
                             </span>
                             <span className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded font-black">
                               {selectedMonth === 'all' ? 'Todos los Meses' : availableMonths.find(m => m.key === selectedMonth)?.label}
@@ -822,8 +964,8 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                   )}
                 </div>
 
-                {/* Program Link tag at the bottom */}
-                <div className="mt-4 border-t border-slate-100 pt-3 flex justify-between items-center text-[10.5px] no-print">
+                {/* Program Link tag and Daily Upload Status at the bottom */}
+                <div className="mt-4 border-t border-slate-100 pt-3 flex justify-between items-center text-[10.5px] no-print flex-wrap gap-2">
                   <button
                     onClick={() => onSelectProject(frente.projectId)}
                     className="text-primary hover:underline font-extrabold flex items-center gap-0.5 border-none bg-transparent cursor-pointer"
@@ -831,13 +973,28 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                     <span>Ver Detalles Contractuales ({frente.contractNo})</span>
                     <ArrowRight size={11} />
                   </button>
-                  <span className={`px-2 py-0.5 rounded-full font-black text-[9px] uppercase border ${
-                    frente.status === 'critico' ? 'bg-red-50 text-red-700 border-red-100' :
-                    frente.status === 'alerta' ? 'bg-amber-50 text-amber-800 border-amber-100' :
-                    'bg-emerald-50 text-emerald-800 border-emerald-100'
-                  }`}>
-                    Estado: {frente.status || 'Al día'}
-                  </span>
+
+                  <div className="flex items-center gap-2">
+                    {isMissingUpload ? (
+                      <span className="px-2.5 py-1 rounded-full font-black text-[9px] uppercase border bg-amber-500 text-white border-amber-600 shadow-xs flex items-center gap-1 animate-pulse">
+                        <span className="material-symbols-outlined text-[12px]">schedule</span>
+                        REPORTE PENDIENTE HOY
+                      </span>
+                    ) : hasUploadToday ? (
+                      <span className="px-2.5 py-1 rounded-full font-black text-[9px] uppercase border bg-emerald-100 text-emerald-800 border-emerald-300 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[12px]">check_circle</span>
+                        REPORTE AL DÍA HOY
+                      </span>
+                    ) : null}
+
+                    <span className={`px-2 py-0.5 rounded-full font-black text-[9px] uppercase border ${
+                      frente.status === 'critico' ? 'bg-red-50 text-red-700 border-red-100' :
+                      frente.status === 'alerta' ? 'bg-amber-50 text-amber-800 border-amber-100' :
+                      'bg-slate-100 text-slate-700 border-slate-200'
+                    }`}>
+                      {frente.status || 'Al día'}
+                    </span>
+                  </div>
                 </div>
 
               </div>

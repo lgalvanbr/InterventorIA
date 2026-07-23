@@ -497,11 +497,16 @@ export default function InspectorPortal({
               className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm text-slate-800 font-bold focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer"
             >
               <option value="" disabled>-- Selecciona un frente ({filteredFrentes.length}) --</option>
-              {filteredFrentes.map(f => (
-                <option key={f.id} value={f.id}>
-                  Frente {f.frente} • CIV {f.civ} — {f.eje}
-                </option>
-              ))}
+              {filteredFrentes.map(f => {
+                const fFotos = f.fotos || [];
+                const fNotes = f.bitacora_notes || f.bitacora_notas || [];
+                const hasUploadToday = fFotos.some(p => p.date === activeDateStr) || fNotes.some(n => n.date === activeDateStr && n.note?.trim() !== '');
+                return (
+                  <option key={f.id} value={f.id}>
+                    {!hasUploadToday ? '⚠️' : '✓'} Frente {f.frente} • CIV {f.civ} {!hasUploadToday ? '(Sin reporte hoy)' : '(Al día)'}
+                  </option>
+                );
+              })}
             </select>
 
             <button
@@ -525,6 +530,16 @@ export default function InspectorPortal({
 
         {selectedFrenteId ? (
           <>
+            {/* Warning alert banner inside Portal if current selected date is missing upload */}
+            {activeFrente && !(fotos.some(p => p.date === activeDateStr) || bitacoraNotes.some(n => n.date === activeDateStr && n.note?.trim() !== '')) && (
+              <div className="bg-amber-500 text-white p-3 rounded-xl shadow-md flex items-center justify-between text-xs font-bold animate-pulse">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-lg">warning</span>
+                  <span>⚠️ REPORTE FALTANTE: No has subido fotos ni bitácora para este frente el día de hoy.</span>
+                </div>
+              </div>
+            )}
+
             {/* Step 2: Select Day */}
             <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col gap-2">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block mb-1">
