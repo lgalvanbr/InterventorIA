@@ -783,8 +783,9 @@ export default function WeeklyFrenteDetail({
           </h3>
           <textarea
             rows={2}
-            className="w-full bg-slate-50/50 border border-slate-200 rounded px-3 py-2 text-xs leading-relaxed font-semibold focus:bg-white focus:outline-none resize-y"
-            placeholder="Resumen general de hitos logrados en la semana completa..."
+            disabled={isContractorMode}
+            className="w-full bg-slate-50/50 border border-slate-200 rounded px-3 py-2 text-xs leading-relaxed font-semibold focus:bg-white focus:outline-none resize-y disabled:bg-slate-100 disabled:text-slate-500"
+            placeholder={isContractorMode ? "Sin hitos semanales registrados hoy." : "Resumen general de hitos logrados en la semana completa..."}
             value={hitos}
             onChange={(e) => setHitos(e.target.value)}
           />

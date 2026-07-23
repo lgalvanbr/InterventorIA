@@ -257,8 +257,61 @@ export default function InspectorPortal({
     setFotos(prev => prev.filter(f => f.id !== photoId));
   };
 
-  const handlePrevFrente = () => {
+  // Auto-save helper to preserve any pending inspector changes before changing frente, date/day or week
+  const saveCurrentFrenteDataSilently = async (overrideFrenteId, overrideReportId) => {
+    const frenteIdToSave = overrideFrenteId || selectedFrenteId;
+    const reportIdToSave = overrideReportId || currentReport?.id_informe;
+
+    if (!frenteIdToSave || !reportIdToSave) return;
+
+    let finalNotes = [...bitacoraNotes];
+    if (activeDateStr) {
+      const noteExists = finalNotes.some(n => n.date === activeDateStr);
+      if (noteExists) {
+        finalNotes = finalNotes.map(n => n.date === activeDateStr ? { ...n, note: dailyNote } : n);
+      } else if (dailyNote.trim() !== '') {
+        finalNotes = [
+          { id: Date.now(), date: activeDateStr, note: dailyNote },
+          ...finalNotes
+        ];
+      }
+    }
+
+    try {
+      await onSaveFrenteData(reportIdToSave, frenteIdToSave, {
+        fotos: fotos,
+        bitacora_notes: finalNotes,
+        bitacora_notas: finalNotes
+      });
+      setIsSuccess(true);
+      setTimeout(() => setIsSuccess(false), 2000);
+    } catch (err) {
+      console.error("Error al guardar automáticamente los cambios del frente:", err);
+    }
+  };
+
+  const handleReportChange = async (newReportId) => {
+    if (newReportId === selectedReportId) return;
+    await saveCurrentFrenteDataSilently();
+    setSelectedReportId(newReportId);
+    setSelectedFrenteId('');
+  };
+
+  const handleFilterChange = async (newFilter) => {
+    if (newFilter === projectTypeFilter) return;
+    await saveCurrentFrenteDataSilently();
+    setProjectTypeFilter(newFilter);
+  };
+
+  const handleFrenteChange = async (newFrenteId) => {
+    if (newFrenteId === selectedFrenteId) return;
+    await saveCurrentFrenteDataSilently();
+    setSelectedFrenteId(newFrenteId);
+  };
+
+  const handlePrevFrente = async () => {
     if (filteredFrentes.length === 0) return;
+    await saveCurrentFrenteDataSilently();
     const currentIndex = filteredFrentes.findIndex(f => f.id === selectedFrenteId);
     let nextIndex = currentIndex - 1;
     if (nextIndex < 0) {
@@ -267,14 +320,21 @@ export default function InspectorPortal({
     setSelectedFrenteId(filteredFrentes[nextIndex].id);
   };
 
-  const handleNextFrente = () => {
+  const handleNextFrente = async () => {
     if (filteredFrentes.length === 0) return;
+    await saveCurrentFrenteDataSilently();
     const currentIndex = filteredFrentes.findIndex(f => f.id === selectedFrenteId);
     let nextIndex = currentIndex + 1;
     if (nextIndex >= filteredFrentes.length || currentIndex === -1) {
       nextIndex = 0; // wrap around
     }
     setSelectedFrenteId(filteredFrentes[nextIndex].id);
+  };
+
+  const handleDayChange = async (newIdx) => {
+    if (newIdx === activeDayIdx) return;
+    await saveCurrentFrenteDataSilently();
+    setActiveDayIdx(newIdx);
   };
 
   const handleActiveDayNoteChange = (text) => {
@@ -322,7 +382,8 @@ export default function InspectorPortal({
     try {
       await onSaveFrenteData(currentReport.id_informe, selectedFrenteId, {
         fotos: fotos,
-        bitacora_notes: finalNotes
+        bitacora_notes: finalNotes,
+        bitacora_notas: finalNotes
       });
       setIsSuccess(true);
       setTimeout(() => setIsSuccess(false), 3000);
@@ -365,10 +426,7 @@ export default function InspectorPortal({
           </label>
           <select
             value={selectedReportId || ''}
-            onChange={(e) => {
-              setSelectedReportId(Number(e.target.value));
-              setSelectedFrenteId(''); // Reset selected frente when week changes
-            }}
+            onChange={(e) => handleReportChange(Number(e.target.value))}
             className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
           >
             {weeklyReports.map(r => (
@@ -389,7 +447,7 @@ export default function InspectorPortal({
           <div className="flex gap-1.5 mb-3">
             <button
               type="button"
-              onClick={() => setProjectTypeFilter('all')}
+              onClick={() => handleFilterChange('all')}
               className={`flex-1 py-1.5 px-2 text-[10px] font-bold rounded-lg border transition-all text-center ${
                 projectTypeFilter === 'all'
                   ? 'bg-primary text-white border-primary shadow-sm'
@@ -400,7 +458,7 @@ export default function InspectorPortal({
             </button>
             <button
               type="button"
-              onClick={() => setProjectTypeFilter('malla')}
+              onClick={() => handleFilterChange('malla')}
               className={`flex-1 py-1.5 px-2 text-[10px] font-bold rounded-lg border transition-all text-center ${
                 projectTypeFilter === 'malla'
                   ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
@@ -411,7 +469,7 @@ export default function InspectorPortal({
             </button>
             <button
               type="button"
-              onClick={() => setProjectTypeFilter('espacio')}
+              onClick={() => handleFilterChange('espacio')}
               className={`flex-1 py-1.5 px-2 text-[10px] font-bold rounded-lg border transition-all text-center ${
                 projectTypeFilter === 'espacio'
                   ? 'bg-teal-600 text-white border-teal-600 shadow-sm'
@@ -435,7 +493,7 @@ export default function InspectorPortal({
 
             <select 
               value={selectedFrenteId}
-              onChange={(e) => setSelectedFrenteId(e.target.value)}
+              onChange={(e) => handleFrenteChange(e.target.value)}
               className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-3 text-sm text-slate-800 font-bold focus:ring-1 focus:ring-primary focus:outline-none cursor-pointer"
             >
               <option value="" disabled>-- Selecciona un frente ({filteredFrentes.length}) --</option>
@@ -489,7 +547,7 @@ export default function InspectorPortal({
                     <button
                       key={idx}
                       type="button"
-                      onClick={() => setActiveDayIdx(idx)}
+                      onClick={() => handleDayChange(idx)}
                       className={`flex flex-col items-center justify-center min-w-[62px] py-2 px-1.5 rounded-lg border text-center transition-all relative shrink-0 ${
                         isActive 
                           ? 'bg-primary text-white border-primary shadow-sm'

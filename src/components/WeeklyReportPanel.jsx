@@ -123,7 +123,7 @@ const getIaCommentForFrente = (consolidadoIa, frenteNumber) => {
   return match ? match[1].trim() : '';
 };
 
-const PrintFrenteCard = ({ frente, printMode, allFrentes, designOverrides, consolidadoIa, getDayName, report }) => {
+const PrintFrenteCard = ({ frente, printMode, allFrentes, designOverrides, consolidadoIa, getDayName, report, isContractorMode }) => {
   const isMv = frente.id.startsWith('f_mv');
   const activeNotes = frente.bitacora_notes?.filter(n => n.note.trim() !== '') || [];
   const activePhotos = frente.fotos || [];
@@ -203,7 +203,7 @@ const PrintFrenteCard = ({ frente, printMode, allFrentes, designOverrides, conso
       </div>
 
       {/* Comentario de Interventoría del Frente */}
-      {frenteIaComment && (
+      {!isContractorMode && frenteIaComment && (
         <div className="bg-slate-50 border-l-2 border-primary/50 p-2.5 rounded-r text-[9px] text-slate-800 leading-relaxed italic font-semibold shadow-2xs">
           <div className="flex items-center gap-1 text-primary text-[8px] font-black uppercase tracking-wider mb-1">
             <span className="material-symbols-outlined text-[11px]">rate_review</span>
@@ -402,6 +402,12 @@ export default function WeeklyReportPanel({
       setIaText(report.consolidado_ia || '');
     }
   }, [report?.id_informe, report?.consolidado_ia]);
+
+  useEffect(() => {
+    if (isContractorMode && activeTab === 'frentes') {
+      setActiveTab('comite');
+    }
+  }, [isContractorMode, activeTab]);
 
   const handleSaveIAConsolidated = () => {
     if (onSaveReport) {
@@ -634,17 +640,19 @@ export default function WeeklyReportPanel({
             <FileText size={14} />
             Reporte PDF
           </button>
-          <button
-            onClick={() => setActiveTab('frentes')}
-            className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-              activeTab === 'frentes'
-                ? 'bg-white text-primary shadow'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Layers size={14} />
-            Frentes ({totalFrentes})
-          </button>
+          {!isContractorMode && (
+            <button
+              onClick={() => setActiveTab('frentes')}
+              className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+                activeTab === 'frentes'
+                  ? 'bg-white text-primary shadow'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Layers size={14} />
+              Frentes ({totalFrentes})
+            </button>
+          )}
         </div>
       </header>
 
@@ -853,94 +861,106 @@ export default function WeeklyReportPanel({
         {activeTab === 'pdf' && (
           <div className="flex flex-col lg:flex-row gap-6 items-start w-full">
             
-            {/* Left Sidebar: Editor Panel (Hidden in Print) */}
-            {!isContractorMode && (
-              <div className="w-full lg:w-[320px] flex flex-col gap-5 shrink-0 no-print bg-white p-5 rounded-xl border border-slate-200 shadow-sm sticky top-[95px]">
-                <div>
-                  <div className="flex items-center gap-2 text-primary">
-                    <span className="material-symbols-outlined text-[20px] font-bold">psychology</span>
-                    <h3 className="font-extrabold text-sm text-slate-800">Asistente de Redacción</h3>
+            {/* Left Sidebar: Editor/Print Panel (Hidden in Print) */}
+            <div className="w-full lg:w-[320px] flex flex-col gap-5 shrink-0 no-print bg-white p-5 rounded-xl border border-slate-200 shadow-sm sticky top-[95px]">
+              {!isContractorMode ? (
+                <>
+                  <div>
+                    <div className="flex items-center gap-2 text-primary">
+                      <span className="material-symbols-outlined text-[20px] font-bold">psychology</span>
+                      <h3 className="font-extrabold text-sm text-slate-800">Asistente de Redacción</h3>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1 leading-normal">
+                      Copia las bitácoras de frentes, procésalas con tu asistente y pega la respuesta consolidada aquí para incluirla en el reporte.
+                    </p>
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-1 leading-normal">
-                    Copia las bitácoras de frentes, procésalas con tu asistente y pega la respuesta consolidada aquí para incluirla en el reporte.
+
+                  {/* Action 1: Copy Data */}
+                  <button
+                    onClick={handleCopyInfo}
+                    className="w-full bg-primary hover:bg-primary/95 text-white text-xs font-bold py-2.5 px-3 rounded-lg shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">content_copy</span>
+                    Copiar Datos de Frentes
+                  </button>
+
+                  <hr className="border-slate-100" />
+
+                  {/* Action 2: Input Text */}
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex justify-between items-center text-[10.5px] font-bold text-slate-700">
+                      <span>Consolidado de Interventoría</span>
+                      {iaText !== report.consolidado_ia && (
+                        <span className="text-[9px] text-amber-600 font-extrabold animate-pulse">Sin guardar</span>
+                      )}
+                    </div>
+                    <textarea
+                      rows={9}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-[11px] leading-relaxed font-semibold focus:bg-white focus:outline-none resize-none focus:ring-1 focus:ring-primary/20"
+                      placeholder="Pega el resumen consolidado de interventoría aquí..."
+                      value={iaText}
+                      onChange={(e) => setIaText(e.target.value)}
+                      onBlur={handleBlur}
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleSaveIAConsolidated}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded-lg shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">save</span>
+                    Guardar Consolidado
+                  </button>
+
+                  <hr className="border-slate-100" />
+                </>
+              ) : (
+                <div>
+                  <div className="flex items-center gap-2 text-primary mb-1">
+                    <span className="material-symbols-outlined text-[20px] font-bold">print</span>
+                    <h3 className="font-extrabold text-sm text-slate-800">Opciones de Exportación</h3>
+                  </div>
+                  <p className="text-[10px] text-slate-500 leading-normal">
+                    Selecciona el formato de impresión del informe semanal para exportar a PDF.
                   </p>
                 </div>
+              )}
 
-                {/* Action 1: Copy Data */}
-                <button
-                  onClick={handleCopyInfo}
-                  className="w-full bg-primary hover:bg-primary/95 text-white text-xs font-bold py-2.5 px-3 rounded-lg shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[15px]">content_copy</span>
-                  Copiar Datos de Frentes
-                </button>
-
-                <hr className="border-slate-100" />
-
-                {/* Action 2: Input Text */}
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex justify-between items-center text-[10.5px] font-bold text-slate-700">
-                    <span>Consolidado de Interventoría</span>
-                    {iaText !== report.consolidado_ia && (
-                      <span className="text-[9px] text-amber-600 font-extrabold animate-pulse">Sin guardar</span>
-                    )}
-                  </div>
-                  <textarea
-                    rows={9}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-[11px] leading-relaxed font-semibold focus:bg-white focus:outline-none resize-none focus:ring-1 focus:ring-primary/20"
-                    placeholder="Pega el resumen consolidado de interventoría aquí..."
-                    value={iaText}
-                    onChange={(e) => setIaText(e.target.value)}
-                    onBlur={handleBlur}
-                  />
-                </div>
-
-                <button
-                  onClick={handleSaveIAConsolidated}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded-lg shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[15px]">save</span>
-                  Guardar Consolidado
-                </button>
-
-                <hr className="border-slate-100" />
-
-                {/* Action 3: Printing Modes */}
-                <div className="flex flex-col gap-2">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Modo de Impresión PDF</span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        setPrintMode('full');
-                        setTimeout(() => { window.print(); }, 150);
-                      }}
-                      className={`flex-1 text-[10.5px] font-extrabold py-2 px-1 rounded-lg border shadow-2xs transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
-                        printMode === 'full' 
-                          ? 'bg-slate-900 border-slate-900 text-white' 
-                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-[16px]">print</span>
-                      Completo
-                    </button>
-                    <button
-                      onClick={() => {
-                        setPrintMode('simplified');
-                        setTimeout(() => { window.print(); }, 150);
-                      }}
-                      className={`flex-1 text-[10.5px] font-extrabold py-2 px-1 rounded-lg border shadow-2xs transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
-                        printMode === 'simplified' 
-                          ? 'bg-slate-900 border-slate-900 text-white' 
-                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-[16px]">description</span>
-                      Simplificado
-                    </button>
-                  </div>
+              {/* Action 3: Printing Modes */}
+              <div className="flex flex-col gap-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Modo de Impresión PDF</span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setPrintMode('full');
+                      setTimeout(() => { window.print(); }, 150);
+                    }}
+                    className={`flex-1 text-[10.5px] font-extrabold py-2 px-1 rounded-lg border shadow-2xs transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                      printMode === 'full' 
+                        ? 'bg-slate-900 border-slate-900 text-white' 
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">print</span>
+                    Completo
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPrintMode('simplified');
+                      setTimeout(() => { window.print(); }, 150);
+                    }}
+                    className={`flex-1 text-[10.5px] font-extrabold py-2 px-1 rounded-lg border shadow-2xs transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                      printMode === 'simplified' 
+                        ? 'bg-slate-900 border-slate-900 text-white' 
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">description</span>
+                    Simplificado
+                  </button>
                 </div>
               </div>
-            )}
+            </div>
 
             {/* Right Column: PDF Preview Column */}
             <div className="flex-1 w-full space-y-4">
@@ -1048,13 +1068,13 @@ export default function WeeklyReportPanel({
               )}
 
               {/* PDF AI Consolidated Section */}
-              {report.consolidado_ia && (
+              {!isContractorMode && report.consolidado_ia && (
                 <div className="py-4 border-b border-slate-200 text-left">
-                  <h3 className="text-xs font-black text-slate-950 uppercase mb-2 pb-1 border-b border-slate-300 flex items-center gap-1.5">
+                  <h3 className="text-xs font-black text-slate-955 uppercase mb-2 pb-1 border-b border-slate-300 flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-primary text-[14px]">rate_review</span>
                     {printMode === 'full' ? 'II.' : 'I.'} Consolidado de Interventoría
                   </h3>
-                  <div className="bg-slate-50 border border-slate-200 rounded p-3 text-[10px] text-slate-850 leading-relaxed whitespace-pre-line italic font-semibold shadow-2xs">
+                  <div className="bg-slate-50 border border-slate-200 rounded p-3 text-[10px] text-slate-855 leading-relaxed whitespace-pre-line italic font-semibold shadow-2xs">
                     {report.consolidado_ia}
                   </div>
                 </div>
@@ -1062,11 +1082,11 @@ export default function WeeklyReportPanel({
 
               {/* PDF Fichas Técnicas Individuales (Frente por Frente) */}
               <div className="py-4 space-y-8 page-break-before">
-                <h3 className="text-xs font-black text-slate-950 uppercase mb-4 border-b border-slate-300 pb-1 flex items-center gap-1.5">
+                <h3 className="text-xs font-black text-slate-955 uppercase mb-4 border-b border-slate-300 pb-1 flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-primary text-[14px]">engineering</span>
                   {printMode === 'full' 
-                    ? report.consolidado_ia ? 'III. Fichas Técnicas de Frentes Activos' : 'II. Fichas Técnicas de Frentes Activos'
-                    : report.consolidado_ia ? 'II. Evidencia Fotográfica por Frente' : 'I. Evidencia Fotográfica por Frente'}
+                    ? (!isContractorMode && report.consolidado_ia) ? 'III. Fichas Técnicas de Frentes Activos' : 'II. Fichas Técnicas de Frentes Activos'
+                    : (!isContractorMode && report.consolidado_ia) ? 'II. Evidencia Fotográfica por Frente' : 'I. Evidencia Fotográfica por Frente'}
                 </h3>
 
                 {report.frentes.filter(f => f.fotos && f.fotos.length > 0).map((frente) => (
@@ -1079,6 +1099,7 @@ export default function WeeklyReportPanel({
                     consolidadoIa={iaText} 
                     getDayName={getDayName} 
                     report={report}
+                    isContractorMode={isContractorMode}
                   />
                 ))}
               </div>
@@ -1258,13 +1279,13 @@ export default function WeeklyReportPanel({
         )}
 
         {/* PDF AI Consolidated Section */}
-        {report.consolidado_ia && (
+        {!isContractorMode && report.consolidado_ia && (
           <div className="py-4 border-b border-slate-200 text-left">
-            <h3 className="text-xs font-black text-slate-950 uppercase mb-2 pb-1 border-b border-slate-355 flex items-center gap-1.5">
+            <h3 className="text-xs font-black text-slate-955 uppercase mb-2 pb-1 border-b border-slate-355 flex items-center gap-1.5">
               <span className="material-symbols-outlined text-primary text-[14px]">rate_review</span>
               {printMode === 'full' ? 'II.' : 'I.'} Consolidado de Interventoría
             </h3>
-            <div className="bg-slate-50 border border-slate-200 rounded p-3 text-[10px] text-slate-850 leading-relaxed whitespace-pre-line italic font-semibold">
+            <div className="bg-slate-50 border border-slate-200 rounded p-3 text-[10px] text-slate-855 leading-relaxed whitespace-pre-line italic font-semibold">
               {report.consolidado_ia}
             </div>
           </div>
@@ -1272,11 +1293,11 @@ export default function WeeklyReportPanel({
 
         {/* PDF Fichas Técnicas Individuales (Frente por Frente) */}
         <div className="py-4 space-y-6">
-          <h3 className="text-xs font-black text-slate-950 uppercase mb-4 border-b border-slate-350 pb-1 flex items-center gap-1.5">
+          <h3 className="text-xs font-black text-slate-955 uppercase mb-4 border-b border-slate-350 pb-1 flex items-center gap-1.5">
             <span className="material-symbols-outlined text-primary text-[14px]">engineering</span>
             {printMode === 'full' 
-              ? report.consolidado_ia ? 'III. Fichas Técnicas de Frentes Activos' : 'II. Fichas Técnicas de Frentes Activos'
-              : report.consolidado_ia ? 'II. Evidencia Fotográfica por Frente' : 'I. Evidencia Fotográfica por Frente'}
+              ? (!isContractorMode && report.consolidado_ia) ? 'III. Fichas Técnicas de Frentes Activos' : 'II. Fichas Técnicas de Frentes Activos'
+              : (!isContractorMode && report.consolidado_ia) ? 'II. Evidencia Fotográfica por Frente' : 'I. Evidencia Fotográfica por Frente'}
           </h3>
 
           {report.frentes.filter(f => f.fotos && f.fotos.length > 0).map((frente) => (
@@ -1288,6 +1309,7 @@ export default function WeeklyReportPanel({
               consolidadoIa={iaText} 
               getDayName={getDayName} 
               report={report}
+              isContractorMode={isContractorMode}
             />
           ))}
         </div>

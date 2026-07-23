@@ -124,11 +124,86 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
   
   // Selected global week state
   const [selectedWeek, setSelectedWeek] = useState(availableWeeks[0] || 29);
+
+  // Month Filtering & Grouping State
+  const [photoFilterMode, setPhotoFilterMode] = useState('month'); // 'month' or 'week'
+  const [selectedMonth, setSelectedMonth] = useState('all'); // 'all' or month key like '2026-07'
   
   // Lightbox State
   const [lightboxPhotos, setLightboxPhotos] = useState(null); // stores all photos for active frente
   const [lightboxIndex, setLightboxIndex] = useState(0);      // index inside visiblePhotos
   const [selectedLightboxWeek, setSelectedLightboxWeek] = useState('all'); // 'all' or week number
+  const [selectedLightboxMonth, setSelectedLightboxMonth] = useState('all'); // 'all' or month key
+
+  // Helper to extract month and year from a photo or date string
+  const getPhotoMonthYear = (photo) => {
+    const dateStr = photo.date || photo.fechaCorte || photo.fechaInicial;
+    if (!dateStr || dateStr === 'Sin fecha') {
+      if (photo.semana) {
+        const label = photo.semana >= 28 ? 'Julio 2026' : photo.semana >= 24 ? 'Junio 2026' : photo.semana >= 20 ? 'Mayo 2026' : 'Abril 2026';
+        const key = photo.semana >= 28 ? '2026-07' : photo.semana >= 24 ? '2026-06' : photo.semana >= 20 ? '2026-05' : '2026-04';
+        return { key, label };
+      }
+      return { key: 'sin_fecha', label: 'Sin fecha' };
+    }
+
+    try {
+      let d;
+      if (typeof dateStr === 'string' && dateStr.includes('-')) {
+        const parts = dateStr.split('T')[0].split('-');
+        if (parts.length === 3) {
+          d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        }
+      } else if (typeof dateStr === 'string' && dateStr.includes('/')) {
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+          d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        }
+      }
+      if (!d || isNaN(d.getTime())) {
+        d = new Date(dateStr);
+      }
+      if (isNaN(d.getTime())) return { key: 'sin_fecha', label: 'Sin fecha' };
+
+      const year = d.getFullYear();
+      const monthName = d.toLocaleDateString('es-CO', { month: 'long' });
+      const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+      const label = `${capitalizedMonth} ${year}`;
+      const key = `${year}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      return { key, label };
+    } catch (e) {
+      return { key: 'sin_fecha', label: 'Sin fecha' };
+    }
+  };
+
+  // Build available months list across all reports
+  const availableMonthsMap = new Map();
+  (weeklyReports || []).forEach(report => {
+    (report.frentes || []).forEach(f => {
+      (f.fotos || []).forEach(photo => {
+        const { key, label } = getPhotoMonthYear({
+          ...photo,
+          semana: report.numero_semana,
+          fechaCorte: report.fecha_final_corte
+        });
+        if (key !== 'sin_fecha') {
+          availableMonthsMap.set(key, label);
+        }
+      });
+    });
+  });
+
+  if (availableMonthsMap.size === 0) {
+    (weeklyReports || []).forEach(report => {
+      if (report.fecha_inicial_corte) {
+        const { key, label } = getPhotoMonthYear({ date: report.fecha_inicial_corte });
+        if (key !== 'sin_fecha') availableMonthsMap.set(key, label);
+      }
+    });
+  }
+  const availableMonths = Array.from(availableMonthsMap.entries())
+    .map(([key, label]) => ({ key, label }))
+    .sort((a, b) => b.key.localeCompare(a.key));
 
   // Compile frentes with stats representing the selected week
   const frentes = projects.flatMap(proj => {
@@ -172,6 +247,25 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
     return photos.sort((a, b) => b.semana - a.semana || new Date(b.date) - new Date(a.date));
   };
 
+  // Group photos of a frente by month
+  const getFrentePhotosGroupedByMonth = (frenteId) => {
+    const allPhotos = getFrentePhotos(frenteId);
+    const groupsMap = new Map();
+
+    allPhotos.forEach(photo => {
+      const { key, label } = getPhotoMonthYear(photo);
+      if (!groupsMap.has(key)) {
+        groupsMap.set(key, { key, label, photos: [] });
+      }
+      groupsMap.get(key).photos.push(photo);
+    });
+
+    const groups = Array.from(groupsMap.values());
+    // Sort groups descending by month key
+    groups.sort((a, b) => b.key.localeCompare(a.key));
+    return groups;
+  };
+
   // Get photos specifically uploaded during the selected week
   const getFrentePhotosForWeek = (frenteId, weekNum) => {
     const photos = [];
@@ -208,21 +302,30 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
 
   // Lightbox opening handler
   const handleOpenLightbox = (photosList, photoIndex) => {
-    const clickedPhoto = photosList[photoIndex];
+    const clickedPhoto = photosList[photoIndex] || photosList[0];
     setLightboxPhotos(photosList);
-    setSelectedLightboxWeek(clickedPhoto.semana); // filter lightbox to the week of the clicked photo
     
-    // Find index of clicked photo within that week's photos
-    const weekPhotos = photosList.filter(p => p.semana === clickedPhoto.semana);
-    const indexInWeek = weekPhotos.findIndex(p => p.id === clickedPhoto.id);
-    setLightboxIndex(indexInWeek >= 0 ? indexInWeek : 0);
+    const { key: photoMonth } = getPhotoMonthYear(clickedPhoto);
+    setSelectedLightboxMonth(photoMonth);
+    setSelectedLightboxWeek('all');
+    
+    const monthPhotos = photosList.filter(p => getPhotoMonthYear(p).key === photoMonth);
+    const indexInMonth = monthPhotos.findIndex(p => p.id === clickedPhoto.id);
+    setLightboxIndex(indexInMonth >= 0 ? indexInMonth : 0);
   };
 
-  // Get active photo list based on week filter
+  // Get active photo list based on month/week filter in Lightbox
   const getVisiblePhotos = () => {
     if (!lightboxPhotos) return [];
-    if (selectedLightboxWeek === 'all') return lightboxPhotos;
-    return lightboxPhotos.filter(p => p.semana === Number(selectedLightboxWeek));
+    let list = lightboxPhotos;
+
+    if (selectedLightboxMonth !== 'all') {
+      list = list.filter(p => getPhotoMonthYear(p).key === selectedLightboxMonth);
+    }
+    if (selectedLightboxWeek !== 'all') {
+      list = list.filter(p => p.semana === Number(selectedLightboxWeek));
+    }
+    return list;
   };
 
   const visiblePhotos = getVisiblePhotos();
@@ -244,10 +347,26 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
     setLightboxIndex(0); // reset page index on week change
   };
 
+  const handleMonthChange = (monthKey) => {
+    setSelectedLightboxMonth(monthKey);
+    setLightboxIndex(0);
+  };
+
   // Unique weeks list with photos for active lightbox
   const getLightboxWeeks = () => {
     if (!lightboxPhotos) return [];
     return [...new Set(lightboxPhotos.map(p => p.semana))].sort((a, b) => b - a);
+  };
+
+  // Unique months list with photos for active lightbox
+  const getLightboxMonths = () => {
+    if (!lightboxPhotos) return [];
+    const monthMap = new Map();
+    lightboxPhotos.forEach(p => {
+      const { key, label } = getPhotoMonthYear(p);
+      if (key !== 'sin_fecha') monthMap.set(key, label);
+    });
+    return Array.from(monthMap.entries()).map(([key, label]) => ({ key, label })).sort((a, b) => b.key.localeCompare(a.key));
   };
 
   // Find active week report for dates display
@@ -315,8 +434,8 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
         </div>
       </section>
 
-      {/* 2. Search, Week Selector & Print Toolbar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4 mb-6 no-print">
+      {/* 2. Search, Month/Week Filter & Print Toolbar */}
+      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row justify-between items-center gap-3 mb-6 no-print">
         
         {/* Search Input */}
         <div className="flex-1 w-full relative">
@@ -330,26 +449,68 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
           />
         </div>
 
-        {/* Global Week Selector */}
-        <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 justify-between md:justify-start">
-          <div className="flex items-center gap-1.5">
-            <Calendar size={14} className="text-primary" />
-            <span className="text-[10px] text-slate-455 font-bold uppercase tracking-wider">Semana:</span>
-          </div>
-          <select
-            value={selectedWeek}
-            onChange={(e) => setSelectedWeek(Number(e.target.value))}
-            className="bg-transparent text-slate-900 text-xs font-black focus:outline-none cursor-pointer border-none py-0.5 pr-2"
+        {/* Filter Mode Selector (Por Mes vs Por Semana) */}
+        <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 shrink-0 w-full md:w-auto justify-center">
+          <button
+            onClick={() => setPhotoFilterMode('month')}
+            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+              photoFilterMode === 'month' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            }`}
           >
-            {availableWeeks.map(wNum => (
-              <option key={wNum} value={wNum}>Semana {wNum}</option>
-            ))}
-          </select>
+            <Calendar size={13} className="text-primary" />
+            Fotos por Mes
+          </button>
+          <button
+            onClick={() => setPhotoFilterMode('week')}
+            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+              photoFilterMode === 'week' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <ImageIcon size={13} className="text-slate-500" />
+            Fotos por Semana
+          </button>
         </div>
+
+        {/* Global Month Selector */}
+        {photoFilterMode === 'month' ? (
+          <div className="flex items-center gap-2 shrink-0 w-full md:w-auto bg-indigo-50/60 border border-indigo-150 rounded-lg px-3 py-1.5 justify-between md:justify-start">
+            <div className="flex items-center gap-1.5">
+              <Calendar size={14} className="text-primary" />
+              <span className="text-[10px] text-primary font-extrabold uppercase tracking-wider">Mes:</span>
+            </div>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="bg-transparent text-slate-900 text-xs font-black focus:outline-none cursor-pointer border-none py-0.5 pr-2"
+            >
+              <option value="all">Todos los Meses</option>
+              {availableMonths.map(m => (
+                <option key={m.key} value={m.key}>{m.label}</option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          /* Global Week Selector */
+          <div className="flex items-center gap-2 shrink-0 w-full md:w-auto bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 justify-between md:justify-start">
+            <div className="flex items-center gap-1.5">
+              <Calendar size={14} className="text-primary" />
+              <span className="text-[10px] text-slate-455 font-bold uppercase tracking-wider">Semana:</span>
+            </div>
+            <select
+              value={selectedWeek}
+              onChange={(e) => setSelectedWeek(Number(e.target.value))}
+              className="bg-transparent text-slate-900 text-xs font-black focus:outline-none cursor-pointer border-none py-0.5 pr-2"
+            >
+              {availableWeeks.map(wNum => (
+                <option key={wNum} value={wNum}>Semana {wNum}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Dates Range Label */}
         {activeReport && (
-          <div className="text-[10px] font-bold text-slate-500 bg-indigo-50/50 border border-indigo-100 px-3 py-2 rounded-lg shrink-0 w-full md:w-auto text-center font-mono">
+          <div className="text-[10px] font-bold text-slate-500 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg shrink-0 w-full md:w-auto text-center font-mono">
             Período: {activeReport.fecha_inicial_corte} al {activeReport.fecha_final_corte}
           </div>
         )}
@@ -357,7 +518,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
         {/* Print Report Button */}
         <button
           onClick={() => window.print()}
-          className="bg-[#00236f] hover:bg-slate-800 text-white text-xs font-black px-4.5 py-2 rounded-lg transition-all active:scale-95 duration-100 flex items-center gap-1.5 shadow-sm cursor-pointer shrink-0 w-full md:w-auto justify-center"
+          className="bg-[#00236f] hover:bg-slate-800 text-white text-xs font-black px-4 py-2 rounded-lg transition-all active:scale-95 duration-100 flex items-center gap-1.5 shadow-sm cursor-pointer shrink-0 w-full md:w-auto justify-center"
         >
           <span className="material-symbols-outlined text-sm font-bold">print</span>
           Imprimir Informe
@@ -553,37 +714,111 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                   </div>
                 </div>
 
-                {/* Latest weekly photos row */}
+                {/* Latest visual photos row (Grouped by Month or Filtered by Week) */}
                 <div className="mt-4 border-t border-slate-100 pt-4">
-                  {photos.length > 0 ? (
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between items-center text-[10px] font-bold text-slate-450 uppercase tracking-wider">
-                        <span>Avances Visuales Registrados (Semana {selectedWeek})</span>
-                        <span>({photos.length} fotos)</span>
-                      </div>
-                      <div className="flex gap-2.5 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-slate-300">
-                        {photos.map((photo, pIdx) => (
-                          <div 
-                            key={photo.id}
-                            onClick={() => handleOpenLightbox(allPhotosHistory, allPhotosHistory.findIndex(p => p.id === photo.id))}
-                            className="w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-2xs shrink-0 cursor-pointer hover:border-primary transition-all relative group bg-slate-900"
-                          >
-                            <img src={photo.url} alt={photo.caption} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-0.5 text-white no-print">
-                              <Eye size={12} />
-                              <span className="text-[7.5px] font-black uppercase tracking-wider">Ver Foto</span>
-                            </div>
-                            <div className="absolute bottom-0 inset-x-0 bg-slate-900/65 text-[7.5px] text-white text-center font-bold font-mono">
-                              Sem {photo.semana}
-                            </div>
+                  {photoFilterMode === 'month' ? (
+                    (() => {
+                      const allMonthGroups = getFrentePhotosGroupedByMonth(frente.id);
+                      const displayGroups = selectedMonth === 'all' 
+                        ? allMonthGroups 
+                        : allMonthGroups.filter(g => g.key === selectedMonth);
+                      
+                      const totalPhotosCount = displayGroups.reduce((acc, g) => acc + g.photos.length, 0);
+
+                      if (totalPhotosCount === 0) {
+                        return (
+                          <div className="text-[9.5px] text-slate-450 italic bg-slate-50/50 p-2.5 rounded-lg border border-slate-150 border-dashed text-center">
+                            {selectedMonth === 'all' 
+                              ? 'No hay fotos de campo registradas en este frente.' 
+                              : `No hay fotos de campo registradas en ${availableMonths.find(m => m.key === selectedMonth)?.label || 'el mes seleccionado'}.`
+                            }
                           </div>
-                        ))}
-                      </div>
-                    </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100 pb-1">
+                            <span className="flex items-center gap-1 text-primary">
+                              <Calendar size={12} />
+                              Fotos Agrupadas por Mes ({totalPhotosCount} en total)
+                            </span>
+                            <span className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded font-black">
+                              {selectedMonth === 'all' ? 'Todos los Meses' : availableMonths.find(m => m.key === selectedMonth)?.label}
+                            </span>
+                          </div>
+
+                          {displayGroups.map(group => (
+                            <div key={group.key} className="space-y-1.5 bg-slate-50/40 p-2.5 rounded-lg border border-slate-150/70">
+                              <div className="flex justify-between items-center text-[9.5px] font-black text-slate-700 uppercase tracking-wide">
+                                <span className="flex items-center gap-1">
+                                  <span className="w-2 h-2 rounded-full bg-primary inline-block"></span>
+                                  {group.label}
+                                </span>
+                                <span className="text-[8.5px] text-slate-400 font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200">
+                                  {group.photos.length} {group.photos.length === 1 ? 'foto' : 'fotos'}
+                                </span>
+                              </div>
+
+                              <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-300">
+                                {group.photos.map((photo) => {
+                                  const allPhotosHist = getFrentePhotos(frente.id);
+                                  const photoIndexInAll = allPhotosHist.findIndex(p => p.id === photo.id);
+                                  return (
+                                    <div 
+                                      key={photo.id}
+                                      onClick={() => handleOpenLightbox(allPhotosHist, photoIndexInAll >= 0 ? photoIndexInAll : 0)}
+                                      className="w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-2xs shrink-0 cursor-pointer hover:border-primary transition-all relative group bg-slate-900"
+                                    >
+                                      <img src={photo.url} alt={photo.caption} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-0.5 text-white no-print">
+                                        <Eye size={12} />
+                                        <span className="text-[7.5px] font-black uppercase tracking-wider">Ver</span>
+                                      </div>
+                                      <div className="absolute bottom-0 inset-x-0 bg-slate-900/75 text-[7px] text-white text-center font-bold font-mono py-0.5">
+                                        Sem {photo.semana}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()
                   ) : (
-                    <div className="text-[9.5px] text-slate-450 italic bg-slate-50/50 p-2.5 rounded-lg border border-slate-150 border-dashed text-center">
-                      No hay fotos de campo registradas en la Semana {selectedWeek}.
-                    </div>
+                    /* Week view filter */
+                    photos.length > 0 ? (
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-450 uppercase tracking-wider">
+                          <span>Avances Visuales Registrados (Semana {selectedWeek})</span>
+                          <span>({photos.length} fotos)</span>
+                        </div>
+                        <div className="flex gap-2.5 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-slate-300">
+                          {photos.map((photo, pIdx) => (
+                            <div 
+                              key={photo.id}
+                              onClick={() => handleOpenLightbox(allPhotosHistory, allPhotosHistory.findIndex(p => p.id === photo.id))}
+                              className="w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-2xs shrink-0 cursor-pointer hover:border-primary transition-all relative group bg-slate-900"
+                            >
+                              <img src={photo.url} alt={photo.caption} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-0.5 text-white no-print">
+                                <Eye size={12} />
+                                <span className="text-[7.5px] font-black uppercase tracking-wider">Ver Foto</span>
+                              </div>
+                              <div className="absolute bottom-0 inset-x-0 bg-slate-900/65 text-[7.5px] text-white text-center font-bold font-mono">
+                                Sem {photo.semana}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[9.5px] text-slate-450 italic bg-slate-50/50 p-2.5 rounded-lg border border-slate-150 border-dashed text-center">
+                        No hay fotos de campo registradas en la Semana {selectedWeek}.
+                      </div>
+                    )
                   )}
                 </div>
 
@@ -621,26 +856,44 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                 Visualizador del Hub de Frentes
               </h4>
               <p className="text-[10px] text-slate-450 font-bold font-mono">
-                Semana {activePhoto.semana} — Período: {activePhoto.fechaInicial || 'N/A'} al {activePhoto.fechaCorte || 'N/A'} — Registrada: {activePhoto.date}
+                {getPhotoMonthYear(activePhoto).label} — Semana {activePhoto.semana} — Período: {activePhoto.fechaInicial || 'N/A'} al {activePhoto.fechaCorte || 'N/A'} — Registrada: {activePhoto.date}
               </p>
             </div>
 
-            {/* Weekly Navigation Dropdown inside Lightbox */}
+            {/* Navigation & Filter Dropdowns inside Lightbox */}
             <div className="flex items-center gap-3">
               {activePhoto.id !== 'design_soil' && (
-                <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1">
-                  <span className="text-[10px] text-slate-400 font-bold uppercase">Cambiar Semana:</span>
-                  <select
-                    value={selectedLightboxWeek}
-                    onChange={(e) => handleWeekChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                    className="bg-transparent text-white text-xs font-black focus:outline-none cursor-pointer border-none py-0.5 pr-2"
-                  >
-                    <option value="all" className="bg-slate-900 text-white">Todas las semanas</option>
-                    {getLightboxWeeks().map(wNum => (
-                      <option key={wNum} value={wNum} className="bg-slate-900 text-white">Semana {wNum}</option>
-                    ))}
-                  </select>
-                </div>
+                <>
+                  {/* Month Filter Selector in Lightbox */}
+                  <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase">Mes:</span>
+                    <select
+                      value={selectedLightboxMonth}
+                      onChange={(e) => handleMonthChange(e.target.value)}
+                      className="bg-transparent text-white text-xs font-black focus:outline-none cursor-pointer border-none py-0.5 pr-2"
+                    >
+                      <option value="all" className="bg-slate-900 text-white">Todos los Meses</option>
+                      {getLightboxMonths().map(m => (
+                        <option key={m.key} value={m.key} className="bg-slate-900 text-white">{m.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Weekly Navigation Dropdown inside Lightbox */}
+                  <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase">Semana:</span>
+                    <select
+                      value={selectedLightboxWeek}
+                      onChange={(e) => handleWeekChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                      className="bg-transparent text-white text-xs font-black focus:outline-none cursor-pointer border-none py-0.5 pr-2"
+                    >
+                      <option value="all" className="bg-slate-900 text-white">Todas las semanas</option>
+                      {getLightboxWeeks().map(wNum => (
+                        <option key={wNum} value={wNum} className="bg-slate-900 text-white">Semana {wNum}</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
               )}
 
               <button 
