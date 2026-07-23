@@ -240,7 +240,7 @@ const saveWeeklyReportsToStorage = (reports) => {
   try {
     localStorage.setItem('geo_interventoria_weekly_reports', JSON.stringify(reports));
   } catch (err) {
-    console.error("Error saving weekly reports to localStorage (quota exceeded):", err);
+    console.warn("localStorage sync warning:", err);
   }
 };
 
@@ -315,14 +315,15 @@ export default function App() {
       })
       .catch(err => console.warn("Error loading project info from cloud:", err));
 
-    // Load weekly reports from local server API database or localStorage fallback
-    const localWeekly = localStorage.getItem('geo_interventoria_weekly_reports');
-    if (localWeekly) {
-      try {
-        setWeeklyReports(JSON.parse(localWeekly));
-      } catch (e) {
-        console.error("Error loading weekly reports from localStorage:", e);
-      }
+    // Load weekly reports from local server API database / Supabase
+    let localWeekly = null;
+    try {
+      const raw = localStorage.getItem('geo_interventoria_weekly_reports');
+      if (raw) localWeekly = JSON.parse(raw);
+    } catch (e) {}
+
+    if (localWeekly && Array.isArray(localWeekly)) {
+      setWeeklyReports(localWeekly);
     }
 
     fetch('/api/weekly-reports')

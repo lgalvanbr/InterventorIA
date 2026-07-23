@@ -198,7 +198,7 @@ body {
 }
 
 @media print {
-  /* Hide standard web browser layouts */
+  /* Hide standard web browser layouts & buttons */
   .no-print, header, aside, nav, button, .no-print * {
     display: none !important;
   }
@@ -208,6 +208,15 @@ body {
     color: #000000 !important;
     padding: 0 !important;
     margin: 0 !important;
+  }
+
+  /* Clean up warning boxes and alert highlights on print output */
+  [class*="bg-amber"], [class*="border-amber"], [class*="ring-amber"] {
+    background: #ffffff !important;
+    background-image: none !important;
+    border-color: #e2e8f0 !important;
+    box-shadow: none !important;
+    ring: none !important;
   }
 
   .print-only {

@@ -20,56 +20,8 @@ let DefaultIcon = L.icon({
 });
 
 
-// Mini Interactive Map component for each frente card
+// Mini Static Map component for each frente card (Zero Leaflet instances, 0 MB extra RAM)
 function MiniFrenteMap({ lat, lng, frenteId }) {
-  const containerRef = useRef(null);
-  const mapRef = useRef(null);
-
-  useEffect(() => {
-    if (!containerRef.current || !lat || !lng) return;
-    if (mapRef.current) return; // already initialized
-
-    const parsedLat = parseFloat(lat);
-    const parsedLng = parseFloat(lng);
-    if (isNaN(parsedLat) || isNaN(parsedLng)) return;
-
-    const map = L.map(containerRef.current, {
-      center: [parsedLat, parsedLng],
-      zoom: 14,
-      zoomControl: false,
-      attributionControl: false,
-      dragging: false,
-      scrollWheelZoom: false,
-      doubleClickZoom: false,
-      boxZoom: false,
-      touchZoom: false,
-      keyboard: false
-    });
-
-    mapRef.current = map;
-
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 20
-    }).addTo(map);
-
-    L.marker([parsedLat, parsedLng], { icon: DefaultIcon }).addTo(map);
-
-    // Fix grey screen issue by invalidating map sizes after DOM rendering is fully calculated
-    const timer = setTimeout(() => {
-      if (mapRef.current) {
-        mapRef.current.invalidateSize();
-      }
-    }, 250);
-
-    return () => {
-      clearTimeout(timer);
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-    };
-  }, [lat, lng]);
-
   if (!lat || !lng) {
     return (
       <div className="w-full h-36 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-[10px] text-slate-400 italic">
@@ -78,11 +30,53 @@ function MiniFrenteMap({ lat, lng, frenteId }) {
     );
   }
 
+  const parsedLat = parseFloat(lat);
+  const parsedLng = parseFloat(lng);
+
+  if (isNaN(parsedLat) || isNaN(parsedLng)) {
+    return (
+      <div className="w-full h-36 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-[10px] text-slate-400 italic">
+        Coordenadas inválidas
+      </div>
+    );
+  }
+
+  // Calculate static CartoDB basemap tile URL at zoom level 15
+  const zoom = 15;
+  const n = Math.pow(2, zoom);
+  const xTile = Math.floor(((parsedLng + 180) / 360) * n);
+  const latRad = (parsedLat * Math.PI) / 180;
+  const yTile = Math.floor(((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad))) / Math.PI) / 2 * n);
+
+  const tileUrl = `https://a.basemaps.cartocdn.com/light_all/${zoom}/${xTile}/${yTile}.png`;
+
   return (
-    <div 
-      ref={containerRef} 
-      className="w-full h-36 rounded-lg border border-slate-200 overflow-hidden shadow-2xs bg-slate-50 relative z-0" 
-    />
+    <div className="w-full h-36 rounded-lg border border-slate-200 overflow-hidden shadow-2xs bg-slate-100 relative group cursor-pointer">
+      {/* High-speed Static Tile Image */}
+      <img 
+        src={tileUrl} 
+        alt={`Mapa Frente ${frenteId}`} 
+        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+        loading="lazy"
+      />
+      
+      {/* Marker Pin Overlay at Center */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="relative -mt-4 animate-bounce" style={{ animationDuration: '2.5s' }}>
+          <div className="w-7 h-7 bg-primary rounded-full border-2 border-white shadow-lg flex items-center justify-center text-white">
+            <span className="material-symbols-outlined text-sm font-bold">location_on</span>
+          </div>
+          <div className="w-2 h-2 bg-primary/60 rounded-full mx-auto -mt-1 blur-[1px]"></div>
+        </div>
+      </div>
+
+      {/* Hover Overlay */}
+      <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center no-print">
+        <span className="bg-white/95 text-slate-900 text-[10px] font-black px-2.5 py-1 rounded-md shadow-sm border border-slate-200">
+          Ubicación Georreferenciada
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -231,6 +225,29 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
   // Selected daily report status filter: 'all', 'pending' (missing today's upload), 'reported'
   const [dailyReportFilter, setDailyReportFilter] = useState('all');
 
+  // Active Frentes overrides state (maps frente.id -> boolean)
+  const [activeFrentesOverrides, setActiveFrentesOverrides] = useState(() => {
+    try {
+      const saved = localStorage.getItem('geo_interventoria_active_frentes');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  const [isManageActiveModalOpen, setIsManageActiveModalOpen] = useState(false);
+
+  const toggleFrenteActive = (frenteId) => {
+    setActiveFrentesOverrides(prev => {
+      const current = prev[frenteId] !== undefined ? prev[frenteId] : true;
+      const updated = { ...prev, [frenteId]: !current };
+      try {
+        localStorage.setItem('geo_interventoria_active_frentes', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
   // Helper to extract timestamp from photo for strict chronological ordering (oldest -> newest)
   const getPhotoTimestamp = (photo) => {
     const dateStr = photo.date || photo.fechaCorte || photo.fechaInicial;
@@ -259,6 +276,20 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
 
   // Helper to check if an active frente has uploaded daily photos/notes for today or current corte date
   const getFrenteDailyUploadStatus = (frente) => {
+    // Determine active status: user override if set, else check status != Cerrado/Inactivo
+    const isOverrideDefined = activeFrentesOverrides[frente.id] !== undefined;
+    const isActive = isOverrideDefined 
+      ? activeFrentesOverrides[frente.id] 
+      : (frente.status !== 'Cerrado' && frente.status !== 'Inactivo' && (frente.progress === undefined || frente.progress < 100));
+
+    if (!isActive) {
+      return {
+        isActive: false,
+        hasUploadToday: false,
+        isMissingUpload: false
+      };
+    }
+
     const reportForWeek = (weeklyReports || []).find(r => r.numero_semana === Number(selectedWeek));
     const reportFrente = reportForWeek?.frentes?.find(rf => rf.id === frente.id);
     
@@ -273,13 +304,12 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
     const hasNoteToday = notes.some(n => (n.date === todayStr || n.date === corteDate) && n.note?.trim() !== '');
 
     const hasUploadToday = hasPhotoToday || hasNoteToday;
-    const isActive = frente.status !== 'Cerrado' && frente.status !== 'Inactivo' && (frente.progress === undefined || frente.progress < 100);
 
     // Active frente without daily upload is flagged as missing report
-    const isMissingUpload = isActive && !hasUploadToday;
+    const isMissingUpload = !hasUploadToday;
 
     return {
-      isActive,
+      isActive: true,
       hasUploadToday,
       isMissingUpload
     };
@@ -348,8 +378,16 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
     return photos.sort((a, b) => getPhotoTimestamp(a) - getPhotoTimestamp(b));
   };
 
-  // Filter frentes by text search & daily report status
+  // Option to show/hide inactive frentes on the main screen (Default: false = show ONLY active frentes)
+  const [showInactiveFrentes, setShowInactiveFrentes] = useState(false);
+
+  // Filter frentes by text search, active state & daily report status
   const filteredFrentes = frentes.filter(f => {
+    const { isActive, isMissingUpload, hasUploadToday } = getFrenteDailyUploadStatus(f);
+
+    // By default, hide inactive/paused frentes from the main Dashboard screen
+    if (!showInactiveFrentes && !isActive) return false;
+
     const searchLower = searchTerm.toLowerCase();
     const frenteVal = String(f.frente || '').toLowerCase();
     const ejeVal = String(f.eje || '').toLowerCase();
@@ -365,7 +403,6 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
 
     if (!matchesSearch) return false;
 
-    const { isMissingUpload, hasUploadToday } = getFrenteDailyUploadStatus(f);
     if (dailyReportFilter === 'pending') return isMissingUpload;
     if (dailyReportFilter === 'reported') return hasUploadToday;
 
@@ -602,6 +639,26 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
 
       </div>
 
+      {/* Print-only Report Header */}
+      <div className="hidden print-report-header mb-6 pb-4 border-b-2 border-slate-800">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">INCOLTA SAS</h1>
+            <p className="text-xs text-slate-550 font-bold uppercase tracking-wider mt-0.5">INFORME DE SUPERVISIÓN Y CONTROL DE FRENTES DE OBRA</p>
+          </div>
+          <div className="text-right">
+            <span className="bg-slate-100 border border-slate-250 text-slate-800 font-black px-3 py-1 rounded text-xs">
+              SEMANA {selectedWeek}
+            </span>
+            {activeReport && (
+              <p className="text-[10px] text-slate-500 font-mono font-bold mt-1.5">
+                Corte: {activeReport.fecha_inicial_corte} al {activeReport.fecha_final_corte}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* 2.5 Daily Upload Verification Filter Bar */}
       <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm mb-6 flex flex-col md:flex-row items-center justify-between gap-3 no-print">
         <div className="flex flex-wrap items-center gap-2">
@@ -613,7 +670,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
             const pendingCount = frentes.filter(f => getFrenteDailyUploadStatus(f).isMissingUpload).length;
             const reportedCount = frentes.filter(f => getFrenteDailyUploadStatus(f).hasUploadToday).length;
             return (
-              <div className="flex gap-1.5">
+              <div className="flex flex-wrap items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => setDailyReportFilter('all')}
@@ -649,28 +706,30 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
             );
           })()}
         </div>
-        <p className="text-[10px] text-slate-500 font-medium">
-          💡 Los frentes activos que <strong>no registran subida de reporte hoy</strong> se destacan con borde y alerta amarilla.
-        </p>
-      </div>
 
-      {/* Print-only Report Header */}
-      <div className="hidden print-report-header mb-6 pb-4 border-b-2 border-slate-800">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">INCOLTA SAS</h1>
-            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-0.5">INFORME DE SUPERVISIÓN Y CONTROL DE FRENTES DE OBRA</p>
-          </div>
-          <div className="text-right">
-            <span className="bg-slate-100 border border-slate-250 text-slate-800 font-black px-3 py-1 rounded text-xs">
-              SEMANA {selectedWeek}
-            </span>
-            {activeReport && (
-              <p className="text-[10px] text-slate-500 font-mono font-bold mt-1.5">
-                Corte: {activeReport.fecha_inicial_corte} al {activeReport.fecha_final_corte}
-              </p>
-            )}
-          </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowInactiveFrentes(prev => !prev)}
+            className={`text-xs font-black px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+              showInactiveFrentes 
+                ? 'bg-amber-100 text-amber-900 border-amber-300' 
+                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+            }`}
+            title="Mostrar u ocultar los frentes que están en estado inactivo o pausado"
+          >
+            <Eye size={13} />
+            {showInactiveFrentes ? 'Ocultar Inactivos' : 'Incluir Inactivos'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsManageActiveModalOpen(true)}
+            className="bg-indigo-50 hover:bg-indigo-100 text-primary border border-indigo-200 text-xs font-black px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+          >
+            <span className="material-symbols-outlined text-sm">tune</span>
+            Definir Frentes Activos
+          </button>
         </div>
       </div>
 
@@ -689,7 +748,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
             const soilImgUrl = design?.perfil_suelo_img_url || frente.perfil_suelo_img_url;
             const photos = getFrentePhotosForWeek(frente.id, selectedWeek);
             const allPhotosHistory = getFrentePhotos(frente.id);
-            const { isMissingUpload, hasUploadToday } = getFrenteDailyUploadStatus(frente);
+            const { isActive, isMissingUpload, hasUploadToday } = getFrenteDailyUploadStatus(frente);
             
             return (
               <div 
@@ -726,9 +785,26 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                       </p>
                     </div>
                     
-                    <span className="text-xs font-black uppercase text-slate-400 tracking-wider">
-                      {frente.projectName?.toUpperCase() || 'MALLA VIAL'}
-                    </span>
+                    <div className="flex flex-col items-end gap-1.5">
+                      <span className="text-xs font-black uppercase text-slate-400 tracking-wider">
+                        {frente.projectName?.toUpperCase() || 'MALLA VIAL'}
+                      </span>
+
+                      {/* Active Frente Toggle Button */}
+                      <button
+                        type="button"
+                        onClick={() => toggleFrenteActive(frente.id)}
+                        className={`no-print px-2.5 py-1 rounded-md text-[9.5px] font-black uppercase border transition-all cursor-pointer flex items-center gap-1 shadow-2xs ${
+                          isActive 
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-250 hover:bg-emerald-100' 
+                            : 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200'
+                        }`}
+                        title="Haz clic para definir si este frente está activo o inactivo"
+                      >
+                        <span className="material-symbols-outlined text-[13px]">{isActive ? 'toggle_on' : 'toggle_off'}</span>
+                        {isActive ? 'Frente Activo' : 'Frente Inactivo'}
+                      </button>
+                    </div>
                   </div>
 
                   <hr className="border-slate-100 mb-5" />
@@ -1105,6 +1181,70 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
         </div>
       )}
 
+      {/* 5. Manage Active Frentes Configuration Modal */}
+      {isManageActiveModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 no-print animate-fade-in">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 flex flex-col max-h-[85vh]">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-xl">tune</span>
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-800 uppercase tracking-wide">Configuración de Frentes Activos</h3>
+                  <p className="text-[10px] text-slate-500 font-semibold">Define cuáles frentes requieren reporte diario obligatorio</p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setIsManageActiveModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg border-none bg-transparent cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto py-4 space-y-2.5 scrollbar-thin">
+              {frentes.map(f => {
+                const isAct = activeFrentesOverrides[f.id] !== undefined 
+                  ? activeFrentesOverrides[f.id] 
+                  : (f.status !== 'Cerrado' && f.status !== 'Inactivo');
+                return (
+                  <div key={f.id} className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                    isAct ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200 opacity-75'
+                  }`}>
+                    <div>
+                      <span className="text-xs font-black text-slate-800">Frente {f.frente} • CIV {f.civ}</span>
+                      <p className="text-[10px] text-slate-500 font-semibold truncate max-w-[280px]">{f.eje}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleFrenteActive(f.id)}
+                      className={`px-3 py-1.5 rounded-lg font-black text-xs border transition-all cursor-pointer flex items-center gap-1.5 ${
+                        isAct 
+                          ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs' 
+                          : 'bg-slate-200 text-slate-700 border-slate-300'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-sm">{isAct ? 'toggle_on' : 'toggle_off'}</span>
+                      {isAct ? 'ACTIVO' : 'INACTIVO'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsManageActiveModalOpen(false)}
+                className="bg-primary text-white text-xs font-black px-5 py-2.5 rounded-xl shadow-md cursor-pointer"
+              >
+                Guardar y Aplicar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Inline styles for Pavement patterns and Keyframes */}
       <style dangerouslySetInnerHTML={{__html: `
         .pattern-concrete {
@@ -1158,7 +1298,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
             padding: 2rem !important;
           }
           /* Keep cards side-by-side inside print */
-          .grid-cols-1.md\\:grid-cols-2 {
+          .grid-cols-2 {
             display: grid !important;
             grid-template-columns: 1fr 1fr !important;
             gap: 1.5rem !important;
