@@ -69,3 +69,16 @@ Cada fotografía de control de obra posee la siguiente estructura JSON unificada
   1. Revisar siempre los archivos antes de modificar.
   2. Ejecutar `npm run build` tras realizar cualquier cambio para verificar que la compilación de producción continúe en `0 errores`.
   3. Enviar los commits a `origin main` para mantener Vercel y Supabase sincronizados en producción.
+
+---
+
+## 👷 6. Reglas del Portal de Inspectores (`InspectorPortal.jsx`)
+
+1. **Filtrado Diario Estricto de Fotografías**:
+   - Por solicitud explícita, el registro fotográfico en el Portal de Inspectores muestra por defecto únicamente las fotos tomadas en la fecha seleccionada (`activeDateStr`).
+   - Las fotos pertenecientes a semanas anteriores quedan estrictamente aisladas comparando `p.semana === currentReport.numero_semana`.
+2. **Preservación e Historial de Bitácoras Diarias**:
+   - La función `saveCurrentFrenteDataSilently` no sobreescribe notas existentes con textos vacíos `""` al cambiar de día o frente.
+   - El Paso 3 incluye un listado histórico visual (`📜 Notas Registradas en este Frente`) con la cronología de todas las notas del informe semanal.
+3. **Persistencia de la Semana Seleccionada**:
+   - La semana elegida por el inspector se almacena en `localStorage.setItem('geo_interventoria_inspector_report_id', String(newReportId))` y no se restablece automáticamente al re-renderizar.

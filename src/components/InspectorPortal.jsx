@@ -74,9 +74,15 @@ export default function InspectorPortal({
     if (activeFrente) {
       const allPhotos = [...(activeFrente.fotos || []), ...(activeFrente.photos || [])];
       const photoMap = new Map();
+      const currentWeekNum = currentReport ? Number(currentReport.numero_semana) : null;
+
       allPhotos.forEach(p => {
-        const key = p.id || p.url;
-        if (key && !photoMap.has(key)) photoMap.set(key, p);
+        const pWeek = p.semana !== undefined && p.semana !== null ? Number(p.semana) : null;
+        // Strictly exclude photos from other weeks
+        if (pWeek === null || pWeek === currentWeekNum) {
+          const key = p.id || p.url;
+          if (key && !photoMap.has(key)) photoMap.set(key, p);
+        }
       });
       setFotos(Array.from(photoMap.values()));
       setBitacoraNotes(activeFrente.bitacora_notes || activeFrente.bitacora_notas || []);
@@ -85,7 +91,7 @@ export default function InspectorPortal({
       setBitacoraNotes([]);
     }
     setDailyNote('');
-  }, [selectedFrenteId, activeFrente]);
+  }, [selectedFrenteId, activeFrente, currentReport]);
 
   // Synchronize note when active day changes
   useEffect(() => {
@@ -693,10 +699,10 @@ export default function InspectorPortal({
               <div className="flex justify-between items-center flex-wrap gap-2">
                 <div>
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                    4. Registro Fotográfico
+                    4. Registro Fotográfico del Día ({activeDayPhotos.length})
                   </label>
                   <span className="text-[10px] text-slate-500 font-semibold">
-                    {fotos.length} {fotos.length === 1 ? 'fotografía registrada' : 'fotografías registradas'} en la semana
+                    {activeDayPhotos.length === 1 ? '1 fotografía subida' : `${activeDayPhotos.length} fotografías subidas`} el {activeDateStr || 'día seleccionado'}
                   </span>
                 </div>
                 
@@ -716,46 +722,44 @@ export default function InspectorPortal({
                 </label>
               </div>
 
-              {/* Photo Filter Tabs: All Week vs Active Day */}
-              {fotos.length > 0 && (
-                <div className="flex gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200 text-[10px]">
-                  <button
-                    type="button"
-                    onClick={() => setPhotoFilterMode('all')}
-                    className={`flex-1 py-1 px-2 font-bold rounded-md transition-all text-center ${
-                      photoFilterMode === 'all'
-                        ? 'bg-white text-slate-800 shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    🖼️ Toda la Semana ({fotos.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPhotoFilterMode('day')}
-                    className={`flex-1 py-1 px-2 font-bold rounded-md transition-all text-center ${
-                      photoFilterMode === 'day'
-                        ? 'bg-white text-slate-800 shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    📅 Día Seleccionado ({activeDayPhotos.length})
-                  </button>
-                </div>
-              )}
+              {/* Photo Filter Tabs: Active Day vs All Week */}
+              <div className="flex gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200 text-[10px]">
+                <button
+                  type="button"
+                  onClick={() => setPhotoFilterMode('day')}
+                  className={`flex-1 py-1 px-2 font-bold rounded-md transition-all text-center ${
+                    photoFilterMode === 'day'
+                      ? 'bg-white text-slate-800 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  📅 Día Seleccionado ({activeDayPhotos.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPhotoFilterMode('all')}
+                  className={`flex-1 py-1 px-2 font-bold rounded-md transition-all text-center ${
+                    photoFilterMode === 'all'
+                      ? 'bg-white text-slate-800 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  🖼️ Toda la Semana ({fotos.length})
+                </button>
+              </div>
 
               {/* Render Photo List */}
               {(() => {
-                const displayPhotos = photoFilterMode === 'day' ? activeDayPhotos : fotos;
+                const displayPhotos = photoFilterMode === 'all' ? fotos : activeDayPhotos;
 
                 if (displayPhotos.length === 0) {
                   return (
                     <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center text-slate-400 bg-slate-50/50 flex flex-col items-center justify-center min-h-[140px]">
                       <ImageIcon size={24} className="text-slate-300 mb-1.5" />
                       <p className="text-[10px] font-bold text-slate-650">
-                        {photoFilterMode === 'day' ? 'No hay fotos subidas hoy.' : 'No hay fotos registradas en este frente durante la semana.'}
+                        {photoFilterMode === 'day' ? `No hay fotos subidas para la fecha (${activeDateStr}).` : 'No hay fotos registradas en este frente durante la semana.'}
                       </p>
-                      <p className="text-[9px] text-slate-400 mt-0.5">Usa el botón de arriba para tomar o adjuntar avances fotográficos.</p>
+                      <p className="text-[9px] text-slate-400 mt-0.5">Usa el botón de arriba para registrar avances fotográficos para este día.</p>
                     </div>
                   );
                 }
