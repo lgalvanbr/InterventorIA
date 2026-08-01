@@ -274,6 +274,58 @@ export default function App() {
     }).catch(err => console.error("Error syncing design overrides to Supabase:", err));
   };
 
+  const mergeSupabasePhotosIntoProjects = (weeklyData, currentProjects) => {
+    if (!Array.isArray(weeklyData) || weeklyData.length === 0 || !Array.isArray(currentProjects)) return currentProjects;
+    
+    // Map of frenteId -> all photos from Supabase weeklyReports
+    const photosByFrente = new Map();
+    weeklyData.forEach(r => {
+      (r.frentes || []).forEach(wf => {
+        const photosList = [...(wf.fotos || []), ...(wf.photos || [])];
+        if (photosList.length > 0) {
+          if (!photosByFrente.has(wf.id)) {
+            photosByFrente.set(wf.id, new Map());
+          }
+          const fMap = photosByFrente.get(wf.id);
+          photosList.forEach(p => {
+            const key = p.id || p.url;
+            if (key && !fMap.has(key)) {
+              fMap.set(key, p);
+            }
+          });
+        }
+      });
+    });
+
+    return currentProjects.map(p => ({
+      ...p,
+      frentes: (p.frentes || []).map(pf => {
+        const cloudPhotosMap = photosByFrente.get(pf.id);
+        if (cloudPhotosMap) {
+          const mergedMap = new Map();
+          // Keep existing local photos
+          [...(pf.photos || []), ...(pf.fotos || [])].forEach(p => {
+            const key = p.id || p.url;
+            if (key) mergedMap.set(key, p);
+          });
+          // Add Supabase cloud photos
+          cloudPhotosMap.forEach((photo, key) => {
+            if (!mergedMap.has(key)) {
+              mergedMap.set(key, photo);
+            }
+          });
+          const mergedList = Array.from(mergedMap.values());
+          return {
+            ...pf,
+            photos: mergedList,
+            fotos: mergedList
+          };
+        }
+        return pf;
+      })
+    }));
+  };
+
   // Load from localStorage or set defaults
   useEffect(() => {
     let loadedProjects = [];
@@ -332,6 +384,13 @@ export default function App() {
         if (Array.isArray(data) && data.length > 0) {
           setWeeklyReports(data);
           saveWeeklyReportsToStorage(data);
+
+          // Synchronize Supabase photos into projects state so PhotoGallery & ProjectDetail render them immediately
+          setProjects(prevProjects => {
+            const updated = mergeSupabasePhotosIntoProjects(data, prevProjects);
+            saveProjects(updated);
+            return updated;
+          });
         } else if (!localWeekly) {
           const allFrentes = loadedProjects.flatMap(p => 
             (p.frentes || []).map(f => {
