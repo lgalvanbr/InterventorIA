@@ -17,9 +17,20 @@ export default function InspectorPortal({
   const [isCompressing, setIsCompressing] = useState(false);
   const [photoFilterMode, setPhotoFilterMode] = useState('all'); // 'all' = todas las fotos de la semana, 'day' = solo día seleccionado
 
-  // Initialize selected week based on current date
+  // Initialize selected week only if not selected yet or restore from localStorage
   useEffect(() => {
-    if (weeklyReports.length > 0) {
+    if (weeklyReports.length > 0 && selectedReportId === null) {
+      try {
+        const savedReportId = localStorage.getItem('geo_interventoria_inspector_report_id');
+        if (savedReportId) {
+          const matchingSaved = weeklyReports.find(r => String(r.id_informe) === String(savedReportId));
+          if (matchingSaved) {
+            setSelectedReportId(matchingSaved.id_informe);
+            return;
+          }
+        }
+      } catch (e) {}
+
       const todayStr = new Date().toISOString().split('T')[0];
       const matchingReport = weeklyReports.find(r => 
         todayStr >= r.fecha_inicial_corte && todayStr <= r.fecha_final_corte
@@ -30,7 +41,7 @@ export default function InspectorPortal({
         setSelectedReportId(weeklyReports[weeklyReports.length - 1].id_informe);
       }
     }
-  }, [weeklyReports]);
+  }, [weeklyReports, selectedReportId]);
 
   const currentReport = weeklyReports.find(r => r.id_informe === selectedReportId) || null;
   const frentes = currentReport ? currentReport.frentes : [];
@@ -301,6 +312,9 @@ export default function InspectorPortal({
     if (newReportId === selectedReportId) return;
     await saveCurrentFrenteDataSilently();
     setSelectedReportId(newReportId);
+    try {
+      localStorage.setItem('geo_interventoria_inspector_report_id', String(newReportId));
+    } catch (e) {}
     setSelectedFrenteId('');
   };
 
