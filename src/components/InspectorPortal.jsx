@@ -208,9 +208,16 @@ export default function InspectorPortal({
       if (file.type.startsWith('image/')) {
         try {
           // Compress local photo before sending to API
-          const base64 = await compressImage(file);
-          const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
-          const fileName = `${Date.now()}_${cleanName}`;
+          // Standardized file name format: FECHA_2026-07-25_SEM31_FRENTE_f_mv_1_143059_a1b2.jpeg
+          const dateCode = activeDateStr || new Date().toISOString().split('T')[0];
+          const semCode = currentReport ? currentReport.numero_semana : 'XX';
+          const cleanFrenteId = (selectedFrenteId || 'frente').replace(/[^a-zA-Z0-9_]/g, '');
+          const extMatch = file.name.match(/\.(jpg|jpeg|png|webp|jfif|heic)$/i);
+          const ext = extMatch ? extMatch[0].toLowerCase() : '.jpeg';
+          const timestamp = Date.now().toString().slice(-6);
+          const randomStr = Math.random().toString(36).substring(2, 6);
+
+          const fileName = `FECHA_${dateCode}_SEM${semCode}_FRENTE_${cleanFrenteId}_${timestamp}_${randomStr}${ext}`;
           
           let previewUrl = base64; // Default to compressed base64
           

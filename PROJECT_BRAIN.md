@@ -46,10 +46,13 @@ Cada fotografía de control de obra posee la siguiente estructura JSON unificada
 }
 ```
 
-### Reglas de Sincronización Fotográfica:
-1. **Unificación de Propiedades**: Los arreglos de fotos dentro de cada frente responden tanto a `fotos` (usado en reportes semanales) como a `photos` (usado en el estado de proyectos).
-2. **Extractor Cronológico (`Dashboard.jsx`)**: La función `getFrentePhotos(frenteId)` consolida y deduplica todas las imágenes de todas las semanas registradas en Supabase.
-3. **Carga Inicial Autocorregida (`App.jsx`)**: La función `mergeSupabasePhotosIntoProjects` toma los reportes descargados de Supabase al abrir la aplicación y los fusiona automáticamente con el estado local `projects`, garantizando que la Galería y el Detalle del Frente rendericen las fotos sin depender del caché de `localStorage`.
+### Reglas de Sincronización Fotográfica y Nomenclatura Estándar:
+1. **Nomenclatura Estandarizada de Archivos**: Cada fotografía guardada en Supabase Storage y Base de Datos adopta la siguiente estructura codificada:
+   `FECHA_YYYY-MM-DD_SEMXX_FRENTE_f_mv_Y_TIMESTAMP_HASH.ext`
+   - Ejemplo: `FECHA_2026-07-25_SEM31_FRENTE_f_mv_1_143059_a1b2.jpeg`
+2. **Unificación de Propiedades**: Los arreglos de fotos dentro de cada frente responden tanto a `fotos` (usado en reportes semanales) como a `photos` (usado en el estado de proyectos).
+3. **Extractor Cronológico (`Dashboard.jsx`)**: La función `getFrentePhotos(frenteId)` consolida y deduplica todas las imágenes de todas las semanas registradas en Supabase.
+4. **Carga Inicial Autocorregida (`App.jsx`)**: La función `mergeSupabasePhotosIntoProjects` toma los reportes descargados de Supabase al abrir la aplicación y los fusiona automáticamente con el estado local `projects`, garantizando que la Galería y el Detalle del Frente rendericen las fotos sin depender del caché de `localStorage`.
 
 ---
 
