@@ -15,6 +15,7 @@ export default function InspectorPortal({
   const [isSaving, setIsSaving] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
+  const [photoFilterMode, setPhotoFilterMode] = useState('all'); // 'all' = todas las fotos de la semana, 'day' = solo día seleccionado
 
   // Initialize selected week based on current date
   useEffect(() => {
@@ -634,10 +635,15 @@ export default function InspectorPortal({
 
             {/* Step 4: Photo uploads */}
             <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col gap-3">
-              <div className="flex justify-between items-center">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                  4. Registro Fotográfico ({activeDayPhotos.length})
-                </label>
+              <div className="flex justify-between items-center flex-wrap gap-2">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                    4. Registro Fotográfico
+                  </label>
+                  <span className="text-[10px] text-slate-500 font-semibold">
+                    {fotos.length} {fotos.length === 1 ? 'fotografía registrada' : 'fotografías registradas'} en la semana
+                  </span>
+                </div>
                 
                 <label className={`bg-primary hover:bg-primary-container text-white text-[11px] font-black px-3.5 py-2 rounded-lg cursor-pointer transition-all flex items-center gap-1.5 shadow-sm ${
                   isCompressing ? 'opacity-50 cursor-not-allowed' : ''
@@ -655,46 +661,94 @@ export default function InspectorPortal({
                 </label>
               </div>
 
-              {activeDayPhotos.length === 0 ? (
-                <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center text-slate-400 bg-slate-50/50 flex flex-col items-center justify-center min-h-[140px]">
-                  <ImageIcon size={24} className="text-slate-300 mb-1.5" />
-                  <p className="text-[10px] font-bold text-slate-650">No hay fotos subidas hoy.</p>
-                  <p className="text-[9px] text-slate-400 mt-0.5">Usa el botón de arriba para registrar avances visuales.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {activeDayPhotos.map((foto) => (
-                    <div 
-                      key={foto.id} 
-                      className="border border-slate-200 rounded-lg overflow-hidden bg-slate-50 shadow-sm flex flex-col relative"
-                    >
-                      <div className="aspect-square bg-slate-900 relative overflow-hidden flex items-center justify-center">
-                        <img 
-                          src={foto.url} 
-                          alt="Avance de obra diario" 
-                          className="w-full h-full object-cover"
-                        />
-                        <button
-                          onClick={() => handleDeletePhoto(foto.id)}
-                          className="absolute top-1.5 right-1.5 bg-red-600 hover:bg-red-750 text-white p-1.5 rounded-full shadow transition-all"
-                          title="Eliminar"
-                        >
-                          <Trash2 size={11} />
-                        </button>
-                      </div>
-                      <div className="p-2 bg-white flex-1 flex flex-col">
-                        <input 
-                          type="text"
-                          placeholder="Descripción..."
-                          value={foto.caption || ''}
-                          onChange={(e) => handleUpdateCaption(foto.id, e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-[9px] font-semibold text-slate-700 focus:outline-none focus:bg-white focus:ring-1 focus:ring-primary mt-auto"
-                        />
-                      </div>
-                    </div>
-                  ))}
+              {/* Photo Filter Tabs: All Week vs Active Day */}
+              {fotos.length > 0 && (
+                <div className="flex gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200 text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => setPhotoFilterMode('all')}
+                    className={`flex-1 py-1 px-2 font-bold rounded-md transition-all text-center ${
+                      photoFilterMode === 'all'
+                        ? 'bg-white text-slate-800 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    🖼️ Toda la Semana ({fotos.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPhotoFilterMode('day')}
+                    className={`flex-1 py-1 px-2 font-bold rounded-md transition-all text-center ${
+                      photoFilterMode === 'day'
+                        ? 'bg-white text-slate-800 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    📅 Día Seleccionado ({activeDayPhotos.length})
+                  </button>
                 </div>
               )}
+
+              {/* Render Photo List */}
+              {(() => {
+                const displayPhotos = photoFilterMode === 'day' ? activeDayPhotos : fotos;
+
+                if (displayPhotos.length === 0) {
+                  return (
+                    <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center text-slate-400 bg-slate-50/50 flex flex-col items-center justify-center min-h-[140px]">
+                      <ImageIcon size={24} className="text-slate-300 mb-1.5" />
+                      <p className="text-[10px] font-bold text-slate-650">
+                        {photoFilterMode === 'day' ? 'No hay fotos subidas hoy.' : 'No hay fotos registradas en este frente durante la semana.'}
+                      </p>
+                      <p className="text-[9px] text-slate-400 mt-0.5">Usa el botón de arriba para tomar o adjuntar avances fotográficos.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {displayPhotos.map((foto) => (
+                      <div 
+                        key={foto.id} 
+                        className="border border-slate-200 rounded-lg overflow-hidden bg-slate-50 shadow-sm flex flex-col relative"
+                      >
+                        <div className="aspect-square bg-slate-900 relative overflow-hidden flex items-center justify-center">
+                          <img 
+                            src={foto.url} 
+                            alt="Avance de obra diario" 
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.currentTarget.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>';
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePhoto(foto.id)}
+                            className="absolute top-1.5 right-1.5 bg-red-600 hover:bg-red-750 text-white p-1.5 rounded-full shadow transition-all z-10"
+                            title="Eliminar"
+                          >
+                            <Trash2 size={11} />
+                          </button>
+                        </div>
+                        <div className="p-2 bg-white flex-1 flex flex-col gap-1">
+                          {foto.date && (
+                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wide">
+                              {foto.date}
+                            </span>
+                          )}
+                          <input 
+                            type="text"
+                            placeholder="Descripción..."
+                            value={foto.caption || ''}
+                            onChange={(e) => handleUpdateCaption(foto.id, e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-[9px] font-semibold text-slate-700 focus:outline-none focus:bg-white focus:ring-1 focus:ring-primary mt-auto"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Sticky/Big Save Button */}
