@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://rjghsenbsrprbajhkwxr.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || 'sb_publishable_QQ_O2_zR4gy1jlJzoLc8uA_SIKzyZtS';
 
 // In-memory fallback database for Vercel Serverless (since filesystem is read-only)
 let memoryReports = null;
@@ -287,6 +287,64 @@ export default async function handler(req, res) {
   const pathParam = url.searchParams.get('path');
   if (pathParam) {
     pathname = '/' + pathParam;
+  }
+
+  // GET /api/health
+  if (pathname === '/api/health' && req.method === 'GET') {
+    res.status(200).json({
+      status: 'ok',
+      supabaseConnected: !!SUPABASE_KEY,
+      supabaseUrl: SUPABASE_URL
+    });
+    return;
+  }
+
+  // GET /uploads/* -> Serve static image from disk or fallback to Supabase Storage
+  if (pathname.startsWith('/uploads/') && req.method === 'GET') {
+    const relativePath = pathname.replace(/^\//, '');
+    const localFilePath = path.join(process.cwd(), relativePath);
+    const publicFilePath = path.join(process.cwd(), 'public', relativePath);
+    
+    const targetFile = fs.existsSync(localFilePath) ? localFilePath : (fs.existsSync(publicFilePath) ? publicFilePath : null);
+
+    if (targetFile && fs.statSync(targetFile).isFile()) {
+      const ext = path.extname(targetFile).toLowerCase();
+      const MIME_TYPES = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.jfif': 'image/jpeg',
+        '.webp': 'image/webp',
+        '.svg': 'image/svg+xml',
+        '.pdf': 'application/pdf'
+      };
+      const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      res.status(200).send(fs.readFileSync(targetFile));
+      return;
+    }
+
+    // Fallback: Fetch from Supabase Storage bucket 'frentes-fotos'
+    const storagePath = pathname.replace(/^\/uploads\//, '');
+    const supabaseCloudUrl = `${SUPABASE_URL}/storage/v1/object/public/frentes-fotos/${storagePath}`;
+    
+    try {
+      const cloudRes = await fetch(supabaseCloudUrl);
+      if (cloudRes.ok) {
+        const arrayBuf = await cloudRes.arrayBuffer();
+        const contentType = cloudRes.headers.get('content-type') || 'image/jpeg';
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        res.status(200).send(Buffer.from(arrayBuf));
+        return;
+      }
+    } catch (e) {
+      console.error("Error fetching image from Supabase Storage fallback:", e);
+    }
+
+    res.status(404).send('Image Not Found');
+    return;
   }
 
   // GET /api/weekly-reports
