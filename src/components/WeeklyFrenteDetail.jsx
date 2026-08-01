@@ -302,8 +302,7 @@ export default function WeeklyFrenteDetail({
                   previewUrl = result.url;
                 }
               } else {
-                const errResult = await response.json().catch(() => ({}));
-                alert(`Error al subir la foto al servidor: ${errResult.details || errResult.error || 'Error desconocido'}`);
+                console.warn("Server upload failed, falling back to base64 previewUrl");
               }
             } catch (apiErr) {
               console.warn("Could not save to backend server, using base64 preview:", apiErr);
