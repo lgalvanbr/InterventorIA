@@ -17,6 +17,7 @@ Este archivo actúa como la memoria central permanente y documentación de arqui
 ## ☁️ 2. Arquitectura de Base de Datos y Supabase
 
 - **Supabase URL**: `https://rjghsenbsrprbajhkwxr.supabase.co`
+- **Supabase MCP Server URL**: `https://mcp.supabase.com/mcp?project_ref=rjghsenbsrprbajhkwxr&features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching`
 - **Tabla Principal de Base de Datos**: `weekly_reports`
   - Fila Clave: `id = 'main_reports'`
   - Columna `data`: Array JSON con todos los informes semanales (`semana_20`, `semana_21`, `semana_29`, `semana_31`, etc.).
