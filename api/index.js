@@ -86,7 +86,8 @@ async function uploadPhotoToSupabase(semana, frenteId, fileName, base64Data, buc
       headers: {
         'Authorization': `Bearer ${SUPABASE_KEY}`,
         'apikey': SUPABASE_KEY,
-        'Content-Type': contentType
+        'Content-Type': contentType,
+        'x-upsert': 'true'
       },
       body: buffer
     });

@@ -353,7 +353,14 @@ const PrintFrenteCard = ({ frente, printMode, allFrentes, designOverrides, conso
                       {photosByDay[dateStr].map((photo) => (
                         <div key={photo.id} className="border border-slate-200 rounded overflow-hidden shadow-2xs bg-white text-[8px] flex flex-col relative">
                           <div className="aspect-square bg-slate-100 overflow-hidden relative">
-                            <img src={photo.url} alt="Avance" className="w-full h-full object-cover" />
+                            <img 
+                              src={photo.url} 
+                              alt="Avance" 
+                              className="w-full h-full object-cover" 
+                              onError={(e) => { 
+                                e.currentTarget.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%23cbd5e1" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>'; 
+                              }} 
+                            />
                             {/* Date overlay badge */}
                             {photo.date && (
                               <span className="absolute top-1 left-1 bg-black/60 text-white font-black px-1.5 py-0.5 rounded text-[7px] uppercase tracking-wide">
@@ -377,7 +384,14 @@ const PrintFrenteCard = ({ frente, printMode, allFrentes, designOverrides, conso
               {activePhotos.map((photo) => (
                 <div key={photo.id} className="border border-slate-200 rounded overflow-hidden shadow-2xs bg-white text-[8px] flex flex-col relative">
                   <div className="aspect-square bg-slate-100 overflow-hidden relative">
-                    <img src={photo.url} alt="Avance" className="w-full h-full object-cover" />
+                    <img 
+                      src={photo.url} 
+                      alt="Avance" 
+                      className="w-full h-full object-cover" 
+                      onError={(e) => { 
+                        e.currentTarget.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%23cbd5e1" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>'; 
+                      }} 
+                    />
                     {/* Date overlay badge */}
                     {photo.date && (
                       <span className="absolute top-1 left-1 bg-black/60 text-white font-black px-1.5 py-0.5 rounded text-[7px] uppercase tracking-wide">
