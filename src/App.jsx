@@ -450,7 +450,11 @@ export default function App() {
 
   const saveProjects = (updatedProjects) => {
     setProjects(updatedProjects);
-    localStorage.setItem('geo_interventoria_projects_v7', JSON.stringify(updatedProjects));
+    try {
+      localStorage.setItem('geo_interventoria_projects_v7', JSON.stringify(updatedProjects));
+    } catch (err) {
+      console.warn("localStorage saveProjects warning:", err);
+    }
   };
 
   const handleUpdateWeeklyReports = (updatedReports) => {
