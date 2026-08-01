@@ -60,8 +60,14 @@ export default function InspectorPortal({
   // Synchronize state when selected frente changes
   useEffect(() => {
     if (activeFrente) {
-      setFotos(activeFrente.fotos || []);
-      setBitacoraNotes(activeFrente.bitacora_notes || []);
+      const allPhotos = [...(activeFrente.fotos || []), ...(activeFrente.photos || [])];
+      const photoMap = new Map();
+      allPhotos.forEach(p => {
+        const key = p.id || p.url;
+        if (key && !photoMap.has(key)) photoMap.set(key, p);
+      });
+      setFotos(Array.from(photoMap.values()));
+      setBitacoraNotes(activeFrente.bitacora_notes || activeFrente.bitacora_notas || []);
     } else {
       setFotos([]);
       setBitacoraNotes([]);
@@ -498,12 +504,15 @@ export default function InspectorPortal({
             >
               <option value="" disabled>-- Selecciona un frente ({filteredFrentes.length}) --</option>
               {filteredFrentes.map(f => {
-                const fFotos = f.fotos || [];
+                const fFotosList = [...(f.fotos || []), ...(f.photos || [])];
+                const totalWeekPhotos = fFotosList.length;
+                const hasPhotosThisWeek = totalWeekPhotos > 0;
                 const fNotes = f.bitacora_notes || f.bitacora_notas || [];
-                const hasUploadToday = fFotos.some(p => p.date === activeDateStr) || fNotes.some(n => n.date === activeDateStr && n.note?.trim() !== '');
+                const hasUploadActiveDay = fFotosList.some(p => p.date === activeDateStr) || fNotes.some(n => n.date === activeDateStr && n.note?.trim() !== '');
+
                 return (
                   <option key={f.id} value={f.id}>
-                    {!hasUploadToday ? '⚠️' : '✓'} Frente {f.frente} • CIV {f.civ} {!hasUploadToday ? '(Sin reporte hoy)' : '(Al día)'}
+                    {hasPhotosThisWeek ? '📷' : '⚠️'} Frente {f.frente} • CIV {f.civ} ({totalWeekPhotos} {totalWeekPhotos === 1 ? 'foto' : 'fotos'}) {hasUploadActiveDay ? '✓ Hoy' : ''}
                   </option>
                 );
               })}
@@ -530,12 +539,23 @@ export default function InspectorPortal({
 
         {selectedFrenteId ? (
           <>
-            {/* Warning alert banner inside Portal if current selected date is missing upload */}
-            {activeFrente && !(fotos.some(p => p.date === activeDateStr) || bitacoraNotes.some(n => n.date === activeDateStr && n.note?.trim() !== '')) && (
-              <div className="bg-amber-500 text-white p-3 rounded-xl shadow-md flex items-center justify-between text-xs font-bold animate-pulse">
+            {/* Status banner inside Portal */}
+            {activeFrente && (
+              <div className={`p-3 rounded-xl shadow-md flex items-center justify-between text-xs font-bold transition-all ${
+                (fotos.length > 0 || bitacoraNotes.length > 0)
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-amber-500 text-white animate-pulse'
+              }`}>
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-lg">warning</span>
-                  <span>⚠️ REPORTE FALTANTE: No has subido fotos ni bitácora para este frente el día de hoy.</span>
+                  <span className="material-symbols-outlined text-lg">
+                    {(fotos.length > 0 || bitacoraNotes.length > 0) ? 'check_circle' : 'warning'}
+                  </span>
+                  <span>
+                    {(fotos.length > 0 || bitacoraNotes.length > 0)
+                      ? `✓ REGISTRO ACTIVO: Este frente tiene ${fotos.length} ${fotos.length === 1 ? 'fotografía' : 'fotografías'} en este informe semanal.`
+                      : '⚠️ REGISTRO PENDIENTE: Este frente aún no tiene fotos en este informe semanal.'
+                    }
+                  </span>
                 </div>
               </div>
             )}
