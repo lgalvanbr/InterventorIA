@@ -275,6 +275,11 @@ export default function InspectorPortal({
     setFotos(prev => prev.filter(f => f.id !== photoId));
   };
 
+  const handleDeleteNote = (noteId) => {
+    setBitacoraNotes(prev => prev.filter(n => n.id !== noteId));
+    setDailyNote('');
+  };
+
   // Auto-save helper to preserve any pending inspector changes before changing frente, date/day or week
   const saveCurrentFrenteDataSilently = async (overrideFrenteId, overrideReportId) => {
     const frenteIdToSave = overrideFrenteId || selectedFrenteId;
@@ -283,11 +288,11 @@ export default function InspectorPortal({
     if (!frenteIdToSave || !reportIdToSave) return;
 
     let finalNotes = [...bitacoraNotes];
-    if (activeDateStr) {
+    if (activeDateStr && dailyNote.trim() !== '') {
       const noteExists = finalNotes.some(n => n.date === activeDateStr);
       if (noteExists) {
         finalNotes = finalNotes.map(n => n.date === activeDateStr ? { ...n, note: dailyNote } : n);
-      } else if (dailyNote.trim() !== '') {
+      } else {
         finalNotes = [
           { id: Date.now(), date: activeDateStr, note: dailyNote },
           ...finalNotes
@@ -392,12 +397,14 @@ export default function InspectorPortal({
     setIsSaving(true);
 
     // Merge notes
-    const noteExists = bitacoraNotes.some(n => n.date === activeDateStr);
     let finalNotes = [...bitacoraNotes];
-    if (noteExists) {
-      finalNotes = finalNotes.map(n => n.date === activeDateStr ? { ...n, note: dailyNote } : n);
-    } else if (dailyNote.trim() !== '') {
-      finalNotes.push({ id: Date.now(), date: activeDateStr, note: dailyNote });
+    if (activeDateStr && dailyNote.trim() !== '') {
+      const noteExists = finalNotes.some(n => n.date === activeDateStr);
+      if (noteExists) {
+        finalNotes = finalNotes.map(n => n.date === activeDateStr ? { ...n, note: dailyNote } : n);
+      } else {
+        finalNotes.push({ id: Date.now(), date: activeDateStr, note: dailyNote });
+      }
     }
 
     try {
@@ -623,8 +630,8 @@ export default function InspectorPortal({
             </div>
 
             {/* Step 3: Daily Log text */}
-            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col gap-2">
-              <div className="flex justify-between items-center mb-1">
+            <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col gap-3">
+              <div className="flex justify-between items-center">
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
                   3. Bitácora Diaria ({getDayName(weekDates[activeDayIdx])})
                 </label>
@@ -645,6 +652,40 @@ export default function InspectorPortal({
                 rows={4}
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-700 focus:ring-1 focus:ring-primary focus:outline-none leading-relaxed"
               />
+
+              {/* Bitacora Notes History for the Frente in this Week */}
+              {bitacoraNotes.length > 0 && (
+                <div className="mt-2 border-t border-slate-100 pt-3 flex flex-col gap-2">
+                  <span className="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider block">
+                    📜 Notas Registradas en este Frente ({bitacoraNotes.length})
+                  </span>
+                  <div className="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1">
+                    {bitacoraNotes.map((n) => (
+                      <div 
+                        key={n.id || n.date} 
+                        className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs flex flex-col gap-1 relative group"
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded">
+                            📅 {n.date}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteNote(n.id)}
+                            className="text-slate-400 hover:text-red-600 p-1 transition-all"
+                            title="Eliminar nota"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                        <p className="text-slate-700 text-[11px] whitespace-pre-wrap leading-relaxed">
+                          {n.note}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Step 4: Photo uploads */}
