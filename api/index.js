@@ -64,14 +64,19 @@ async function uploadPhotoToSupabase(semana, frenteId, fileName, base64Data, buc
   }
 
   try {
-    const matches = base64Data.match(/^data:image\/([A-Za-z-+\/]+);base64,(.+)$/);
-    if (!matches || matches.length !== 3) {
-      throw new Error("Invalid base64 image data format");
+    let base64Clean = base64Data;
+    let contentType = 'image/jpeg';
+
+    if (base64Data.includes(';base64,')) {
+      const parts = base64Data.split(';base64,');
+      const mimeMatch = parts[0].match(/data:(image\/[A-Za-z-+\/]+)/);
+      if (mimeMatch) {
+        contentType = mimeMatch[1];
+      }
+      base64Clean = parts[1];
     }
 
-    const contentType = `image/${matches[1]}`;
-    const buffer = Buffer.from(matches[2], 'base64');
-    const blob = new Blob([buffer], { type: contentType });
+    const buffer = Buffer.from(base64Clean, 'base64');
     
     const filePath = `semana_${semana}/frente_${frenteId}/${fileName}`;
     const url = `${SUPABASE_URL}/storage/v1/object/${bucketName}/${filePath}`;
@@ -83,7 +88,7 @@ async function uploadPhotoToSupabase(semana, frenteId, fileName, base64Data, buc
         'apikey': SUPABASE_KEY,
         'Content-Type': contentType
       },
-      body: blob
+      body: buffer
     });
 
     if (!response.ok) {

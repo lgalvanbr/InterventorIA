@@ -443,6 +443,48 @@ export default function App() {
     setView('project-detail');
   };
 
+  const syncFrentesPhotosToWeeklyReports = (updatedFrentes) => {
+    if (!weeklyReports || weeklyReports.length === 0 || !updatedFrentes) return;
+    const sorted = [...weeklyReports].sort((a, b) => b.numero_semana - a.numero_semana);
+    const latestReportId = sorted[0].id_informe;
+    
+    let hasChanges = false;
+    const nextWeekly = weeklyReports.map(r => {
+      if (r.id_informe === latestReportId) {
+        const newFrentes = (r.frentes || []).map(wf => {
+          const matchingUpdated = updatedFrentes.find(uf => uf.id === wf.id);
+          if (matchingUpdated && (matchingUpdated.photos || matchingUpdated.fotos)) {
+            const allNewPhotos = [...(matchingUpdated.photos || []), ...(matchingUpdated.fotos || [])];
+            const existingPhotosMap = new Map((wf.fotos || []).map(p => [p.id || p.url, p]));
+            let added = false;
+            allNewPhotos.forEach(p => {
+              const key = p.id || p.url;
+              if (key && !existingPhotosMap.has(key)) {
+                existingPhotosMap.set(key, p);
+                added = true;
+              }
+            });
+            if (added) {
+              hasChanges = true;
+              return {
+                ...wf,
+                fotos: Array.from(existingPhotosMap.values()),
+                photos: Array.from(existingPhotosMap.values())
+              };
+            }
+          }
+          return wf;
+        });
+        return calculateConsolidatedMetrics(newFrentes, r);
+      }
+      return r;
+    });
+
+    if (hasChanges) {
+      handleUpdateWeeklyReports(nextWeekly);
+    }
+  };
+
   const handleUpdateProject = (updatedProject, shouldDelete = false) => {
     if (shouldDelete) {
       const updated = projects.filter(p => p.id !== activeProjectId);
@@ -456,6 +498,9 @@ export default function App() {
 
     const updated = projects.map(p => p.id === updatedProject.id ? updatedProject : p);
     saveProjects(updated);
+    if (updatedProject.frentes) {
+      syncFrentesPhotosToWeeklyReports(updatedProject.frentes);
+    }
   };
 
   const handleViewChange = (newView) => {
@@ -505,6 +550,9 @@ export default function App() {
         };
       });
       saveProjects(newProjects);
+      if (updatedFrentes) {
+        syncFrentesPhotosToWeeklyReports(updatedFrentes);
+      }
     }
   };
 
@@ -593,6 +641,7 @@ export default function App() {
         {view === 'reports' && (
           <ReportsView 
             projects={projects}
+            weeklyReports={weeklyReports}
           />
         )}
 

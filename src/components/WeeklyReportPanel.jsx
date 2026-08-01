@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import WeeklyFrenteDetail from './WeeklyFrenteDetail';
 import { getDisenoForCiv } from '../data/frentesDisenos';
+import { generateMonthlyBitacoraText, getReportMonthKey, getReportMonthLabel } from '../data/reportsWeekly';
 
 const getShortMaterialName = (fullName) => {
   const name = fullName.toLowerCase();
@@ -134,18 +135,36 @@ const PrintFrenteCard = ({ frente, printMode, allFrentes, designOverrides, conso
 
   const frenteIaComment = getIaCommentForFrente(consolidadoIa, frente.frente);
 
+  const parseSafeDate = (dateStr) => {
+    if (!dateStr || dateStr === 'Sin fecha') return null;
+    if (/^\d+$/.test(String(dateStr))) {
+      const d = new Date(Number(dateStr));
+      if (!isNaN(d.getTime())) return d;
+    }
+    const ymdMatch = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (ymdMatch) {
+      const d = new Date(`${ymdMatch[1]}-${ymdMatch[2]}-${ymdMatch[3]}T12:00:00`);
+      if (!isNaN(d.getTime())) return d;
+    }
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) return d;
+    return null;
+  };
+
   const getMappedDateStr = (photoDateStr) => {
     if (!photoDateStr || photoDateStr === 'Sin fecha' || !report?.fecha_inicial_corte) return 'Sin fecha';
     try {
-      const photoDate = new Date(photoDateStr + 'T12:00:00');
-      const start = new Date(report.fecha_inicial_corte + 'T12:00:00');
-      
+      const photoDate = parseSafeDate(photoDateStr);
+      if (!photoDate) return photoDateStr;
+      const start = parseSafeDate(report.fecha_inicial_corte);
+      if (!start) return photoDateStr;
+
       const jsDay = photoDate.getDay();
       const dayIndex = jsDay === 6 ? 0 : jsDay + 1; // 6 (Saturday) -> 0, 0 (Sunday) -> 1, ..., 5 (Friday) -> 6
-      
+
       const mappedDate = new Date(start);
       mappedDate.setDate(start.getDate() + dayIndex);
-      
+
       return mappedDate.toISOString().split('T')[0];
     } catch (e) {
       return photoDateStr;
@@ -156,7 +175,8 @@ const PrintFrenteCard = ({ frente, printMode, allFrentes, designOverrides, conso
     const mappedStr = getMappedDateStr(photoDateStr);
     if (mappedStr === 'Sin fecha') return '';
     try {
-      const mappedDate = new Date(mappedStr + 'T12:00:00');
+      const mappedDate = parseSafeDate(mappedStr);
+      if (!mappedDate) return photoDateStr;
       const dayName = getDayName(mappedDate);
       const dayNum = mappedDate.getDate();
       const monthNum = String(mappedDate.getMonth() + 1).padStart(2, '0');
@@ -492,6 +512,22 @@ export default function WeeklyReportPanel({
       })
       .catch(err => {
         console.error('Error al copiar:', err);
+        alert('No se pudo copiar automáticamente.');
+      });
+  };
+
+  const handleCopyMonthlyInfo = () => {
+    const reportsList = weeklyReports && weeklyReports.length > 0 ? weeklyReports : [report];
+    const monthKey = getReportMonthKey(report);
+    const monthLabel = getReportMonthLabel(monthKey);
+    const text = generateMonthlyBitacoraText(reportsList, monthKey);
+
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        alert(`¡Bitácora del mes (${monthLabel}) copiada con éxito para IA!\n\nPégala en tu asistente de redacción para generar el informe mensual.`);
+      })
+      .catch(err => {
+        console.error('Error al copiar bitácora mensual:', err);
         alert('No se pudo copiar automáticamente.');
       });
   };
@@ -875,14 +911,26 @@ export default function WeeklyReportPanel({
                     </p>
                   </div>
 
-                  {/* Action 1: Copy Data */}
-                  <button
-                    onClick={handleCopyInfo}
-                    className="w-full bg-primary hover:bg-primary/95 text-white text-xs font-bold py-2.5 px-3 rounded-lg shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-[15px]">content_copy</span>
-                    Copiar Datos de Frentes
-                  </button>
+                  {/* Action 1: Copy Data (Semanal y Mensual) */}
+                  <div className="flex flex-col gap-2">
+                    <button
+                      onClick={handleCopyInfo}
+                      className="w-full bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold py-2.5 px-3 rounded-lg shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      title="Copia los datos e hitos de la semana actual"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">content_copy</span>
+                      Copiar Bitácora Semanal
+                    </button>
+
+                    <button
+                      onClick={handleCopyMonthlyInfo}
+                      className="w-full bg-primary hover:bg-primary/95 text-white text-xs font-bold py-2.5 px-3 rounded-lg shadow-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      title="Agrupa y copia todas las bitácoras y actividades del mes actual para la IA"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">date_range</span>
+                      Copiar Bitácora Mensual (IA)
+                    </button>
+                  </div>
 
                   <hr className="border-slate-100" />
 

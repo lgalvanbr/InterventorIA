@@ -132,3 +132,173 @@ export function cloneWeeklyReport(prevReport) {
 
   return nextReportDraft;
 }
+
+export function getReportMonthKey(report) {
+  if (!report?.fecha_inicial_corte) return '';
+  const [year, month] = report.fecha_inicial_corte.split('-');
+  return `${year}-${month}`;
+}
+
+export function getReportMonthLabel(monthKey) {
+  if (!monthKey) return '';
+  const [year, monthStr] = monthKey.split('-');
+  const monthIdx = parseInt(monthStr, 10) - 1;
+  const MONTH_NAMES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  return `${MONTH_NAMES[monthIdx] || ''} ${year}`;
+}
+
+export function getAvailableMonths(weeklyReports = []) {
+  const monthMap = new Map();
+  
+  weeklyReports.forEach(r => {
+    const key = getReportMonthKey(r);
+    if (!key) return;
+    if (!monthMap.has(key)) {
+      monthMap.set(key, {
+        key,
+        label: getReportMonthLabel(key),
+        reportsCount: 0,
+        weekNumbers: []
+      });
+    }
+    const item = monthMap.get(key);
+    item.reportsCount += 1;
+    item.weekNumbers.push(r.numero_semana);
+  });
+
+  return Array.from(monthMap.values()).sort((a, b) => b.key.localeCompare(a.key));
+}
+
+export function generateMonthlyBitacoraText(weeklyReports = [], targetMonthKey = null) {
+  if (!weeklyReports || weeklyReports.length === 0) {
+    return 'No hay informes semanales disponibles para generar la bitácora mensual.';
+  }
+
+  let monthKey = targetMonthKey;
+  if (!monthKey) {
+    const sortedAll = [...weeklyReports].sort((a, b) => b.numero_semana - a.numero_semana);
+    monthKey = getReportMonthKey(sortedAll[0]);
+  }
+
+  const monthReports = weeklyReports
+    .filter(r => getReportMonthKey(r) === monthKey)
+    .sort((a, b) => a.numero_semana - b.numero_semana);
+
+  if (monthReports.length === 0) {
+    return `No se encontraron informes semanales para el mes seleccionado (${targetMonthKey}).`;
+  }
+
+  const monthLabel = getReportMonthLabel(monthKey).toUpperCase();
+  const weekNumbers = monthReports.map(r => r.numero_semana).join(', ');
+  const startDate = monthReports[0].fecha_inicial_corte;
+  const endDate = monthReports[monthReports.length - 1].fecha_final_corte;
+
+  let text = `==================================================\n`;
+  text += `INFORME CONSOLIDADO MENSUAL DE BITÁCORAS Y ACTIVIDADES\n`;
+  text += `==================================================\n`;
+  text += `EMPRESA: INCOLTA SAS\n`;
+  text += `PROYECTO: Conservación de la Malla Vial Local e Intermedia - Localidad de Usaquén\n`;
+  text += `PERÍODO MENSUAL: ${monthLabel}\n`;
+  text += `FECHAS DE CORTE: DEL ${startDate} AL ${endDate}\n`;
+  text += `SEMANAS INCLUIDAS: Semanas ${weekNumbers}\n\n`;
+
+  text += `=== 1. RESUMEN GENERAL DEL MES ===\n`;
+  text += `Total de Informes Semanales Consolidados: ${monthReports.length}\n`;
+  
+  const frenteMap = new Map();
+  monthReports.forEach(rep => {
+    (rep.frentes || []).forEach(f => {
+      if (!frenteMap.has(f.id)) {
+        frenteMap.set(f.id, {
+          id: f.id,
+          frente: f.frente,
+          civ: f.civ,
+          eje: f.eje,
+          desde: f.desde,
+          hasta: f.hasta,
+          projectName: f.projectName,
+          weeklyDetails: []
+        });
+      }
+      frenteMap.get(f.id).weeklyDetails.push({
+        numero_semana: rep.numero_semana,
+        fecha_inicial_corte: rep.fecha_inicial_corte,
+        fecha_final_corte: rep.fecha_final_corte,
+        porcentaje_avance_semana: f.porcentaje_avance_semana || f.progress || 0,
+        ejecucion_presupuestal_semana: f.ejecucion_presupuestal_semana || 0,
+        actividades_ejecutadas_hitos: f.actividades_ejecutadas_hitos || '',
+        pmt_estado: f.pmt_estado || 'Sin registrar',
+        bitacora_notas: f.bitacora_notas || [],
+        fotos: f.fotos || []
+      });
+    });
+  });
+
+  const allFrentes = Array.from(frenteMap.values());
+
+  allFrentes.forEach(f => {
+    const isMv = f.id.startsWith('f_mv');
+    const firstWeek = f.weeklyDetails[0];
+    const lastWeek = f.weeklyDetails[f.weeklyDetails.length - 1];
+    const initialProg = firstWeek?.porcentaje_avance_semana || 0;
+    const finalProg = lastWeek?.porcentaje_avance_semana || 0;
+    const monthDelta = Math.max(0, finalProg - initialProg);
+
+    text += `- Frente ${f.frente} (CIV ${f.civ}): ${f.eje} [${isMv ? 'Malla Vial' : 'Espacio Público'}] | Avance Final: ${finalProg}% (+${monthDelta}% en el mes)\n`;
+  });
+  text += `\n`;
+
+  text += `=== 2. DETALLE CRONOLÓGICO POR FRENTE DE OBRA ===\n\n`;
+
+  allFrentes.forEach(f => {
+    const isMv = f.id.startsWith('f_mv');
+    text += `--------------------------------------------------\n`;
+    text += `FRENTE ${f.frente} - CIV ${f.civ} [${isMv ? 'MALLA VIAL' : 'ESPACIO PÚBLICO'}]\n`;
+    text += `Ubicación: ${f.eje} (Desde ${f.desde} hasta ${f.hasta})\n`;
+
+    const lastProg = f.weeklyDetails[f.weeklyDetails.length - 1]?.porcentaje_avance_semana || 0;
+    text += `Avance Acumulado al cierre del mes: ${lastProg}%\n\n`;
+
+    f.weeklyDetails.forEach(w => {
+      text += `  [SEMANA ${w.numero_semana} (${w.fecha_inicial_corte} a ${w.fecha_final_corte})]\n`;
+      text += `  * Avance Semana: ${w.porcentaje_avance_semana}% | Inversión: $${(w.ejecucion_presupuestal_semana || 0).toLocaleString('es-CO')}\n`;
+      text += `  * Estado PMT: ${w.pmt_estado}\n`;
+
+      if (w.actividades_ejecutadas_hitos && w.actividades_ejecutadas_hitos.trim() !== '') {
+        text += `  * Actividades e Hitos: ${w.actividades_ejecutadas_hitos.trim()}\n`;
+      } else {
+        text += `  * Actividades e Hitos: (Sin registro de hitos en la semana)\n`;
+      }
+
+      const notes = (w.bitacora_notas || []).filter(n => n.note && n.note.trim() !== '');
+      if (notes.length > 0) {
+        text += `  * Notas de Bitácora:\n`;
+        notes.forEach(n => {
+          text += `    - ${n.date}: ${n.note}\n`;
+        });
+      }
+
+      const photos = w.fotos || [];
+      if (photos.length > 0) {
+        text += `  * Anotaciones Fotográficas (${photos.length} fotos):\n`;
+        photos.forEach((ph, pIdx) => {
+          text += `    - Foto ${pIdx + 1} (${ph.date || 'Semanal'}): ${ph.caption || 'Sin descripción'}\n`;
+        });
+      }
+
+      text += `\n`;
+    });
+  });
+
+  text += `==================================================\n`;
+  text += `INSTRUCCIÓN PARA LA REDACCIÓN MENSUAL CON IA:\n`;
+  text += `==================================================\n`;
+  text += `Actúa como un Ingeniero Senior de Interventoría Técnica para el IDU / Entidad Contratante. Genera un Informe Consolidado MENSUAL de Obra formal, riguroso y profesional para el mes de ${monthLabel}.\n\n`;
+  text += `Estructura el informe en las siguientes secciones:\n`;
+  text += `1. RESUMEN EJECUTIVO DEL MES: Síntesis de los logros principales, avance global alcanzado e inversión ejecutada en el mes.\n`;
+  text += `2. ANÁLISIS TÉCNICO DETALLADO FRENTE POR FRENTE: Redacta un párrafo directivo por cada frente de obra consolidando la evolución del mes, hitos constructivos ejecutados, notas de bitácora clave y soporte fotográfico.\n`;
+  text += `3. GESTIÓN DE RIESGOS Y RECOMENDACIONES DE INTERVENTORÍA: Identifica cuellos de botella, estados de PMT y recomendaciones técnicas para la entidad.\n\n`;
+
+  return text;
+}
+

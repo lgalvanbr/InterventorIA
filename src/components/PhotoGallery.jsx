@@ -75,13 +75,36 @@ export default function PhotoGallery({ frente, onAddPhoto, onDeletePhoto, isCont
     }
   };
 
-  const handleUploadSubmit = (e) => {
+  const handleUploadSubmit = async (e) => {
     e.preventDefault();
     if (!previewUrl) return;
 
+    let finalUrl = previewUrl;
+
+    // Attempt to upload image to disk via server API
+    try {
+      const fileName = selectedFile ? `${Date.now()}_${selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')}` : `${Date.now()}_photo.jpg`;
+      const response = await fetch('/api/upload-photo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          semana: 'gallery',
+          frenteId: frente.id,
+          fileName: fileName,
+          base64: previewUrl
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.url) finalUrl = data.url;
+      }
+    } catch (err) {
+      console.warn("Could not save photo to server disk, fallback to base64 previewUrl:", err);
+    }
+
     const newPhoto = {
       id: 'photo_' + Date.now(),
-      url: previewUrl,
+      url: finalUrl,
       title: title || 'Registro Fotográfico',
       description: description || 'Fotografía de control en obra.',
       category: category,
@@ -239,7 +262,15 @@ export default function PhotoGallery({ frente, onAddPhoto, onDeletePhoto, isCont
           {photos.map((photo) => (
             <div key={photo.id} className="photo-card" onClick={() => setActivePhoto(photo)}>
               <div className="photo-img-box">
-                <img src={photo.url} alt={photo.title} className="photo-img" />
+                <img 
+                  src={photo.url} 
+                  alt={photo.title} 
+                  className="photo-img" 
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect width="300" height="200" fill="%23f1f5f9"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="14" fill="%2394a3b8">Imagen no disponible</text></svg>';
+                  }}
+                />
                 <span className="photo-tag" style={{ backgroundColor: categoryColors[photo.category] || 'var(--primary)' }}>
                   {categoryLabels[photo.category]}
                 </span>

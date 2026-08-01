@@ -7,17 +7,16 @@ import { getDisenoForCiv } from '../data/frentesDisenos';
 import MapView from './MapView';
 import L from 'leaflet';
 
-// Import Leaflet icons fixes for Vite bundling
-import iconUrl from 'leaflet/dist/images/marker-icon.png';
-import iconShadowUrl from 'leaflet/dist/images/marker-shadow.png';
+// Leaflet default icon SVG fallback (eliminates 404 asset errors in Vite)
+const defaultIconSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="25" height="41" viewBox="0 0 25 41"><path fill="%232563eb" stroke="%231d4ed8" stroke-width="1.5" d="M12.5 0C5.6 0 0 5.6 0 12.5C0 21.9 12.5 41 12.5 41C12.5 41 25 21.9 25 12.5C25 5.6 19.4 0 12.5 0Z"/><circle cx="12.5" cy="12.5" r="5.5" fill="%23ffffff"/></svg>`;
 
 let DefaultIcon = L.icon({
-  iconUrl,
-  shadowUrl: iconShadowUrl,
+  iconUrl: defaultIconSvg,
   iconSize: [25, 41],
   iconAnchor: [12, 41],
   popupAnchor: [1, -34],
 });
+L.Marker.prototype.options.icon = DefaultIcon;
 
 
 // Mini Static Map component for each frente card (Zero Leaflet instances, 0 MB extra RAM)
@@ -315,24 +314,49 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
     };
   };
 
-  // Extract photos for a given frente across all weekly reports sorted strictly chronologically
+  // Extract photos for a given frente across all weekly reports AND projects sorted strictly chronologically
   const getFrentePhotos = (frenteId) => {
-    const photos = [];
+    const photosMap = new Map();
+
+    // 1. Extract from all weekly reports (Supabase data)
     (weeklyReports || []).forEach(report => {
       const reportFrente = report.frentes?.find(rf => rf.id === frenteId);
-      if (reportFrente && reportFrente.fotos) {
-        reportFrente.fotos.forEach(photo => {
-          photos.push({
-            ...photo,
-            semana: report.numero_semana,
-            fechaCorte: report.fecha_final_corte,
-            fechaInicial: report.fecha_inicial_corte
-          });
+      if (reportFrente) {
+        const list = [...(reportFrente.fotos || []), ...(reportFrente.photos || [])];
+        list.forEach(photo => {
+          const key = photo.id || photo.url;
+          if (key && !photosMap.has(key)) {
+            photosMap.set(key, {
+              ...photo,
+              semana: photo.semana || report.numero_semana,
+              fechaCorte: report.fecha_final_corte,
+              fechaInicial: report.fecha_inicial_corte
+            });
+          }
         });
       }
     });
-    // Sort strictly chronologically by date (oldest to newest)
-    return photos.sort((a, b) => getPhotoTimestamp(a) - getPhotoTimestamp(b) || a.semana - b.semana);
+
+    // 2. Extract from project frentes (PhotoGallery data)
+    (projects || []).forEach(proj => {
+      const prjFrente = proj.frentes?.find(pf => pf.id === frenteId);
+      if (prjFrente) {
+        const list = [...(prjFrente.photos || []), ...(prjFrente.fotos || [])];
+        list.forEach(photo => {
+          const key = photo.id || photo.url;
+          if (key && !photosMap.has(key)) {
+            photosMap.set(key, {
+              ...photo,
+              semana: photo.semana || 20,
+              date: photo.date || new Date().toISOString().split('T')[0]
+            });
+          }
+        });
+      }
+    });
+
+    const photos = Array.from(photosMap.values());
+    return photos.sort((a, b) => getPhotoTimestamp(a) - getPhotoTimestamp(b));
   };
 
   // Group photos of a frente by month (sorted chronologically)
@@ -362,19 +386,41 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
 
   // Get photos specifically uploaded during the selected week (sorted chronologically)
   const getFrentePhotosForWeek = (frenteId, weekNum) => {
-    const photos = [];
+    const photosMap = new Map();
     const report = (weeklyReports || []).find(r => r.numero_semana === Number(weekNum));
     const reportFrente = report?.frentes?.find(rf => rf.id === frenteId);
-    if (reportFrente && reportFrente.fotos) {
-      reportFrente.fotos.forEach(photo => {
-        photos.push({
-          ...photo,
-          semana: report.numero_semana,
-          fechaCorte: report.fecha_final_corte,
-          fechaInicial: report.fecha_inicial_corte
-        });
+    if (reportFrente) {
+      const list = [...(reportFrente.fotos || []), ...(reportFrente.photos || [])];
+      list.forEach(photo => {
+        const key = photo.id || photo.url;
+        if (key && !photosMap.has(key)) {
+          photosMap.set(key, {
+            ...photo,
+            semana: report.numero_semana,
+            fechaCorte: report.fecha_final_corte,
+            fechaInicial: report.fecha_inicial_corte
+          });
+        }
       });
     }
+
+    // Also include photos assigned to this week number from projects state
+    (projects || []).forEach(proj => {
+      const prjFrente = proj.frentes?.find(pf => pf.id === frenteId);
+      if (prjFrente) {
+        const list = [...(prjFrente.photos || []), ...(prjFrente.fotos || [])];
+        list.forEach(photo => {
+          if (Number(photo.semana) === Number(weekNum)) {
+            const key = photo.id || photo.url;
+            if (key && !photosMap.has(key)) {
+              photosMap.set(key, photo);
+            }
+          }
+        });
+      }
+    });
+
+    const photos = Array.from(photosMap.values());
     return photos.sort((a, b) => getPhotoTimestamp(a) - getPhotoTimestamp(b));
   };
 

@@ -434,10 +434,11 @@ export default function FrentesControl({ projects, designOverrides, onUpdateDesi
     }
   };
 
-  // PDF URL configuration (Uploaded path or fallback path)
-  const publicPdfUrl = selectedCiv ? `/frentes/${selectedCiv}/diseno.pdf` : '';
+  // PDF URL configuration (Uploaded server path, custom stored path, or fallback path)
+  const publicPdfUrl = selectedCiv ? `/uploads/designs/design_${selectedCiv}.pdf` : '';
+  const fallbackPdfUrl = selectedCiv ? `/frentes/${selectedCiv}/diseno.pdf` : '';
   const uploadedPdfUrl = (selectedCiv && uploadedPdfs[selectedCiv]) ? uploadedPdfs[selectedCiv] : '';
-  const finalPdfUrl = localPdfUrl || uploadedPdfUrl || publicPdfUrl;
+  const finalPdfUrl = localPdfUrl || uploadedPdfUrl || publicPdfUrl || fallbackPdfUrl;
 
   // Render layer background styles based on material type
   const getLayerStyle = (type) => {

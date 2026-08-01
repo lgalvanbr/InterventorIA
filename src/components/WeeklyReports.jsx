@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { calculateConsolidatedMetrics, cloneWeeklyReport } from '../data/reportsWeekly';
+import { calculateConsolidatedMetrics, cloneWeeklyReport, getAvailableMonths, generateMonthlyBitacoraText, getReportMonthLabel } from '../data/reportsWeekly';
 import { Calendar, Unlock, Save, PlusCircle, CheckCircle2, Search, TrendingUp, HelpCircle, DollarSign, Activity, Image as ImageIcon, FileText, ChevronRight } from 'lucide-react';
 
 export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onNavigateToDetail, isContractorMode }) {
@@ -13,7 +13,33 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
   
+  const availableMonths = getAvailableMonths(weeklyReports);
+  const [selectedMonthKey, setSelectedMonthKey] = useState('');
 
+  useEffect(() => {
+    if (availableMonths.length > 0 && (!selectedMonthKey || !availableMonths.some(m => m.key === selectedMonthKey))) {
+      setSelectedMonthKey(availableMonths[0].key);
+    }
+  }, [weeklyReports]);
+
+  const handleCopyMonthlyFromList = () => {
+    const monthKey = selectedMonthKey || (availableMonths[0] ? availableMonths[0].key : null);
+    if (!monthKey) {
+      alert('No hay meses disponibles para compilar.');
+      return;
+    }
+    const monthLabel = getReportMonthLabel(monthKey);
+    const text = generateMonthlyBitacoraText(weeklyReports, monthKey);
+
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        alert(`¡Bitácora del mes (${monthLabel}) copiada con éxito para IA!\n\nPégala en ChatGPT, Claude o tu asistente preferido para generar el consolidado mensual.`);
+      })
+      .catch(err => {
+        console.error('Error al copiar:', err);
+        alert('No se pudo copiar automáticamente.');
+      });
+  };
 
   // Set default active report to the latest week
   useEffect(() => {
@@ -161,6 +187,32 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
 
         {/* Toolbar: Dropdown & Create Button */}
         <div className="flex flex-wrap items-center gap-3 mt-4 md:mt-0 shrink-0">
+          {/* Selector de Mes y Copia para IA */}
+          {availableMonths.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 text-white rounded px-2.5 py-1.5 shadow-sm">
+              <span className="material-symbols-outlined text-amber-400 text-[16px]">psychology</span>
+              <select
+                value={selectedMonthKey}
+                onChange={(e) => setSelectedMonthKey(e.target.value)}
+                className="bg-transparent text-xs font-bold text-slate-100 focus:outline-none cursor-pointer border-none pr-1"
+              >
+                {availableMonths.map(m => (
+                  <option key={m.key} value={m.key} className="bg-slate-800 text-white">
+                    Mes: {m.label} ({m.reportsCount} sem)
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handleCopyMonthlyFromList}
+                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-[11px] px-2.5 py-1 rounded transition-all flex items-center gap-1 cursor-pointer"
+                title="Copiar informe consolidado del mes seleccionado para Inteligencia Artificial"
+              >
+                <span className="material-symbols-outlined text-[14px]">content_copy</span>
+                Copiar Mes (IA)
+              </button>
+            </div>
+          )}
+
           <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded px-3 py-1.5">
             <span className="text-slate-400 text-xs font-bold font-mono">Semana:</span>
             <select

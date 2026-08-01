@@ -198,25 +198,32 @@ body {
 }
 
 @media print {
-  /* Hide standard web browser layouts & buttons */
-  .no-print, header, aside, nav, button, .no-print * {
+  /* Hide web app chrome, sidebars, navigation & action buttons */
+  .no-print, header, aside, nav, button, select, .no-print *, [role="navigation"] {
     display: none !important;
   }
   
-  body, .printable-area-container, main {
+  html, body, #root, .flex-1, main {
     background: #ffffff !important;
     color: #000000 !important;
     padding: 0 !important;
     margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-shadow: none !important;
+  }
+
+  /* Reset main content sidebar left offset during printing */
+  .flex-1 {
+    padding-left: 0 !important;
   }
 
   /* Clean up warning boxes and alert highlights on print output */
   [class*="bg-amber"], [class*="border-amber"], [class*="ring-amber"] {
     background: #ffffff !important;
     background-image: none !important;
-    border-color: #e2e8f0 !important;
+    border-color: #cbd5e1 !important;
     box-shadow: none !important;
-    ring: none !important;
   }
 
   .print-only {
@@ -229,10 +236,9 @@ body {
     break-before: page !important;
   }
 
-  .page-break-inside {
+  .page-break-inside, .workfront-detail-card, .stamp-approved {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-    display: block !important;
   }
   
   /* Tables formatting */

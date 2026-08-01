@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { curvaSData } from '../data/reportsCurvaS';
 import { FileText, TrendingUp, HelpCircle } from 'lucide-react';
+import { getAvailableMonths, generateMonthlyBitacoraText, getReportMonthLabel } from '../data/reportsWeekly';
 
-export default function ReportsView({ projects = [] }) {
+export default function ReportsView({ projects = [], weeklyReports = [] }) {
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id || '');
   const [selectedFrenteId, setSelectedFrenteId] = useState('all');
   const [activeTab, setActiveTab] = useState('actas'); // 'actas' or 'curva-s'
@@ -12,6 +13,34 @@ export default function ReportsView({ projects = [] }) {
     interventor: false,
     supervisor: false
   });
+
+  const availableMonths = getAvailableMonths(weeklyReports);
+  const [selectedMonthKey, setSelectedMonthKey] = useState('');
+
+  useEffect(() => {
+    if (availableMonths.length > 0 && (!selectedMonthKey || !availableMonths.some(m => m.key === selectedMonthKey))) {
+      setSelectedMonthKey(availableMonths[0].key);
+    }
+  }, [weeklyReports]);
+
+  const handleCopyMonthlyBitacora = () => {
+    const monthKey = selectedMonthKey || (availableMonths[0] ? availableMonths[0].key : null);
+    if (!monthKey || !weeklyReports.length) {
+      alert('No hay bitácoras semanales registradas para compilar en el mes seleccionado.');
+      return;
+    }
+    const monthLabel = getReportMonthLabel(monthKey);
+    const text = generateMonthlyBitacoraText(weeklyReports, monthKey);
+
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        alert(`¡Bitácora consolidada del mes (${monthLabel}) copiada con éxito para IA!\n\nPégala en tu asistente de redacción para generar el informe de soporte del acta de obra.`);
+      })
+      .catch(err => {
+        console.error('Error al copiar:', err);
+        alert('No se pudo copiar automáticamente.');
+      });
+  };
 
   const project = projects.find(p => p.id === selectedProjectId);
 
@@ -68,12 +97,20 @@ export default function ReportsView({ projects = [] }) {
     };
   });
 
-  const totalContractVal = mockItems.reduce((acc, curr) => acc + (curr.qty * curr.price), 0);
-  const totalExecutedVal = itemsWithExecution.reduce((acc, curr) => acc + curr.totalExec, 0);
-  const totalBalanceVal = itemsWithExecution.reduce((acc, curr) => acc + curr.balanceVal, 0);
+  const selectedFrentes = selectedFrenteId === 'all' 
+    ? (project?.frentes || [])
+    : (project?.frentes?.filter(f => f.id === selectedFrenteId) || []);
+
+  const projectContractVal = project?.constructionBudget || mockItems.reduce((acc, curr) => acc + (curr.qty * curr.price), 0);
+  const realExecutedBudget = selectedFrentes.reduce((acc, f) => {
+    return acc + (f.financialMetrics?.executedBudget || (f.financialMetrics?.totalBudget ? f.financialMetrics.totalBudget * (f.progress / 100) : 0));
+  }, 0);
+
+  const totalExecutedVal = realExecutedBudget > 0 ? realExecutedBudget : itemsWithExecution.reduce((acc, curr) => acc + curr.totalExec, 0);
+  const totalBalanceVal = Math.max(0, projectContractVal - totalExecutedVal);
 
   // Amortization of advance payment (30% of contract value total)
-  const advanceTotal = totalContractVal * 0.3;
+  const advanceTotal = projectContractVal * 0.3;
   const advanceAmortizationRate = 0.2; // 20% amortization of executed work value per act
   const currentAmortization = totalExecutedVal * advanceAmortizationRate;
   const netPayment = totalExecutedVal - currentAmortization;
@@ -169,7 +206,32 @@ export default function ReportsView({ projects = [] }) {
           </div>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {availableMonths.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 text-white rounded px-2.5 py-1.5 shadow-sm">
+              <span className="material-symbols-outlined text-amber-400 text-[16px]">psychology</span>
+              <select
+                value={selectedMonthKey}
+                onChange={(e) => setSelectedMonthKey(e.target.value)}
+                className="bg-transparent text-xs font-bold text-slate-100 focus:outline-none cursor-pointer border-none pr-1"
+              >
+                {availableMonths.map(m => (
+                  <option key={m.key} value={m.key} className="bg-slate-800 text-white">
+                    {m.label} ({m.reportsCount} sem)
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handleCopyMonthlyBitacora}
+                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-[11px] px-2.5 py-1 rounded transition-all flex items-center gap-1 cursor-pointer"
+                title="Copiar informe consolidado del mes seleccionado para Inteligencia Artificial"
+              >
+                <span className="material-symbols-outlined text-[14px]">content_copy</span>
+                Copiar Bitácora Mes (IA)
+              </button>
+            </div>
+          )}
+
           <button 
             onClick={() => window.print()}
             className="bg-white border border-slate-300 text-slate-700 font-bold text-xs px-4 py-2.5 rounded hover:bg-slate-50 flex items-center gap-1.5 shadow-sm"
