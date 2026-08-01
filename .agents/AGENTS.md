@@ -22,4 +22,7 @@
 ## 🛠️ Tecnologías y Construcción
 - **Frontend**: React 18, Vite, Vanilla CSS con variables CSS modernas, Leaflet / React-Leaflet para mapas interactivos, Lucide React / Material Symbols para iconografía.
 - **Backend / DB**: Node.js Serverless Function (`api/index.js`), Supabase REST API & PostgreSQL, Supabase Storage.
-- **Comandos de Verificación**: Siempre verificar cambios ejecutando `npm run build` y comprobando que finalice con 0 errores.
+- **Comandos de Verificación Obligatorios Pre-Producción**:
+  - **Pruebas Automatizadas**: Ejecutar `npm run test` (verifica sanidad de base de datos, 42 frentes, fotos, bitácoras y límite de tamaño de localStorage).
+  - **Compilación**: Ejecutar `npm run build` y comprobar que finalice con 0 errores.
+  - **REGLA OBLIGATORIA**: NUNCA desplegar a producción sin haber ejecutado y superado `npm run test` al 100%.
