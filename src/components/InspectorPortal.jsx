@@ -208,6 +208,8 @@ export default function InspectorPortal({
       if (file.type.startsWith('image/')) {
         try {
           // Compress local photo before sending to API
+          const base64 = await compressImage(file);
+
           // Standardized file name format: FECHA_2026-07-25_SEM31_FRENTE_f_mv_1_143059_a1b2.jpeg
           const dateCode = activeDateStr || new Date().toISOString().split('T')[0];
           const semCode = currentReport ? currentReport.numero_semana : 'XX';
@@ -231,10 +233,12 @@ export default function InspectorPortal({
                 `semana_${currentReport.numero_semana}/frente_${selectedFrenteId}/${fileName}`,
                 base64
               );
-              previewUrl = cloudUrl;
-              uploadedToSupabase = true;
+              if (cloudUrl) {
+                previewUrl = cloudUrl;
+                uploadedToSupabase = true;
+              }
             } catch (sErr) {
-              console.error("Error uploading to Supabase from portal, falling back:", sErr);
+              console.warn("Direct upload fallback to API:", sErr);
             }
           }
 
@@ -256,9 +260,6 @@ export default function InspectorPortal({
                 if (result.url) {
                   previewUrl = result.url;
                 }
-              } else {
-                const errResult = await response.json().catch(() => ({}));
-                alert(`Error al subir la foto al servidor: ${errResult.details || errResult.error || 'Error desconocido'}`);
               }
             } catch (netErr) {
               console.warn("API offline, using base64 preview:", netErr);
@@ -266,17 +267,21 @@ export default function InspectorPortal({
           }
 
           uploadedPhotos.push({
-            id: Date.now() + Math.random().toString(36).substring(2, 11),
+            id: `photo_${Date.now()}_${randomStr}`,
             url: previewUrl,
-            caption: '',
-            date: activeDateStr
+            caption: `Fotografía de avance (${file.name})`,
+            date: dateCode,
+            semana: currentReport ? currentReport.numero_semana : null,
+            category: 'avance'
           });
         } catch (err) {
           console.error("Error compressing or uploading photo:", err);
         }
       }
     }
-    setFotos(prev => [...prev, ...uploadedPhotos]);
+    if (uploadedPhotos.length > 0) {
+      setFotos(prev => [...prev, ...uploadedPhotos]);
+    }
     setIsCompressing(false);
   };
 

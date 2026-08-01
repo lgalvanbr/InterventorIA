@@ -20,7 +20,7 @@ Este archivo actúa como la memoria central permanente y documentación de arqui
 - **Supabase MCP Server URL**: `https://mcp.supabase.com/mcp?project_ref=rjghsenbsrprbajhkwxr&features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching`
 - **Tabla Principal de Base de Datos**: `weekly_reports`
   - Fila Clave: `id = 'main_reports'`
-  - Columna `data`: Array JSON con todos los informes semanales (`semana_20`, `semana_21`, `semana_29`, `semana_31`, etc.).
+  - Columna `data`: Array JSON con todos los informes semanales de control de interventoría (Semanas `semana_20` a `semana_36`, cubriendo hasta Septiembre de 2026 con los 42 frentes de obra clonados y calibrados).
 - **Bucket de Almacenamiento**: `frentes-fotos`
 - **Servidor Backend Vercel Serverless (`api/index.js`)**:
   - `GET /api/weekly-reports`: Consulta la tabla `weekly_reports` en Supabase y devuelve el historial completo.
