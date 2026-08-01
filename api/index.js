@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://rjghsenbsrprbajhkwxr.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || 'sb_publishable_QQ_O2_zR4gy1jlJzoLc8uA_SIKzyZtS';
+const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // In-memory fallback database for Vercel Serverless (since filesystem is read-only)
 let memoryReports = null;
