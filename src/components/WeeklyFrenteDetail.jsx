@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Activity, FileText, CheckCircle2, Trash2, ArrowLeft, Image as ImageIcon, Plus, ChevronLeft, ChevronRight, X, Eye, Lock } from 'lucide-react';
+import { Calendar, Activity, FileText, Trash2, ArrowLeft, Image as ImageIcon, Plus, ChevronLeft, ChevronRight, X, Eye, Lock } from 'lucide-react';
 import { getDisenoForCiv } from '../data/frentesDisenos';
 
 const getVisualLayerStyle = (type) => {

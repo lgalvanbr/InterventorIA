@@ -469,7 +469,7 @@ export default function App() {
 
   const handleSaveFrenteData = (reportId, frenteId, updatedData) => {
     const updatedReports = weeklyReports.map(r => {
-      if (r.id_informe === reportId) {
+      if (String(r.id_informe) === String(reportId)) {
         const newFrentes = r.frentes.map(f => {
           if (f.id === frenteId) {
             return {
@@ -513,7 +513,7 @@ export default function App() {
     
     let hasChanges = false;
     const nextWeekly = weeklyReports.map(r => {
-      if (r.id_informe === latestReportId) {
+      if (String(r.id_informe) === String(latestReportId)) {
         const newFrentes = (r.frentes || []).map(wf => {
           const matchingUpdated = updatedFrentes.find(uf => uf.id === wf.id);
           if (matchingUpdated && (matchingUpdated.photos || matchingUpdated.fotos)) {
@@ -735,7 +735,7 @@ export default function App() {
 
         {view === 'weekly-detail' && (
           <WeeklyReportPanel 
-            report={weeklyReports.find(r => r.id_informe === selectedReportId)}
+            report={weeklyReports.find(r => String(r.id_informe) === String(selectedReportId))}
             weeklyReports={weeklyReports}
             initialEditingFrenteId={selectedDetailFrenteId}
             allFrentes={projects.flatMap(p => p.frentes || [])}
@@ -749,7 +749,7 @@ export default function App() {
             }}
             onSaveFrente={(updatedFrente) => {
               const updatedReports = weeklyReports.map(r => {
-                if (r.id_informe === selectedReportId) {
+                if (String(r.id_informe) === String(selectedReportId)) {
                   const newFrentes = r.frentes.map(f => f.id === updatedFrente.id ? updatedFrente : f);
                   return calculateConsolidatedMetrics(newFrentes, r);
                 }
@@ -758,7 +758,7 @@ export default function App() {
               handleUpdateWeeklyReports(updatedReports);
             }}
             onSaveReport={(updatedReport) => {
-              const updatedReports = weeklyReports.map(r => r.id_informe === updatedReport.id_informe ? updatedReport : r);
+              const updatedReports = weeklyReports.map(r => String(r.id_informe) === String(updatedReport.id_informe) ? updatedReport : r);
               handleUpdateWeeklyReports(updatedReports);
             }}
           />

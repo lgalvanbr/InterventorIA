@@ -43,7 +43,7 @@ export default function InspectorPortal({
     }
   }, [weeklyReports, selectedReportId]);
 
-  const currentReport = weeklyReports.find(r => r.id_informe === selectedReportId) || null;
+  const currentReport = weeklyReports.find(r => String(r.id_informe) === String(selectedReportId)) || null;
   const frentes = currentReport ? currentReport.frentes : [];
   
   const filteredFrentes = frentes.filter(f => {
@@ -332,7 +332,7 @@ export default function InspectorPortal({
   };
 
   const handleReportChange = async (newReportId) => {
-    if (newReportId === selectedReportId) return;
+    if (String(newReportId) === String(selectedReportId)) return;
     await saveCurrentFrenteDataSilently();
     setSelectedReportId(newReportId);
     try {
@@ -471,12 +471,16 @@ export default function InspectorPortal({
             Seleccionar Semana de Reporte
           </label>
           <select
-            value={selectedReportId || ''}
-            onChange={(e) => handleReportChange(Number(e.target.value))}
+            value={selectedReportId !== null && selectedReportId !== undefined ? String(selectedReportId) : ''}
+            onChange={(e) => {
+              const val = e.target.value;
+              const match = weeklyReports.find(r => String(r.id_informe) === val);
+              handleReportChange(match ? match.id_informe : val);
+            }}
             className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
           >
             {weeklyReports.map(r => (
-              <option key={r.id_informe} value={r.id_informe}>
+              <option key={r.id_informe} value={String(r.id_informe)}>
                 Semana {r.numero_semana} ({r.fecha_inicial_corte} al {r.fecha_final_corte})
               </option>
             ))}

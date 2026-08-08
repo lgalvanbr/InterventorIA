@@ -44,7 +44,7 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
   // Set default active report to the latest week
   useEffect(() => {
     if (weeklyReports.length > 0) {
-      const exists = weeklyReports.some(r => r.id_informe === activeReportId);
+      const exists = weeklyReports.some(r => String(r.id_informe) === String(activeReportId));
       if (!exists) {
         // Sort reports by week number descending to find latest
         const sorted = [...weeklyReports].sort((a, b) => b.numero_semana - a.numero_semana);
@@ -54,7 +54,7 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
   }, [weeklyReports, activeReportId]);
 
   // Load report data into local edit state when active report changes
-  const activeReport = weeklyReports.find(r => r.id_informe === activeReportId) || null;
+  const activeReport = weeklyReports.find(r => String(r.id_informe) === String(activeReportId)) || null;
 
   useEffect(() => {
     if (activeReport) {
@@ -112,7 +112,7 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
     const recalculatedReport = calculateConsolidatedMetrics(editedFrentes, currentReport);
 
     const updatedReports = weeklyReports.map(r => 
-      r.id_informe === activeReport.id_informe ? recalculatedReport : r
+      String(r.id_informe) === String(activeReport.id_informe) ? recalculatedReport : r
     );
 
     onUpdateReports(updatedReports);
@@ -216,14 +216,18 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
           <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded px-3 py-1.5">
             <span className="text-slate-400 text-xs font-bold font-mono">Semana:</span>
             <select
-              value={activeReportId}
-              onChange={(e) => setActiveReportId(Number(e.target.value))}
+              value={activeReportId !== null && activeReportId !== undefined ? String(activeReportId) : ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                const match = weeklyReports.find(r => String(r.id_informe) === val);
+                setActiveReportId(match ? match.id_informe : val);
+              }}
               className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
             >
               {[...weeklyReports]
                 .sort((a, b) => b.numero_semana - a.numero_semana)
                 .map(r => (
-                  <option key={r.id_informe} value={r.id_informe}>
+                  <option key={r.id_informe} value={String(r.id_informe)}>
                     Semana {r.numero_semana} ({r.fecha_inicial_corte} a {r.fecha_final_corte})
                   </option>
                 ))

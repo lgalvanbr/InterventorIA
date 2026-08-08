@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import '@fontsource-variable/material-symbols-outlined'
 import App from './App.jsx'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
 
 if (window.self !== window.top) {
   // If loaded inside an iframe (like the PDF viewer fallback), prevent rendering the entire React app
@@ -10,7 +11,9 @@ if (window.self !== window.top) {
 } else {
   createRoot(document.getElementById('root')).render(
     <StrictMode>
-      <App />
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
     </StrictMode>,
   )
 }

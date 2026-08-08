@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { 
-  Search, SlidersHorizontal, Lock, Plus, Calendar, MapPin, 
-  Activity, ChevronLeft, ChevronRight, X, Eye, Image as ImageIcon, ArrowRight, Layers
+  Search, Calendar, MapPin, 
+  ChevronLeft, ChevronRight, X, Eye, Image as ImageIcon, ArrowRight, Layers
 } from 'lucide-react';
 import { getDisenoForCiv } from '../data/frentesDisenos';
 import MapView from './MapView';
