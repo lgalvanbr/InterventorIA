@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { curvaSData } from '../data/reportsCurvaS';
-import { FileText, TrendingUp, HelpCircle } from 'lucide-react';
+import { FileText, TrendingUp, HelpCircle, Calendar, Sparkles } from 'lucide-react';
 import { getAvailableMonths, generateMonthlyBitacoraText, getReportMonthLabel } from '../data/reportsWeekly';
+import MonthlyReportGenerator from './MonthlyReportGenerator';
 
 export default function ReportsView({ projects = [], weeklyReports = [] }) {
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0]?.id || '');
   const [selectedFrenteId, setSelectedFrenteId] = useState('all');
-  const [activeTab, setActiveTab] = useState('actas'); // 'actas' or 'curva-s'
+  const [activeTab, setActiveTab] = useState('informe-mensual'); // 'informe-mensual', 'actas', 'curva-s'
   const [isApproved, setIsApproved] = useState(false);
   const [signatures, setSignatures] = useState({
     contratista: false,
@@ -133,136 +134,133 @@ export default function ReportsView({ projects = [], weeklyReports = [] }) {
       <section className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-gutter border-b border-slate-200 pb-6">
         <div>
           <h2 className="font-headline-lg text-3xl font-extrabold text-primary mb-1">
-            Actas de Recibo Parcial
+            Informes y Actas de Supervisión
           </h2>
           <p className="text-slate-500 text-sm font-medium">
-            Genera, valida y firma los informes mensuales de obra requeridos por la normativa colombiana de contratación pública.
+            Genera, compila y copia informes mensuales de interventoría por meses, actas de recibo parcial y programación de obra (Curva S).
           </p>
         </div>
       </section>
 
       {/* Sub-tab navigation */}
-      <div className="flex border border-slate-200 bg-white rounded-lg p-1 gap-2 mb-6 shadow-sm">
+      <div className="flex border border-slate-200 bg-white rounded-xl p-1 gap-2 mb-6 shadow-sm">
+        <button
+          onClick={() => setActiveTab('informe-mensual')}
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+            activeTab === 'informe-mensual'
+              ? 'bg-gradient-to-r from-primary to-[#00236f] text-white shadow-sm font-black ring-1 ring-primary/20'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <Calendar size={15} className={activeTab === 'informe-mensual' ? 'text-amber-300' : 'text-slate-500'} />
+          <span>📄 Informe Mensual de Interventoría</span>
+          <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${activeTab === 'informe-mensual' ? 'bg-amber-400 text-slate-950' : 'bg-slate-100 text-slate-600'}`}>
+            Copiar por Meses
+          </span>
+        </button>
+
         <button
           onClick={() => setActiveTab('actas')}
-          className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded transition-all ${
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
             activeTab === 'actas'
-              ? 'bg-primary text-white shadow-sm'
-              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              ? 'bg-primary text-white shadow-sm font-black'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <FileText size={14} />
+          <FileText size={15} />
           Actas de Recibo Parcial
         </button>
+
         <button
           onClick={() => setActiveTab('curva-s')}
-          className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded transition-all ${
+          className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
             activeTab === 'curva-s'
-              ? 'bg-primary text-white shadow-sm'
-              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+              ? 'bg-primary text-white shadow-sm font-black'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
           }`}
         >
-          <TrendingUp size={14} />
+          <TrendingUp size={15} />
           Línea Base y Curva S (Programación)
         </button>
       </div>
 
-      {/* Selectors and Actions Control bar */}
-      <div className="bg-white border border-slate-200 rounded-lg p-5 mb-8 flex flex-wrap gap-4 items-center justify-between">
-        <div className="flex flex-wrap gap-4">
-          <div className="flex flex-col">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Seleccionar Contrato</label>
-            <select 
-              className="bg-slate-50 border border-slate-200 rounded text-xs p-2 font-medium focus:ring-1 focus:ring-primary focus:outline-none min-w-[240px]"
-              value={selectedProjectId}
-              onChange={(e) => {
-                setSelectedProjectId(e.target.value);
-                setSelectedFrenteId('all');
-                setIsApproved(false);
-                setSignatures({ contratista: false, interventor: false, supervisor: false });
-              }}
-            >
-              {projects.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-          </div>
+      {activeTab === 'informe-mensual' && (
+        <MonthlyReportGenerator weeklyReports={weeklyReports} projects={projects} />
+      )}
 
-          <div className="flex flex-col">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Frente de Obra</label>
-            <select 
-              className="bg-slate-50 border border-slate-200 rounded text-xs p-2 font-medium focus:ring-1 focus:ring-primary focus:outline-none min-w-[180px]"
-              value={selectedFrenteId}
-              onChange={(e) => {
-                setSelectedFrenteId(e.target.value);
-                setIsApproved(false);
-              }}
-            >
-              <option value="all">Todos los Frentes</option>
-              {project?.frentes?.map(f => (
-                <option key={f.id} value={f.id}>{f.name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
+      {activeTab === 'actas' && (
+        <>
+          {/* Selectors and Actions Control bar */}
+          <div className="bg-white border border-slate-200 rounded-lg p-5 mb-8 flex flex-wrap gap-4 items-center justify-between">
+            <div className="flex flex-wrap gap-4">
+              <div className="flex flex-col">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Seleccionar Contrato</label>
+                <select 
+                  className="bg-slate-50 border border-slate-200 rounded text-xs p-2 font-medium focus:ring-1 focus:ring-primary focus:outline-none min-w-[240px]"
+                  value={selectedProjectId}
+                  onChange={(e) => {
+                    setSelectedProjectId(e.target.value);
+                    setSelectedFrenteId('all');
+                    setIsApproved(false);
+                    setSignatures({ contratista: false, interventor: false, supervisor: false });
+                  }}
+                >
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {availableMonths.length > 0 && (
-            <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 text-white rounded px-2.5 py-1.5 shadow-sm">
-              <span className="material-symbols-outlined text-amber-400 text-[16px]">psychology</span>
-              <select
-                value={selectedMonthKey}
-                onChange={(e) => setSelectedMonthKey(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-100 focus:outline-none cursor-pointer border-none pr-1"
+              <div className="flex flex-col">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Frente de Obra</label>
+                <select 
+                  className="bg-slate-50 border border-slate-200 rounded text-xs p-2 font-medium focus:ring-1 focus:ring-primary focus:outline-none min-w-[180px]"
+                  value={selectedFrenteId}
+                  onChange={(e) => {
+                    setSelectedFrenteId(e.target.value);
+                    setIsApproved(false);
+                  }}
+                >
+                  <option value="all">Todos los Frentes</option>
+                  {project?.frentes?.map(f => (
+                    <option key={f.id} value={f.id}>{f.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button 
+                onClick={() => window.print()}
+                className="bg-white border border-slate-300 text-slate-700 font-bold text-xs px-4 py-2.5 rounded hover:bg-slate-50 flex items-center gap-1.5 shadow-sm"
               >
-                {availableMonths.map(m => (
-                  <option key={m.key} value={m.key} className="bg-slate-800 text-white">
-                    {m.label} ({m.reportsCount} sem)
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={handleCopyMonthlyBitacora}
-                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-[11px] px-2.5 py-1 rounded transition-all flex items-center gap-1 cursor-pointer"
-                title="Copiar informe consolidado del mes seleccionado para Inteligencia Artificial"
+                <span className="material-symbols-outlined text-[16px]">print</span>
+                Imprimir Acta
+              </button>
+              
+              <button 
+                onClick={() => {
+                  if (!signatures.interventor) {
+                    alert('La interventoría debe firmar digitalmente el acta antes de la aprobación final.');
+                    return;
+                  }
+                  setIsApproved(true);
+                }}
+                className="bg-green-600 text-white font-bold text-xs px-5 py-2.5 rounded hover:bg-green-700 transition-transform active:scale-95 duration-100 flex items-center gap-1.5"
               >
-                <span className="material-symbols-outlined text-[14px]">content_copy</span>
-                Copiar Bitácora Mes (IA)
+                <span className="material-symbols-outlined text-[16px]">verified</span>
+                Aprobar Acta de Obra
               </button>
             </div>
-          )}
-
-          <button 
-            onClick={() => window.print()}
-            className="bg-white border border-slate-300 text-slate-700 font-bold text-xs px-4 py-2.5 rounded hover:bg-slate-50 flex items-center gap-1.5 shadow-sm"
-          >
-            <span className="material-symbols-outlined text-[16px]">print</span>
-            Imprimir Acta
-          </button>
-          
-          <button 
-            onClick={() => {
-              if (!signatures.interventor) {
-                alert('La interventoría debe firmar digitalmente el acta antes de la aprobación final.');
-                return;
-              }
-              setIsApproved(true);
-            }}
-            className="bg-green-600 text-white font-bold text-xs px-5 py-2.5 rounded hover:bg-green-700 transition-transform active:scale-95 duration-100 flex items-center gap-1.5"
-          >
-            <span className="material-symbols-outlined text-[16px]">verified</span>
-            Aprobar Acta de Obra
-          </button>
-        </div>
-      </div>
-
-      {activeTab === 'actas' ? (
-        !project ? (
-          <div className="bg-white border border-slate-200 rounded-lg p-16 text-center text-slate-400">
-            <span className="material-symbols-outlined text-4xl mb-2">assignment_late</span>
-            <p className="font-bold">No hay proyectos de obra cargados para generar reportes.</p>
           </div>
-        ) : (
+
+          {!project ? (
+            <div className="bg-white border border-slate-200 rounded-lg p-16 text-center text-slate-400">
+              <span className="material-symbols-outlined text-4xl mb-2">assignment_late</span>
+              <p className="font-bold">No hay proyectos de obra cargados para generar reportes.</p>
+            </div>
+          ) : (
+
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
             
             {/* Main Acceptance Document Card (2 Cols) */}
@@ -494,8 +492,11 @@ export default function ReportsView({ projects = [], weeklyReports = [] }) {
             </div>
 
           </div>
-        )
-      ) : (
+        )}
+      </>
+      )}
+
+      {activeTab === 'curva-s' && (
         <div className="flex flex-col gap-6 animate-fade-in">
           {/* Curva S chart panel */}
           <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-sm">
@@ -503,6 +504,7 @@ export default function ReportsView({ projects = [], weeklyReports = [] }) {
               <TrendingUp size={16} className="text-primary" />
               Gráfica Curva S Oficial — Avance Físico de Obra
             </h4>
+
 
             <div className="bg-slate-50 rounded border border-slate-150 p-4 mb-4 flex flex-col items-center justify-center overflow-x-auto">
               <svg width="860" height="280" viewBox="0 0 860 280" className="overflow-visible min-w-[700px]">

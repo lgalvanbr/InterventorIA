@@ -1,11 +1,20 @@
 import React, { useState } from 'react';
 import { 
   Search, Calendar, MapPin, 
-  ChevronLeft, ChevronRight, X, Eye, Image as ImageIcon, ArrowRight, Layers
+  ChevronLeft, ChevronRight, X, Eye, Image as ImageIcon, ArrowRight, Layers,
+  FileText, Copy, Check, Sparkles, Table, FileSpreadsheet, Download
 } from 'lucide-react';
 import { getDisenoForCiv } from '../data/frentesDisenos';
+import { 
+  getAvailableMonths, 
+  generateMonthlyFullOfficialReport, 
+  generateMonthlyAIPrompt, 
+  generateMonthlyExcelTSV, 
+  generateMonthlyPhotosTSV 
+} from '../data/reportsWeekly';
 import MapView from './MapView';
 import L from 'leaflet';
+
 
 // Leaflet default icon SVG fallback (eliminates 404 asset errors in Vite)
 const defaultIconSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="25" height="41" viewBox="0 0 25 41"><path fill="%232563eb" stroke="%231d4ed8" stroke-width="1.5" d="M12.5 0C5.6 0 0 5.6 0 12.5C0 21.9 12.5 41 12.5 41C12.5 41 25 21.9 25 12.5C25 5.6 19.4 0 12.5 0Z"/><circle cx="12.5" cy="12.5" r="5.5" fill="%23ffffff"/></svg>`;
@@ -108,7 +117,7 @@ const getLayerColor = (type) => {
   }
 };
 
-export default function Dashboard({ projects = [], onSelectProject, onAddProject, isContractorMode, weeklyReports = [] }) {
+export default function Dashboard({ projects = [], onSelectProject, onAddProject, isContractorMode, weeklyReports = [], onNavigateToReports }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'map'
   
@@ -122,11 +131,45 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
   const [photoFilterMode, setPhotoFilterMode] = useState('month'); // 'month' or 'week'
   const [selectedMonth, setSelectedMonth] = useState('all'); // 'all' or month key like '2026-07'
   
+  // Quick Monthly Copy Modal State on Landing Page
+  const [showMonthlyCopyModal, setShowMonthlyCopyModal] = useState(false);
+  const [modalCopiedKey, setModalCopiedKey] = useState(null);
+  const [modalContractFilter, setModalContractFilter] = useState('all');
+  const [modalOnlyWithActivity, setModalOnlyWithActivity] = useState(true);
+  const availableMonthsList = React.useMemo(() => getAvailableMonths(weeklyReports), [weeklyReports]);
+  const [modalSelectedMonth, setModalSelectedMonth] = useState(() => availableMonthsList[0]?.key || '');
+
+  React.useEffect(() => {
+    if (availableMonthsList.length > 0 && (!modalSelectedMonth || !availableMonthsList.some(m => m.key === modalSelectedMonth))) {
+      setModalSelectedMonth(availableMonthsList[0].key);
+    }
+  }, [availableMonthsList, modalSelectedMonth]);
+
+  const handleModalCopy = (text, keyName) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        setModalCopiedKey(keyName);
+        setTimeout(() => setModalCopiedKey(null), 2500);
+      })
+      .catch(() => {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        setModalCopiedKey(keyName);
+        setTimeout(() => setModalCopiedKey(null), 2500);
+      });
+  };
+
   // Lightbox State
   const [lightboxPhotos, setLightboxPhotos] = useState(null); // stores all photos for active frente
   const [lightboxIndex, setLightboxIndex] = useState(0);      // index inside visiblePhotos
   const [selectedLightboxWeek, setSelectedLightboxWeek] = useState('all'); // 'all' or week number
   const [selectedLightboxMonth, setSelectedLightboxMonth] = useState('all'); // 'all' or month key
+
 
   // Helper to extract month and year from a photo or date string
   const getPhotoMonthYear = (photo) => {
@@ -543,7 +586,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
             Plataforma didáctica de interventoría y control. Navega por semanas de avance físico, visualiza las estructuras de suelo certificadas y consulta registros fotográficos de campo.
           </p>
           
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => setViewMode('grid')}
               className={`text-xs font-bold px-4 py-2 rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
@@ -565,6 +608,13 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
             >
               <MapPin size={14} />
               Ver Mapa Unificado
+            </button>
+            <button
+              onClick={() => setShowMonthlyCopyModal(true)}
+              className="bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black px-4 py-2 rounded-lg transition-all shadow-md flex items-center gap-2 cursor-pointer border border-amber-300 active:scale-95"
+            >
+              <FileText size={15} />
+              <span>Copiar Datos del Mes (IA / Word)</span>
             </button>
           </div>
         </div>
@@ -677,6 +727,16 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
         >
           <span className="material-symbols-outlined text-sm font-bold">print</span>
           Imprimir Informe
+        </button>
+
+        {/* Quick Monthly Copy Button */}
+        <button
+          onClick={() => setShowMonthlyCopyModal(true)}
+          className="bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black px-4 py-2 rounded-lg transition-all active:scale-95 flex items-center gap-1.5 shadow-sm cursor-pointer shrink-0 w-full md:w-auto justify-center border border-amber-400"
+          title="Copiar datos consolidados del mes seleccionado"
+        >
+          <FileText size={15} />
+          <span>Copiar Datos del Mes</span>
         </button>
 
         <div className="text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg shrink-0 w-full md:w-auto text-center">
@@ -1287,6 +1347,283 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                 Guardar y Aplicar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Monthly Copy Modal on Landing Page */}
+      {showMonthlyCopyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fade-in no-print">
+          <div className="bg-white rounded-2xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-slate-950 via-[#00236f] to-slate-900 text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-amber-300">
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">
+                    Copiar Datos del Mes para Informe Mensual
+                  </h3>
+                  <p className="text-xs text-slate-300">
+                    Capas de pavimento, hitos semanales, bitácoras y fotos listos para tu informe o IA.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowMonthlyCopyModal(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto space-y-5">
+              
+              {/* Month Selector Pills */}
+              <div>
+                <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-2">
+                  1. Selecciona el Mes a Copiar:
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {availableMonthsList.map(m => (
+                    <button
+                      key={m.key}
+                      onClick={() => setModalSelectedMonth(m.key)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                        modalSelectedMonth === m.key
+                          ? 'bg-amber-400 text-slate-950 shadow-md font-black ring-2 ring-amber-400/30 scale-105'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      <Calendar size={14} />
+                      <span>{m.label}</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                        modalSelectedMonth === m.key ? 'bg-slate-950/20 text-slate-950' : 'bg-slate-200 text-slate-600'
+                      }`}>
+                        S{m.weekNumbers.join(',')}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Filters */}
+              <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-600">Alcance:</span>
+                  <div className="flex gap-1 bg-white p-0.5 rounded-lg border border-slate-200">
+                    <button
+                      onClick={() => setModalContractFilter('all')}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+                        modalContractFilter === 'all' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Todos
+                    </button>
+                    <button
+                      onClick={() => setModalContractFilter('malla_vial')}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+                        modalContractFilter === 'malla_vial' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Malla Vial
+                    </button>
+                    <button
+                      onClick={() => setModalContractFilter('espacio_publico')}
+                      className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+                        modalContractFilter === 'espacio_publico' ? 'bg-amber-600 text-white' : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Espacio Público
+                    </button>
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={modalOnlyWithActivity}
+                    onChange={(e) => setModalOnlyWithActivity(e.target.checked)}
+                    className="rounded accent-amber-500 cursor-pointer"
+                  />
+                  <span>Solo frentes con registros</span>
+                </label>
+              </div>
+
+              {/* 4 Action Cards */}
+              <div>
+                <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-2">
+                  2. Copia al Portapapeles (1 Clic):
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  
+                  {/* Card 1: Texto Limpio */}
+                  <button
+                    onClick={() => handleModalCopy(
+                      generateMonthlyFullOfficialReport(weeklyReports, projects, modalSelectedMonth, modalContractFilter, modalOnlyWithActivity),
+                      'modal_clean'
+                    )}
+                    className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                      modalCopiedKey === 'modal_clean'
+                        ? 'bg-green-600 text-white border-green-600 shadow-md scale-[1.02]'
+                        : 'bg-gradient-to-br from-primary to-[#00174a] text-white border-primary hover:shadow-md'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-white/20">
+                          Word / Docs
+                        </span>
+                        {modalCopiedKey === 'modal_clean' ? (
+                          <span className="flex items-center gap-1 text-[11px] font-bold bg-green-800 px-2 py-0.5 rounded-full">
+                            <Check size={12} /> ¡Copiado!
+                          </span>
+                        ) : (
+                          <Copy size={15} className="text-white/80" />
+                        )}
+                      </div>
+                      <h4 className="font-black text-xs text-white mb-0.5">
+                        📋 Copiar Datos Reales del Mes
+                      </h4>
+                      <p className="text-[10px] text-slate-200 leading-tight">
+                        Capas de pavimento, hitos semanales, bitácoras y fotos frente por frente.
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Card 2: IA Prompt */}
+                  <button
+                    onClick={() => handleModalCopy(
+                      generateMonthlyAIPrompt(weeklyReports, projects, modalSelectedMonth, modalContractFilter, modalOnlyWithActivity),
+                      'modal_ai'
+                    )}
+                    className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                      modalCopiedKey === 'modal_ai'
+                        ? 'bg-green-600 text-white border-green-600 shadow-md scale-[1.02]'
+                        : 'bg-gradient-to-br from-amber-500 to-orange-600 text-slate-950 border-amber-400 hover:shadow-md'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-black/20 text-slate-950">
+                          -70% Tokens
+                        </span>
+                        {modalCopiedKey === 'modal_ai' ? (
+                          <span className="flex items-center gap-1 text-[11px] font-bold bg-green-800 text-white px-2 py-0.5 rounded-full">
+                            <Check size={12} /> ¡Copiado!
+                          </span>
+                        ) : (
+                          <Sparkles size={15} className="text-slate-950" />
+                        )}
+                      </div>
+                      <h4 className="font-black text-xs text-slate-950 mb-0.5">
+                        🤖 Copiar Prompt para IA
+                      </h4>
+                      <p className="text-[10px] text-slate-900 leading-tight font-medium">
+                        Instrucción ultra-compacta para redactar el informe en ChatGPT / Claude.
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Card 3: Excel TSV */}
+                  <button
+                    onClick={() => handleModalCopy(
+                      generateMonthlyExcelTSV(weeklyReports, projects, modalSelectedMonth, modalContractFilter, modalOnlyWithActivity),
+                      'modal_excel'
+                    )}
+                    className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                      modalCopiedKey === 'modal_excel'
+                        ? 'bg-green-600 text-white border-green-600 shadow-md scale-[1.02]'
+                        : 'bg-gradient-to-br from-emerald-700 to-teal-900 text-white border-emerald-700 hover:shadow-md'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-white/20">
+                          Excel
+                        </span>
+                        {modalCopiedKey === 'modal_excel' ? (
+                          <span className="flex items-center gap-1 text-[11px] font-bold bg-green-800 px-2 py-0.5 rounded-full">
+                            <Check size={12} /> ¡Copiado!
+                          </span>
+                        ) : (
+                          <Table size={15} className="text-white/80" />
+                        )}
+                      </div>
+                      <h4 className="font-black text-xs text-white mb-0.5">
+                        📊 Copiar Tabla para Excel (TSV)
+                      </h4>
+                      <p className="text-[10px] text-emerald-100 leading-tight">
+                        Columnas tabuladas para pegar directamente en celdas de Excel.
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Card 4: Fotos */}
+                  <button
+                    onClick={() => handleModalCopy(
+                      generateMonthlyPhotosTSV(weeklyReports, modalSelectedMonth, modalContractFilter),
+                      'modal_photos'
+                    )}
+                    className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                      modalCopiedKey === 'modal_photos'
+                        ? 'bg-green-600 text-white border-green-600 shadow-md scale-[1.02]'
+                        : 'bg-gradient-to-br from-purple-700 to-indigo-900 text-white border-purple-700 hover:shadow-md'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded bg-white/20">
+                          Fotos Supabase
+                        </span>
+                        {modalCopiedKey === 'modal_photos' ? (
+                          <span className="flex items-center gap-1 text-[11px] font-bold bg-green-800 px-2 py-0.5 rounded-full">
+                            <Check size={12} /> ¡Copiado!
+                          </span>
+                        ) : (
+                          <ImageIcon size={15} className="text-white/80" />
+                        )}
+                      </div>
+                      <h4 className="font-black text-xs text-white mb-0.5">
+                        📸 Copiar Fotos del Mes
+                      </h4>
+                      <p className="text-[10px] text-purple-100 leading-tight">
+                        Listado con fechas, anotaciones y enlaces públicos de fotos.
+                      </p>
+                    </div>
+                  </button>
+
+                </div>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+              {onNavigateToReports ? (
+                <button
+                  onClick={() => {
+                    setShowMonthlyCopyModal(false);
+                    onNavigateToReports();
+                  }}
+                  className="text-xs font-bold text-primary hover:text-blue-800 flex items-center gap-1 cursor-pointer"
+                >
+                  <Eye size={14} />
+                  Ver Compilador Completo con Previsualización ↗
+                </button>
+              ) : <div />}
+              
+              <button
+                onClick={() => setShowMonthlyCopyModal(false)}
+                className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
+
           </div>
         </div>
       )}

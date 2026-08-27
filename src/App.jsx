@@ -663,6 +663,7 @@ export default function App() {
             onAddProject={handleAddProject}
             isContractorMode={isContractorMode}
             weeklyReports={weeklyReports}
+            onNavigateToReports={() => setView('reports')}
           />
         )}
 

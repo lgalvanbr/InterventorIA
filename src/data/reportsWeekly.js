@@ -170,9 +170,18 @@ export function getAvailableMonths(weeklyReports = []) {
 }
 
 export function generateMonthlyBitacoraText(weeklyReports = [], targetMonthKey = null) {
-  if (!weeklyReports || weeklyReports.length === 0) {
-    return 'No hay informes semanales disponibles para generar la bitácora mensual.';
-  }
+  return generateMonthlyFullOfficialReport(weeklyReports, [], targetMonthKey, 'all', true);
+}
+
+import { getDisenoForCiv } from './frentesDisenos';
+
+/**
+ * Retorna la información pura y estructurada de los frentes intervenidos en un mes
+ * (Ubicación, Diseño de Capas por CIV, Hitos semanales, Bitácoras diarias y Fotos),
+ * sin métricas financieras, sin presupuestos y sin porcentajes calculados de avance de proyecto.
+ */
+export function getMonthlyConsolidatedData(weeklyReports = [], projects = [], targetMonthKey = null, contractFilter = 'all', onlyWithActivity = true) {
+  if (!weeklyReports || weeklyReports.length === 0) return null;
 
   let monthKey = targetMonthKey;
   if (!monthKey) {
@@ -184,121 +193,304 @@ export function generateMonthlyBitacoraText(weeklyReports = [], targetMonthKey =
     .filter(r => getReportMonthKey(r) === monthKey)
     .sort((a, b) => a.numero_semana - b.numero_semana);
 
-  if (monthReports.length === 0) {
-    return `No se encontraron informes semanales para el mes seleccionado (${targetMonthKey}).`;
-  }
+  if (monthReports.length === 0) return null;
 
-  const monthLabel = getReportMonthLabel(monthKey).toUpperCase();
-  const weekNumbers = monthReports.map(r => r.numero_semana).join(', ');
+  const monthLabel = getReportMonthLabel(monthKey);
+  const weekNumbers = monthReports.map(r => r.numero_semana);
   const startDate = monthReports[0].fecha_inicial_corte;
   const endDate = monthReports[monthReports.length - 1].fecha_final_corte;
 
-  let text = `==================================================\n`;
-  text += `INFORME CONSOLIDADO MENSUAL DE BITÁCORAS Y ACTIVIDADES\n`;
-  text += `==================================================\n`;
-  text += `EMPRESA: INCOLTA SAS\n`;
-  text += `PROYECTO: Conservación de la Malla Vial Local e Intermedia - Localidad de Usaquén\n`;
-  text += `PERÍODO MENSUAL: ${monthLabel}\n`;
-  text += `FECHAS DE CORTE: DEL ${startDate} AL ${endDate}\n`;
-  text += `SEMANAS INCLUIDAS: Semanas ${weekNumbers}\n\n`;
+  const frentesAggMap = new Map();
 
-  text += `=== 1. RESUMEN GENERAL DEL MES ===\n`;
-  text += `Total de Informes Semanales Consolidados: ${monthReports.length}\n`;
-  
-  const frenteMap = new Map();
-  monthReports.forEach(rep => {
-    (rep.frentes || []).forEach(f => {
-      if (!frenteMap.has(f.id)) {
-        frenteMap.set(f.id, {
-          id: f.id,
-          frente: f.frente,
-          civ: f.civ,
-          eje: f.eje,
-          desde: f.desde,
-          hasta: f.hasta,
-          projectName: f.projectName,
-          weeklyDetails: []
+  monthReports.forEach((rep) => {
+    (rep.frentes || []).forEach(wf => {
+      const isMv = wf.id.startsWith('f_mv');
+      const isEp = wf.id.startsWith('f_ep');
+
+      // Filtro de contrato
+      if (contractFilter === 'malla_vial' && !isMv) return;
+      if (contractFilter === 'espacio_publico' && !isEp) return;
+
+      if (!frentesAggMap.has(wf.id)) {
+        const design = getDisenoForCiv(wf.civ);
+        frentesAggMap.set(wf.id, {
+          id: wf.id,
+          frente: wf.frente || (isMv ? wf.id.replace('f_mv_', '') : (parseInt(wf.id.replace('f_ep_', '')) + 100)),
+          civ: wf.civ || 'N/A',
+          eje: wf.eje || 'N/A',
+          desde: wf.desde || 'N/A',
+          hasta: wf.hasta || 'N/A',
+          tipo: isMv ? 'Malla Vial' : 'Espacio Público',
+          isMv,
+          isEp,
+          pmtStatusLatest: wf.pmt_estado || 'Aprobado',
+          designName: design?.nombre_grupo || design?.alternativa_aprobada || 'Pavimento Flexible',
+          designLayers: (design?.paquete_estructural_capas || []).map(l => ({
+            nombre: l.nombre,
+            espesor_cm: l.espesor_cm,
+            label: l.espesor_label || (l.espesor_cm > 0 ? `${l.espesor_cm} cm` : '')
+          })),
+          weeklyHitos: [],
+          allNotes: [],
+          allPhotos: []
         });
       }
-      frenteMap.get(f.id).weeklyDetails.push({
-        numero_semana: rep.numero_semana,
-        fecha_inicial_corte: rep.fecha_inicial_corte,
-        fecha_final_corte: rep.fecha_final_corte,
-        porcentaje_avance_semana: f.porcentaje_avance_semana || f.progress || 0,
-        ejecucion_presupuestal_semana: f.ejecucion_presupuestal_semana || 0,
-        actividades_ejecutadas_hitos: f.actividades_ejecutadas_hitos || '',
-        pmt_estado: f.pmt_estado || 'Sin registrar',
-        bitacora_notas: f.bitacora_notas || [],
-        fotos: f.fotos || []
+
+      const fEntry = frentesAggMap.get(wf.id);
+
+      if (wf.pmt_estado) {
+        fEntry.pmtStatusLatest = wf.pmt_estado;
+      }
+
+      // Hitos semanales
+      if (wf.actividades_ejecutadas_hitos && wf.actividades_ejecutadas_hitos.trim()) {
+        const texto = wf.actividades_ejecutadas_hitos.trim();
+        const exists = fEntry.weeklyHitos.some(h => h.semana === rep.numero_semana && h.texto === texto);
+        if (!exists) {
+          fEntry.weeklyHitos.push({
+            semana: rep.numero_semana,
+            fecha_inicial: rep.fecha_inicial_corte,
+            fecha_final: rep.fecha_final_corte,
+            texto
+          });
+        }
+      }
+
+      // Bitácoras diarias registradas
+      const notes = (wf.bitacora_notas || wf.bitacora_notes || []).filter(n => n.note && n.note.trim());
+      notes.forEach(n => {
+        const exists = fEntry.allNotes.some(x => (x.id && n.id && x.id === n.id) || (x.date === n.date && x.note === n.note));
+        if (!exists) {
+          fEntry.allNotes.push({
+            semana: rep.numero_semana,
+            date: n.date || rep.fecha_inicial_corte,
+            note: n.note
+          });
+        }
+      });
+
+      // Fotografías con fecha y anotaciones
+      const photos = (wf.fotos || wf.photos || []).filter(p => p.url);
+      photos.forEach(p => {
+        const exists = fEntry.allPhotos.some(x => (x.id && p.id && x.id === p.id) || x.url === p.url);
+        if (!exists) {
+          fEntry.allPhotos.push({
+            ...p,
+            semana: p.semana || rep.numero_semana,
+            date: p.date || rep.fecha_inicial_corte,
+            caption: p.caption || ''
+          });
+        }
       });
     });
   });
 
-  const allFrentes = Array.from(frenteMap.values());
+  let frentesList = Array.from(frentesAggMap.values());
 
-  allFrentes.forEach(f => {
-    const isMv = f.id.startsWith('f_mv');
-    const firstWeek = f.weeklyDetails[0];
-    const lastWeek = f.weeklyDetails[f.weeklyDetails.length - 1];
-    const initialProg = firstWeek?.porcentaje_avance_semana || 0;
-    const finalProg = lastWeek?.porcentaje_avance_semana || 0;
-    const monthDelta = Math.max(0, finalProg - initialProg);
+  if (onlyWithActivity) {
+    frentesList = frentesList.filter(f => f.weeklyHitos.length > 0 || f.allNotes.length > 0 || f.allPhotos.length > 0);
+  }
 
-    text += `- Frente ${f.frente} (CIV ${f.civ}): ${f.eje} [${isMv ? 'Malla Vial' : 'Espacio Público'}] | Avance Final: ${finalProg}% (+${monthDelta}% en el mes)\n`;
+  const totalNotasMes = frentesList.reduce((acc, f) => acc + f.allNotes.length, 0);
+  const totalFotosMes = frentesList.reduce((acc, f) => acc + f.allPhotos.length, 0);
+  const totalHitosMes = frentesList.reduce((acc, f) => acc + f.weeklyHitos.length, 0);
+  const frentesConActividad = frentesList.filter(f => f.weeklyHitos.length > 0 || f.allNotes.length > 0 || f.allPhotos.length > 0).length;
+
+  return {
+    monthKey,
+    monthLabel,
+    startDate,
+    endDate,
+    weekNumbers,
+    reportsCount: monthReports.length,
+    frentes: frentesList,
+    metrics: {
+      totalNotasMes,
+      totalFotosMes,
+      totalHitosMes,
+      frentesTotal: frentesList.length,
+      frentesConActividad
+    }
+  };
+}
+
+/**
+ * Genera el documento de texto consolidado token-optimizado (sin caracteres decorativos, sin URLs innecesarias).
+ */
+export function generateMonthlyFullOfficialReport(weeklyReports = [], projects = [], targetMonthKey = null, contractFilter = 'all', onlyWithActivity = true) {
+  const data = getMonthlyConsolidatedData(weeklyReports, projects, targetMonthKey, contractFilter, onlyWithActivity);
+  if (!data || data.frentes.length === 0) return 'No hay registros de frentes en el mes seleccionado.';
+
+  let doc = `[MES: ${data.monthLabel.toUpperCase()} | CORTE: ${data.startDate} AL ${data.endDate} | SEMANAS: S${data.weekNumbers.join(', S')}]\n\n`;
+
+  data.frentes.forEach(f => {
+    doc += `# FRENTE ${f.frente} (CIV ${f.civ}) | ${f.tipo.toUpperCase()} | ${f.eje} (${f.desde} a ${f.hasta}) | PMT: ${f.pmtStatusLatest}\n`;
+
+    // Diseño de capas condensado en 1 sola línea para ahorrar tokens
+    if (f.designLayers && f.designLayers.length > 0) {
+      const layersStr = f.designLayers.map(l => `${l.nombre}${l.label ? ` (${l.label})` : ''}`).join(' / ');
+      doc += `- Diseño: ${layersStr}\n`;
+    }
+
+    // Hitos semanales
+    if (f.weeklyHitos.length > 0) {
+      doc += `- Hitos:\n`;
+      f.weeklyHitos.forEach(h => {
+        doc += `  * S${h.semana}: ${h.texto}\n`;
+      });
+    }
+
+    // Bitácoras
+    if (f.allNotes.length > 0) {
+      doc += `- Bitácora:\n`;
+      f.allNotes.forEach(n => {
+        doc += `  * ${n.date}: ${n.note}\n`;
+      });
+    }
+
+    // Fotos (solo fecha y pie de foto, sin URLs largas)
+    if (f.allPhotos.length > 0) {
+      doc += `- Fotos:\n`;
+      f.allPhotos.forEach((ph, pIdx) => {
+        doc += `  * ${ph.date || 'Mes'}: ${ph.caption || `Foto ${pIdx + 1}`}\n`;
+      });
+    }
+
+    doc += `\n`;
   });
-  text += `\n`;
 
-  text += `=== 2. DETALLE CRONOLÓGICO POR FRENTE DE OBRA ===\n\n`;
+  return doc.trim();
+}
 
-  allFrentes.forEach(f => {
-    const isMv = f.id.startsWith('f_mv');
-    text += `--------------------------------------------------\n`;
-    text += `FRENTE ${f.frente} - CIV ${f.civ} [${isMv ? 'MALLA VIAL' : 'ESPACIO PÚBLICO'}]\n`;
-    text += `Ubicación: ${f.eje} (Desde ${f.desde} hasta ${f.hasta})\n`;
+/**
+ * Genera el prompt estructurado y ultra-compacto para IA.
+ */
+export function generateMonthlyAIPrompt(weeklyReports = [], projects = [], targetMonthKey = null, contractFilter = 'all', onlyWithActivity = true) {
+  const data = getMonthlyConsolidatedData(weeklyReports, projects, targetMonthKey, contractFilter, onlyWithActivity);
+  if (!data) return '';
 
-    const lastProg = f.weeklyDetails[f.weeklyDetails.length - 1]?.porcentaje_avance_semana || 0;
-    text += `Avance Acumulado al cierre del mes: ${lastProg}%\n\n`;
+  const pureReport = generateMonthlyFullOfficialReport(weeklyReports, projects, targetMonthKey, contractFilter, onlyWithActivity);
 
-    f.weeklyDetails.forEach(w => {
-      text += `  [SEMANA ${w.numero_semana} (${w.fecha_inicial_corte} a ${w.fecha_final_corte})]\n`;
-      text += `  * Avance Semana: ${w.porcentaje_avance_semana}% | Inversión: $${(w.ejecucion_presupuestal_semana || 0).toLocaleString('es-CO')}\n`;
-      text += `  * Estado PMT: ${w.pmt_estado}\n`;
+  return `Actúa como Ingeniero Senior de Interventoría IDU. Redacta el informe mensual de obra de Usaquén para ${data.monthLabel} estructurado frente por frente en tono técnico y directivo a partir de estos datos:
 
-      if (w.actividades_ejecutadas_hitos && w.actividades_ejecutadas_hitos.trim() !== '') {
-        text += `  * Actividades e Hitos: ${w.actividades_ejecutadas_hitos.trim()}\n`;
-      } else {
-        text += `  * Actividades e Hitos: (Sin registro de hitos en la semana)\n`;
-      }
+${pureReport}`;
+}
 
-      const notes = (w.bitacora_notas || []).filter(n => n.note && n.note.trim() !== '');
-      if (notes.length > 0) {
-        text += `  * Notas de Bitácora:\n`;
-        notes.forEach(n => {
-          text += `    - ${n.date}: ${n.note}\n`;
-        });
-      }
+/**
+ * Genera la matriz de datos reales en formato TSV (Tab Separated Values) para Excel.
+ */
+export function generateMonthlyExcelTSV(weeklyReports = [], projects = [], targetMonthKey = null, contractFilter = 'all', onlyWithActivity = true) {
+  const data = getMonthlyConsolidatedData(weeklyReports, projects, targetMonthKey, contractFilter, onlyWithActivity);
+  if (!data) return '';
 
-      const photos = w.fotos || [];
-      if (photos.length > 0) {
-        text += `  * Anotaciones Fotográficas (${photos.length} fotos):\n`;
-        photos.forEach((ph, pIdx) => {
-          text += `    - Foto ${pIdx + 1} (${ph.date || 'Semanal'}): ${ph.caption || 'Sin descripción'}\n`;
-        });
-      }
+  const headers = [
+    'No. Frente',
+    'Tipo',
+    'CIV',
+    'Eje Vial',
+    'Desde',
+    'Hasta',
+    'Estado PMT',
+    'Diseño Pavimento',
+    'Hitos y Actividades del Mes',
+    'Notas de Bitácora',
+    'Anotaciones de Fotos',
+    'Total Fotos'
+  ];
 
-      text += `\n`;
+  const rows = data.frentes.map(f => {
+    const hitosText = f.weeklyHitos.map(h => `[S${h.semana}] ${h.texto}`).join(' | ');
+    const notesText = f.allNotes.map(n => `[${n.date}] ${n.note}`).join(' | ');
+    const photosText = f.allPhotos.map(p => `[${p.date}] ${p.caption || 'Foto'}`).join(' | ');
+
+    return [
+      f.frente,
+      f.tipo,
+      f.civ,
+      `"${f.eje}"`,
+      `"${f.desde}"`,
+      `"${f.hasta}"`,
+      f.pmtStatusLatest,
+      `"${f.designName}"`,
+      `"${hitosText.replace(/"/g, '""')}"`,
+      `"${notesText.replace(/"/g, '""')}"`,
+      `"${photosText.replace(/"/g, '""')}"`,
+      f.allPhotos.length
+    ];
+  });
+
+  return [headers.join('\t'), ...rows.map(r => r.join('\t'))].join('\n');
+}
+
+/**
+ * Genera el catálogo de fotos para copiar.
+ */
+export function generateMonthlyPhotosTSV(weeklyReports = [], targetMonthKey = null, contractFilter = 'all') {
+  const data = getMonthlyConsolidatedData(weeklyReports, [], targetMonthKey, contractFilter, false);
+  if (!data) return '';
+
+  const headers = ['Semana', 'Fecha', 'No. Frente', 'Tipo', 'CIV', 'Eje Vial', 'Descripción de la Fotografía', 'Enlace URL Supabase Storage'];
+  const rows = [];
+
+  data.frentes.forEach(f => {
+    f.allPhotos.forEach(ph => {
+      rows.push([
+        ph.semana || 'Mes',
+        ph.date || data.startDate,
+        f.frente,
+        f.tipo,
+        f.civ,
+        `"${f.eje}"`,
+        `"${(ph.caption || 'Registro de obra').replace(/"/g, '""')}"`,
+        ph.url || 'N/A'
+      ]);
     });
   });
 
-  text += `==================================================\n`;
-  text += `INSTRUCCIÓN PARA LA REDACCIÓN MENSUAL CON IA:\n`;
-  text += `==================================================\n`;
-  text += `Actúa como un Ingeniero Senior de Interventoría Técnica para el IDU / Entidad Contratante. Genera un Informe Consolidado MENSUAL de Obra formal, riguroso y profesional para el mes de ${monthLabel}.\n\n`;
-  text += `Estructura el informe en las siguientes secciones:\n`;
-  text += `1. RESUMEN EJECUTIVO DEL MES: Síntesis de los logros principales, avance global alcanzado e inversión ejecutada en el mes.\n`;
-  text += `2. ANÁLISIS TÉCNICO DETALLADO FRENTE POR FRENTE: Redacta un párrafo directivo por cada frente de obra consolidando la evolución del mes, hitos constructivos ejecutados, notas de bitácora clave y soporte fotográfico.\n`;
-  text += `3. GESTIÓN DE RIESGOS Y RECOMENDACIONES DE INTERVENTORÍA: Identifica cuellos de botella, estados de PMT y recomendaciones técnicas para la entidad.\n\n`;
-
-  return text;
+  return [headers.join('\t'), ...rows.map(r => r.join('\t'))].join('\n');
 }
+
+/**
+ * Copia una sección específica.
+ */
+export function generateSectionText(weeklyReports = [], projects = [], targetMonthKey = null, sectionKey = 'bitacoras', contractFilter = 'all') {
+  const data = getMonthlyConsolidatedData(weeklyReports, projects, targetMonthKey, contractFilter, true);
+  if (!data) return '';
+
+  switch (sectionKey) {
+    case 'bitacoras':
+      return `[BITÁCORAS DE CAMPO - ${data.monthLabel.toUpperCase()}]\n\n` +
+        data.frentes
+          .filter(f => f.allNotes.length > 0)
+          .map(f => `# Frente ${f.frente} (CIV ${f.civ} - ${f.eje}):\n` +
+            f.allNotes.map(n => `* ${n.date}: ${n.note}`).join('\n')
+          ).join('\n\n');
+
+    case 'hitos':
+      return `[HITOS Y ACTIVIDADES - ${data.monthLabel.toUpperCase()}]\n\n` +
+        data.frentes
+          .filter(f => f.weeklyHitos.length > 0)
+          .map(f => `# Frente ${f.frente} (CIV ${f.civ} - ${f.eje}):\n` +
+            f.weeklyHitos.map(h => `* S${h.semana}: ${h.texto}`).join('\n')
+          ).join('\n\n');
+
+    case 'fotos':
+      return `[FOTOS - ${data.monthLabel.toUpperCase()}]\n\n` +
+        data.frentes
+          .filter(f => f.allPhotos.length > 0)
+          .map(f => `# Frente ${f.frente} (CIV ${f.civ} - ${f.eje}):\n` +
+            f.allPhotos.map((p, idx) => `* ${p.date || 'Mes'}: ${p.caption || `Foto ${idx + 1}`}`).join('\n')
+          ).join('\n\n');
+
+    case 'disenos':
+      return `[DISEÑOS DE PAVIMENTO - ${data.monthLabel.toUpperCase()}]\n\n` +
+        data.frentes
+          .map(f => `# Frente ${f.frente} (CIV ${f.civ} - ${f.eje}): ${f.designLayers.map(l => `${l.nombre} (${l.label})`).join(' / ')}`
+          ).join('\n');
+
+    default:
+      return generateMonthlyFullOfficialReport(weeklyReports, projects, targetMonthKey, contractFilter, true);
+  }
+}
+
 

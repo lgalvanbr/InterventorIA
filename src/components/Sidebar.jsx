@@ -20,8 +20,9 @@ export default function Sidebar({
   ];
 
   const internalMenuItems = [
-    { id: 'reports', label: 'Actas y Reportes', icon: 'description' },
+    { id: 'reports', label: 'Informes Mensuales y Actas', icon: 'description' },
     { id: 'contractor-hub', label: 'Compartir Hub Contratista', icon: 'share', isAction: true },
+
     { id: 'inspector-portal', label: 'Portal Inspectores', icon: 'share_location', isAction: true },
     { id: 'engineers', label: 'Perfiles de Ingenieros', icon: 'badge' },
     { id: 'config', label: 'Configuración', icon: 'settings' }
