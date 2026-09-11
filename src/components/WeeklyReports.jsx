@@ -608,7 +608,7 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
                           </td>
                           <td className="py-3 px-4 text-center">
                             <button
-                              onClick={() => onNavigateToDetail(activeReport.id_informe, null)}
+                              onClick={() => onNavigateToDetail(activeReport.id_informe, f.id)}
                               className="text-primary hover:text-primary-container font-bold text-[10px] bg-primary/5 hover:bg-primary/10 px-2 py-1 rounded-md border border-primary/15 transition-all inline-flex items-center gap-1"
                             >
                               <FileText size={11} />

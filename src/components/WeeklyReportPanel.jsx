@@ -343,7 +343,7 @@ export default function WeeklyReportPanel({
 }) {
   const [activeTab, setActiveTab] = useState('comite'); // 'comite', 'pdf', 'frentes'
   const [activeDayIdx, setActiveDayIdx] = useState(0);
-  const [editingFrenteId, setEditingFrenteId] = useState(null);
+  const [editingFrenteId, setEditingFrenteId] = useState(initialEditingFrenteId);
   const [iaText, setIaText] = useState(report?.consolidado_ia || '');
   const [printMode, setPrintMode] = useState('full'); // 'full' or 'simplified'
   const [pdfQuality, setPdfQuality] = useState('light'); // 'light' (downscaled) or 'original'
@@ -351,6 +351,12 @@ export default function WeeklyReportPanel({
   const [pageBreakPerFrente, setPageBreakPerFrente] = useState(false);
   const [isOptimizingForPrint, setIsOptimizingForPrint] = useState(false);
   const [optimizedImagesMap, setOptimizedImagesMap] = useState(null);
+
+  useEffect(() => {
+    if (initialEditingFrenteId) {
+      setEditingFrenteId(initialEditingFrenteId);
+    }
+  }, [initialEditingFrenteId]);
 
   const handleTriggerPrint = async () => {
     if (pdfQuality === 'light') {
@@ -397,12 +403,6 @@ export default function WeeklyReportPanel({
     }
   }, [report]);
 
-  useEffect(() => {
-    if (isContractorMode && activeTab === 'frentes') {
-      setActiveTab('comite');
-    }
-  }, [isContractorMode, activeTab]);
-
   const handleSaveIAConsolidated = () => {
     if (onSaveReport) {
       onSaveReport({
@@ -431,16 +431,19 @@ export default function WeeklyReportPanel({
     text += `=== RESUMEN GENERAL DE FRENTES ===\n`;
     report.frentes.forEach(f => {
       const isMv = f.id.startsWith('f_mv');
-      text += `- Frente ${f.frente} (CIV ${f.civ}): ${f.eje} [${isMv ? 'Malla Vial' : 'Espacio Público'}] | Progreso: ${f.progress}% | Estado: ${f.status}\n`;
+      const progress = f.porcentaje_avance_semana ?? f.progress ?? 0;
+      const status = f.pmt_estado || f.status || 'Al día';
+      text += `- Frente ${f.frente} (CIV ${f.civ}): ${f.eje} [${isMv ? 'Malla Vial' : 'Espacio Público'}] | Progreso: ${progress}% | Estado: ${status}\n`;
     });
     text += `\n`;
 
     text += `=== DETALLES POR FRENTE ===\n\n`;
-    const activeFrentes = report.frentes.filter(f => f.fotos && f.fotos.length > 0);
+    const activeFrentes = report.frentes.filter(f => (f.fotos && f.fotos.length > 0) || (f.photos && f.photos.length > 0));
     activeFrentes.forEach(f => {
+      const progress = f.porcentaje_avance_semana ?? f.progress ?? 0;
       text += `FRENTE ${f.frente} - CIV ${f.civ}\n`;
       text += `Ubicación: ${f.desde} al ${f.hasta} (${f.eje})\n`;
-      text += `Progreso: ${f.progress}%\n`;
+      text += `Progreso: ${progress}%\n`;
       
       const design = getDisenoForCiv(f.civ);
       if (design?.paquete_estructural_capas) {
@@ -548,18 +551,32 @@ export default function WeeklyReportPanel({
     return date.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
   };
 
-  // Tab 1: Filter frentes that had activity on the selected day
-  const activeDayFrentes = report.frentes.filter(f => {
-    const hasNote = f.bitacora_notes?.some(n => n.date === activeDateStr && n.note.trim() !== '');
-    const hasPhotos = f.fotos?.some(ph => ph.date === activeDateStr);
+  // Tab 1: Filter frentes that had activity on the selected day (checking both properties!)
+  const activeDayFrentes = (report?.frentes || []).filter(f => {
+    const hasNote = f.bitacora_notes?.some(n => n.date === activeDateStr && n.note && n.note.trim() !== '') ||
+                    f.bitacora_notas?.some(n => n.date === activeDateStr && n.note && n.note.trim() !== '');
+    const hasPhotos = f.fotos?.some(ph => ph.date === activeDateStr) ||
+                      f.photos?.some(ph => ph.date === activeDateStr);
     return hasNote || hasPhotos;
   });
 
-  // Calculate totals
-  const totalFrentes = report.frentes.length;
-  const frentesInExecution = report.frentes.filter(f => f.status === 'Ejecución' || f.status === 'Activo').length;
-  const weeklyProgress = report.avance_semanal_fisico || 0;
-  const weeklyBudget = report.frentes.reduce((acc, curr) => acc + (curr.presupuesto_semana || 0), 0);
+  // Calculate totals resiliently across property variations
+  const totalFrentes = report?.frentes?.length || 0;
+  const frentesInExecution = (report?.frentes || []).filter(f => 
+    (f.porcentaje_avance_semana !== undefined ? f.porcentaje_avance_semana < 100 : true) &&
+    f.pmt_estado !== 'Suspendido' &&
+    f.status !== 'Suspendido'
+  ).length;
+
+  const weeklyProgress = report?.avance_meta_porcentaje ?? 
+    report?.avance_semanal_fisico ?? 
+    (report?.malla_vial_ejecutado && report?.espacio_publico_ejecutado 
+      ? Math.round(((report.malla_vial_ejecutado + report.espacio_publico_ejecutado) / 2) * 100) 
+      : 0);
+
+  const weeklyBudget = (report?.frentes || []).reduce((acc, curr) => 
+    acc + (curr.ejecucion_presupuestal_semana || curr.presupuesto_semana || 0), 0
+  );
 
   // Render inline editor if editing a frente
   if (editingFrenteId) {
@@ -645,19 +662,17 @@ export default function WeeklyReportPanel({
             <FileText size={14} />
             Reporte PDF
           </button>
-          {!isContractorMode && (
-            <button
-              onClick={() => setActiveTab('frentes')}
-              className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-                activeTab === 'frentes'
-                  ? 'bg-white text-primary shadow'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Layers size={14} />
-              Frentes ({totalFrentes})
-            </button>
-          )}
+          <button
+            onClick={() => setActiveTab('frentes')}
+            className={`flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-all ${
+              activeTab === 'frentes'
+                ? 'bg-white text-primary shadow'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Layers size={14} />
+            Frentes ({totalFrentes})
+          </button>
         </div>
       </header>
 
@@ -728,10 +743,12 @@ export default function WeeklyReportPanel({
                   const dayLabel = getDayLabel(date);
                   
                   const dStr = date.toISOString().split('T')[0];
-                  // Calculate frentes with activity on this day
-                  const activityCount = report.frentes.filter(f => {
-                    const hasNote = f.bitacora_notes?.some(n => n.date === dStr && n.note.trim() !== '');
-                    const hasPhotos = f.fotos?.some(ph => ph.date === dStr);
+                  // Calculate frentes with activity on this day (dual property check)
+                  const activityCount = (report.frentes || []).filter(f => {
+                    const hasNote = f.bitacora_notes?.some(n => n.date === dStr && n.note && n.note.trim() !== '') ||
+                                    f.bitacora_notas?.some(n => n.date === dStr && n.note && n.note.trim() !== '');
+                    const hasPhotos = f.fotos?.some(ph => ph.date === dStr) ||
+                                      f.photos?.some(ph => ph.date === dStr);
                     return hasNote || hasPhotos;
                   }).length;
 
@@ -776,10 +793,30 @@ export default function WeeklyReportPanel({
               </div>
 
               {activeDayFrentes.length === 0 ? (
-                <div className="bg-white border border-slate-200 rounded-xl p-12 text-center text-slate-400 shadow-sm flex flex-col items-center justify-center">
-                  <MessageSquare size={36} className="text-slate-300 mb-2" />
-                  <p className="text-xs font-bold text-slate-650">No hay novedades registradas hoy.</p>
-                  <p className="text-[10px] text-slate-400 mt-1">Los inspectores no cargaron fotos ni notas para esta fecha.</p>
+                <div className="bg-white border border-slate-200 rounded-xl p-8 sm:p-12 text-center text-slate-400 shadow-sm flex flex-col items-center justify-center gap-3">
+                  <MessageSquare size={36} className="text-slate-300" />
+                  <div>
+                    <p className="text-xs font-bold text-slate-650">No hay novedades registradas para este día específico.</p>
+                    <p className="text-[10px] text-slate-400 mt-1">Los inspectores no reportaron fotos o notas en esta fecha ({getDayLabel(weekDates[activeDayIdx])}).</p>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('frentes')}
+                      className="bg-primary hover:bg-primary/95 text-white font-bold text-xs py-2 px-4 rounded-lg shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Layers size={14} />
+                      <span>Ver Frentes de la Semana ({totalFrentes})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('pdf')}
+                      className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs py-2 px-4 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <FileText size={14} />
+                      <span>Ver Resumen General (PDF)</span>
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1192,10 +1229,10 @@ export default function WeeklyReportPanel({
                       </tr>
                     </thead>
                     <tbody>
-                      {report.frentes
-                        .filter(f => (f.fotos && f.fotos.length > 0) || (f.photos && f.photos.length > 0))
-                        .map(f => {
+                      {report.frentes.map(f => {
                         const isMv = f.id.startsWith('f_mv');
+                        const progress = f.porcentaje_avance_semana ?? f.progress ?? 0;
+                        const status = f.pmt_estado || f.status || 'Al día';
                         return (
                           <tr key={f.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                             <td className="py-2 px-1 font-bold">{f.frente}</td>
@@ -1204,10 +1241,10 @@ export default function WeeklyReportPanel({
                               {isMv ? 'Malla Vial' : 'Espacio Público'}
                             </td>
                             <td className="py-2 px-1 text-slate-600 truncate max-w-xs">{f.eje}</td>
-                            <td className="py-2 px-1 text-center font-bold">{f.progress}%</td>
+                            <td className="py-2 px-1 text-center font-bold">{progress}%</td>
                             <td className="py-2 px-1 text-center">
                               <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                                {f.status}
+                                {status}
                               </span>
                             </td>
                           </tr>
@@ -1240,9 +1277,28 @@ export default function WeeklyReportPanel({
                     : (!isContractorMode && report.consolidado_ia) ? 'II. Evidencia Fotográfica por Frente' : 'I. Evidencia Fotográfica por Frente'}
                 </h3>
 
-                {report.frentes
-                  .filter(f => (f.fotos && f.fotos.length > 0) || (f.photos && f.photos.length > 0))
-                  .map((frente) => (
+                {(() => {
+                  const frentesWithEvidence = report.frentes.filter(f => 
+                    (f.fotos && f.fotos.length > 0) || 
+                    (f.photos && f.photos.length > 0) ||
+                    (f.bitacora_notes && f.bitacora_notes.some(n => n.note && n.note.trim() !== '')) ||
+                    (f.bitacora_notas && f.bitacora_notas.some(n => n.nota && n.nota.trim() !== ''))
+                  );
+
+                  if (frentesWithEvidence.length === 0) {
+                    return (
+                      <div className="p-6 bg-slate-50 border border-dashed border-slate-300 rounded-xl text-center no-print">
+                        <p className="text-xs font-bold text-slate-600">
+                          Esta semana no cuenta con fichas fotográficas individuales registradas aún.
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          Consulte la tabla de resumen general arriba o agregue fotos desde el Portal de Inspector.
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return frentesWithEvidence.map((frente) => (
                     <PrintFrenteCard 
                       key={frente.id} 
                       frente={frente} 
@@ -1257,7 +1313,8 @@ export default function WeeklyReportPanel({
                       optimizedImagesMap={optimizedImagesMap}
                       pageBreakBefore={pageBreakPerFrente}
                     />
-                ))}
+                  ));
+                })()}
               </div>
 
             </div>
@@ -1290,6 +1347,12 @@ export default function WeeklyReportPanel({
                 <tbody>
                   {report.frentes.map((frente) => {
                     const isMv = frente.id.startsWith('f_mv');
+                    const progress = frente.porcentaje_avance_semana ?? frente.progress ?? 0;
+                    const status = frente.pmt_estado || frente.status || 'Al día';
+                    const budgetM = frente.ejecucion_presupuestal_semana 
+                      ? Math.round(frente.ejecucion_presupuestal_semana / 1000000) 
+                      : (frente.presupuesto_semana || 0);
+
                     return (
                       <tr key={frente.id} className="border-b border-slate-150 hover:bg-slate-50/50">
                         <td className="py-3.5 px-4 font-bold text-slate-900">
@@ -1308,22 +1371,22 @@ export default function WeeklyReportPanel({
                         </td>
                         <td className="py-3.5 px-4 text-center">
                           <div className="flex items-center justify-center gap-1.5">
-                            <span className="font-bold">{frente.progress}%</span>
+                            <span className="font-bold">{progress}%</span>
                             <div className="w-12 bg-slate-150 h-1.5 rounded-full overflow-hidden">
-                              <div className="bg-primary h-full" style={{ width: `${frente.progress}%` }}></div>
+                              <div className="bg-primary h-full" style={{ width: `${progress}%` }}></div>
                             </div>
                           </div>
                         </td>
                         <td className="py-3.5 px-4 text-right font-bold text-slate-800">
-                          ${frente.presupuesto_semana || 0}M
+                          ${budgetM}M
                         </td>
                         <td className="py-3.5 px-4 text-center">
                           <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${
-                            frente.status === 'Ejecución' || frente.status === 'Activo'
+                            status === 'Ejecución' || status === 'Activo' || status === 'Aprobado' || status === 'Al día'
                               ? 'bg-emerald-100 text-emerald-800'
                               : 'bg-amber-100 text-amber-850'
                           }`}>
-                            {frente.status}
+                            {status}
                           </span>
                         </td>
                         <td className="py-3.5 px-4 text-right">
@@ -1410,8 +1473,10 @@ export default function WeeklyReportPanel({
                 </tr>
               </thead>
               <tbody>
-                {report.frentes.filter(f => f.fotos && f.fotos.length > 0).map(f => {
+                {report.frentes.map(f => {
                   const isMv = f.id.startsWith('f_mv');
+                  const progress = f.porcentaje_avance_semana ?? f.progress ?? 0;
+                  const status = f.pmt_estado || f.status || 'Al día';
                   return (
                     <tr key={f.id} className="border-b border-slate-150">
                       <td className="py-2 px-1 font-bold">{f.frente}</td>
@@ -1420,10 +1485,10 @@ export default function WeeklyReportPanel({
                         {isMv ? 'Malla Vial' : 'Espacio Público'}
                       </td>
                       <td className="py-2 px-1 text-slate-600">{f.eje}</td>
-                      <td className="py-2 px-1 text-center font-bold">{f.progress}%</td>
+                      <td className="py-2 px-1 text-center font-bold">{progress}%</td>
                       <td className="py-2 px-1 text-center">
                         <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                          {f.status}
+                          {status}
                         </span>
                       </td>
                     </tr>
@@ -1456,24 +1521,31 @@ export default function WeeklyReportPanel({
               : (!isContractorMode && report.consolidado_ia) ? 'II. Evidencia Fotográfica por Frente' : 'I. Evidencia Fotográfica por Frente'}
           </h3>
 
-          {report.frentes
-            .filter(f => (f.fotos && f.fotos.length > 0) || (f.photos && f.photos.length > 0))
-            .map((frente) => (
-            <PrintFrenteCard 
-              key={frente.id} 
-              frente={frente} 
-              printMode={printMode} 
-              allFrentes={allFrentes} 
-              designOverrides={designOverrides}
-              consolidadoIa={iaText} 
-              getDayName={getDayName} 
-              report={report}
-              isContractorMode={isContractorMode}
-              maxPhotos={maxPhotosPerFrente}
-              optimizedImagesMap={optimizedImagesMap}
-              pageBreakBefore={pageBreakPerFrente}
-            />
-          ))}
+          {(() => {
+            const frentesWithEvidence = report.frentes.filter(f => 
+              (f.fotos && f.fotos.length > 0) || 
+              (f.photos && f.photos.length > 0) ||
+              (f.bitacora_notes && f.bitacora_notes.some(n => n.note && n.note.trim() !== '')) ||
+              (f.bitacora_notas && f.bitacora_notas.some(n => n.nota && n.nota.trim() !== ''))
+            );
+
+            return frentesWithEvidence.map((frente) => (
+              <PrintFrenteCard 
+                key={frente.id} 
+                frente={frente} 
+                printMode={printMode} 
+                allFrentes={allFrentes} 
+                designOverrides={designOverrides}
+                consolidadoIa={iaText} 
+                getDayName={getDayName} 
+                report={report}
+                isContractorMode={isContractorMode}
+                maxPhotos={maxPhotosPerFrente}
+                optimizedImagesMap={optimizedImagesMap}
+                pageBreakBefore={pageBreakPerFrente}
+              />
+            ));
+          })()}
         </div>
       </div>
     </div>

@@ -217,8 +217,8 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
       const reportFrente = reportForWeek?.frentes?.find(rf => rf.id === f.id);
       
       // Fallback to the project base stats if selectedWeek has no report
-      const currentProgress = reportFrente ? reportFrente.progress : f.progress;
-      const currentStatus = reportFrente ? reportFrente.status : f.status;
+      const currentProgress = reportFrente ? (reportFrente.porcentaje_avance_semana ?? reportFrente.progress ?? f.progress) : f.progress;
+      const currentStatus = reportFrente ? (reportFrente.pmt_estado || reportFrente.status || f.status) : f.status;
 
       return {
         ...f,
@@ -944,8 +944,16 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
             </div>
 
             {/* Period Selector (Month / Week) */}
-            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1">
-              <Calendar size={12} className="text-primary" />
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1">
+              <Calendar size={12} className="text-primary shrink-0" />
+              <button
+                type="button"
+                onClick={() => setPhotoFilterMode(prev => prev === 'month' ? 'week' : 'month')}
+                className="text-[9px] font-black uppercase bg-slate-200 hover:bg-slate-300 text-slate-700 px-1.5 py-0.5 rounded transition-all cursor-pointer"
+                title={`Cambiar a filtro por ${photoFilterMode === 'month' ? 'semana' : 'mes'}`}
+              >
+                {photoFilterMode === 'month' ? 'Mes' : 'Sem'}
+              </button>
               {photoFilterMode === 'month' ? (
                 <select
                   value={selectedMonth}
