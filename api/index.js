@@ -244,6 +244,159 @@ async function saveOverridesToSupabase(overridesData) {
   return false;
 }
 
+// Recursively list files from Supabase Storage bucket
+async function listAllFilesRecursively(prefix = 'semana_37', bucketName = 'frentes-fotos', customFolders = []) {
+  if (!SUPABASE_KEY) return [];
+  const result = [];
+  const seenPaths = new Set();
+  
+  // Known subfolders for semana 37 plus general prefix
+  const queue = [
+    prefix,
+    ...customFolders,
+    `${prefix}/frente_f_ep_10`,
+    `${prefix}/frente_f_ep_2`,
+    `${prefix}/frente_f_ep_20`,
+    `${prefix}/frente_f_ep_3`,
+    `${prefix}/frente_f_ep_9`,
+    `${prefix}/frente_f_mv_1`,
+    `${prefix}/frente_f_mv_12`,
+    `${prefix}/frente_f_mv_14`,
+    `${prefix}/frente_f_mv_18`,
+    `${prefix}/frente_f_mv_2`,
+    `${prefix}/frente_f_mv_20`,
+    `${prefix}/frente_f_mv_8`,
+    `${prefix}/frente_f_mv_9`
+  ];
+  
+  const processedPrefixes = new Set();
+
+  while (queue.length > 0) {
+    const currentPrefix = queue.shift();
+    if (!currentPrefix || processedPrefixes.has(currentPrefix)) continue;
+    processedPrefixes.add(currentPrefix);
+
+    try {
+      const listRes = await fetch(`${SUPABASE_URL}/storage/v1/object/list/${bucketName}`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          prefix: currentPrefix,
+          limit: 1000,
+          sortBy: { column: 'name', order: 'asc' }
+        })
+      });
+
+      if (listRes.ok) {
+        const items = await listRes.json();
+        if (Array.isArray(items)) {
+          for (const item of items) {
+            const fullPath = currentPrefix ? `${currentPrefix}/${item.name}` : item.name;
+            if (seenPaths.has(fullPath)) continue;
+            seenPaths.add(fullPath);
+
+            // In Supabase Storage, folders either have id: null, or lack metadata
+            if (item.id === null || !item.metadata) {
+              queue.push(fullPath);
+            } else {
+              result.push({
+                name: item.name,
+                fullPath,
+                id: item.id,
+                created_at: item.created_at,
+                updated_at: item.updated_at
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Storage list error for prefix:", currentPrefix, e);
+    }
+  }
+
+  return result;
+}
+
+// Sync photos found in Supabase Storage into the weekly_reports structure
+async function syncStoragePhotosIntoReports(reports, customFiles = []) {
+  if (!Array.isArray(reports) || reports.length === 0) return reports;
+
+  const scannedFiles = await listAllFilesRecursively('semana_37');
+  const allFiles = [...scannedFiles, ...customFiles];
+
+  if (allFiles.length === 0) return reports;
+
+  let hasChanges = false;
+  const updatedReports = reports.map(report => {
+    const semNum = report.numero_semana;
+    const matchingWeekFiles = allFiles.filter(f => 
+      f.fullPath.includes(`semana_${semNum}`) || f.fullPath.includes(`SEM${semNum}`)
+    );
+
+    if (matchingWeekFiles.length === 0) return report;
+
+    const newFrentes = (report.frentes || []).map(frente => {
+      const frenteFiles = matchingWeekFiles.filter(file => 
+        file.fullPath.includes(`/frente_${frente.id}/`) || 
+        file.fullPath.includes(`_FRENTE_${frente.id}_`)
+      );
+
+      if (frenteFiles.length === 0) return frente;
+
+      const currentMap = new Map();
+      [...(frente.fotos || []), ...(frente.photos || [])].forEach(p => {
+        const key = p.url || p.id;
+        if (key) currentMap.set(key, p);
+      });
+
+      let addedCount = 0;
+      frenteFiles.forEach(file => {
+        const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/frentes-fotos/${file.fullPath}`;
+        if (!currentMap.has(publicUrl)) {
+          const dateMatch = file.name.match(/FECHA_(\d{4}-\d{2}-\d{2})/);
+          const dateStr = dateMatch ? dateMatch[1] : (report.fecha_inicial_corte || '2026-09-09');
+
+          currentMap.set(publicUrl, {
+            id: `cloud_${file.name.replace(/\.[^/.]+$/, '')}`,
+            url: publicUrl,
+            caption: `Avance diario (Frente ${frente.frente || frente.id})`,
+            date: dateStr,
+            semana: report.numero_semana,
+            category: 'avance'
+          });
+          addedCount++;
+        }
+      });
+
+      if (addedCount > 0) {
+        hasChanges = true;
+        const photoList = Array.from(currentMap.values());
+        return {
+          ...frente,
+          fotos: photoList,
+          photos: photoList
+        };
+      }
+      return frente;
+    });
+
+    return {
+      ...report,
+      frentes: newFrentes
+    };
+  });
+
+  if (hasChanges) {
+    await saveReportsToSupabase(updatedReports);
+  }
+  return updatedReports;
+}
+
 // Load initial weekly reports from the JSON file
 function getInitialReports() {
   try {
@@ -348,11 +501,43 @@ export default async function handler(req, res) {
     return;
   }
 
+  // GET /api/sync-storage-photos or POST /api/sync-storage-photos
+  if (pathname === '/api/sync-storage-photos' && (req.method === 'GET' || req.method === 'POST')) {
+    try {
+      let customFolders = [];
+      let customFiles = [];
+      if (req.method === 'POST') {
+        const body = await getBody(req);
+        if (body && Array.isArray(body.folders)) customFolders = body.folders;
+        if (body && Array.isArray(body.files)) customFiles = body.files;
+      }
+      const scannedFiles = await listAllFilesRecursively('semana_37', 'frentes-fotos', customFolders);
+      const cloudReports = (await getReportsFromSupabase()) || getInitialReports();
+      const syncedReports = await syncStoragePhotosIntoReports(cloudReports, customFiles);
+
+      res.status(200).json({
+        success: true,
+        scannedCount: scannedFiles.length,
+        files: scannedFiles.map(f => f.fullPath),
+        reportsCount: syncedReports.length
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+    return;
+  }
+
   // GET /api/weekly-reports
   if (pathname === '/api/weekly-reports' && req.method === 'GET') {
     // Try Supabase first
-    const cloudReports = await getReportsFromSupabase();
+    let cloudReports = await getReportsFromSupabase();
     if (cloudReports) {
+      // Automatically sync photos from storage into reports
+      try {
+        cloudReports = await syncStoragePhotosIntoReports(cloudReports);
+      } catch (syncErr) {
+        console.warn("Auto-sync storage photos non-fatal error:", syncErr);
+      }
       memoryReports = cloudReports;
       res.status(200).json(cloudReports);
       return;
@@ -369,6 +554,10 @@ export default async function handler(req, res) {
   if (pathname === '/api/weekly-reports' && req.method === 'POST') {
     try {
       const body = await getBody(req);
+      if (!Array.isArray(body) || body.length === 0) {
+        res.status(400).json({ error: "Invalid reports array format" });
+        return;
+      }
       memoryReports = body; // save to memory
 
       // 1. Attempt to write to Supabase Storage/Database
