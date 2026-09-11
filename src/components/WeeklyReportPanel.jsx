@@ -1,121 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  FileText, Calendar, Layers, Download, CheckCircle, 
-  ArrowLeft, Users, ChevronRight, MessageSquare, Image as ImageIcon,
-  DollarSign, TrendingUp, AlertTriangle
+  FileText, Calendar, Layers, CheckCircle, 
+  ArrowLeft, Users, MessageSquare,
+  DollarSign, TrendingUp, Printer, RefreshCw, Zap
 } from 'lucide-react';
 import WeeklyFrenteDetail from './WeeklyFrenteDetail';
 import { getDisenoForCiv } from '../data/frentesDisenos';
 import { generateMonthlyBitacoraText, getReportMonthKey, getReportMonthLabel } from '../data/reportsWeekly';
-
-const getShortMaterialName = (fullName) => {
-  const name = fullName.toLowerCase();
-  if (name.includes('mezcla asfáltica') || name.includes('mezcla asfaltica')) return 'Mezcla Asfáltica';
-  if (name.includes('losa de concreto') || name.includes('concreto hidráulico') || name.includes('concreto hidraulico')) return 'Concreto Hidráulico MR-45';
-  if (name.includes('base granular') || name.includes('bg38')) return 'Base Granular BG-38';
-  if (name.includes('subbase granular') || name.includes('sbg50')) return 'Subbase Granular SBG-50';
-  if (name.includes('geocelda')) return 'Geocelda h=15cm';
-  if (name.includes('geomalla')) return 'Geomalla Multiaxial';
-  if (name.includes('geotextil')) return 'Geotextil de Separación';
-  if (name.includes('imprimación') || name.includes('imprimacion')) return 'Imprimación CRL-1';
-  if (name.includes('barrenos')) return 'Barrenos de Cal';
-  if (name.includes('loseta') || name.includes('adoquín') || name.includes('adoquin')) return 'Losetas / Adoquines';
-  if (name.includes('asiento') || name.includes('arena')) return 'Capa de Asiento de Arena';
-  return fullName;
-};
-
-const getLayerCSSStyle = (type) => {
-  switch (type) {
-    case 'asfalto':
-      return {
-        background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-        color: '#f8fafc',
-        borderColor: '#020617',
-        borderStyle: 'solid',
-        borderWidth: '1px 0'
-      };
-    case 'concreto':
-      return {
-        background: 'linear-gradient(to bottom, #f1f5f9 0%, #cbd5e1 100%)',
-        color: '#0f172a',
-        borderColor: '#64748b',
-        borderStyle: 'solid',
-        borderWidth: '1px 0'
-      };
-    case 'base_cemento':
-    case 'subbase_cemento':
-      return {
-        background: 'repeating-linear-gradient(45deg, #cbd5e1, #cbd5e1 5px, #94a3b8 5px, #94a3b8 10px)',
-        color: '#0f172a',
-        borderColor: '#475569',
-        borderStyle: 'dashed',
-        borderWidth: '1px 0'
-      };
-    case 'subbase':
-      return {
-        background: '#fef08a',
-        backgroundImage: 'radial-gradient(#ca8a04 15%, transparent 16%)',
-        backgroundSize: '4px 4px',
-        color: '#713f12',
-        borderColor: '#ca8a04',
-        borderStyle: 'dashed',
-        borderWidth: '1px 0'
-      };
-    case 'geomalla':
-      return {
-        background: '#1e1b4b',
-        backgroundImage: 'linear-gradient(to right, #4f46e5 1px, transparent 1px), linear-gradient(to bottom, #4f46e5 1px, transparent 1px)',
-        backgroundSize: '5px 5px',
-        color: '#e0e7ff',
-        borderColor: '#312e81',
-        borderWidth: '1.5px 0'
-      };
-    case 'geocelda':
-      return {
-        background: '#ffedd5',
-        backgroundImage: 'repeating-linear-gradient(90deg, #ea580c 0px, #ea580c 2px, transparent 2px, transparent 8px)',
-        color: '#c2410c',
-        borderColor: '#ea580c',
-        borderWidth: '1px 0'
-      };
-    case 'geotextil':
-    case 'geotextil_nt':
-      return {
-        background: 'repeating-linear-gradient(90deg, #3b82f6, #3b82f6 4px, transparent 4px, transparent 8px)',
-        color: '#1e3a8a',
-        borderColor: '#2563eb',
-        borderWidth: '1px 0'
-      };
-    case 'imprimacion':
-      return {
-        background: '#3f3f46',
-        color: '#e4e4e7',
-        borderColor: '#18181b',
-        borderWidth: '1px 0'
-      };
-    case 'arena':
-      return {
-        background: '#fef08a',
-        color: '#713f12',
-        borderColor: '#ca8a04',
-        borderWidth: '1px 0'
-      };
-    default:
-      return {
-        background: '#e2e8f0',
-        color: '#334155',
-        borderColor: '#cbd5e1',
-        borderWidth: '1px 0'
-      };
-  }
-};
-
-const subrasanteStyle = {
-  background: 'linear-gradient(135deg, #78350f 0%, #451a03 100%)',
-  color: '#fef3c7',
-  borderColor: '#451a03',
-  borderWidth: '1px 0'
-};
+import { optimizePhotoListForPrint } from '../utils/printOptimizer';
+import StaticMapThumbnail from './StaticMapThumbnail';
 
 const getIaCommentForFrente = (consolidadoIa, frenteNumber) => {
   if (!consolidadoIa) return '';
@@ -124,14 +17,37 @@ const getIaCommentForFrente = (consolidadoIa, frenteNumber) => {
   return match ? match[1].trim() : '';
 };
 
-const PrintFrenteCard = ({ frente, printMode, allFrentes, designOverrides, consolidadoIa, getDayName, report, isContractorMode }) => {
+const PrintFrenteCard = ({ 
+  frente, 
+  printMode, 
+  allFrentes, 
+  designOverrides, 
+  consolidadoIa, 
+  getDayName, 
+  report, 
+  isContractorMode,
+  maxPhotos = 'all',
+  optimizedImagesMap = null,
+  pageBreakBefore = false
+}) => {
   const isMv = frente.id.startsWith('f_mv');
-  const activeNotes = frente.bitacora_notes?.filter(n => n.note.trim() !== '') || [];
-  const activePhotos = frente.fotos || [];
+  const activeNotes = frente.bitacora_notes?.filter(n => n.note && n.note.trim() !== '') || [];
+  
+  // Safe dual photo resolution with deduplication
+  const allPhotosRaw = [...(frente.fotos || []), ...(frente.photos || [])];
+  const photoMap = new Map();
+  allPhotosRaw.forEach(p => {
+    const key = p.id || p.url;
+    if (key && !photoMap.has(key)) photoMap.set(key, p);
+  });
+  let activePhotos = Array.from(photoMap.values());
+  if (maxPhotos !== 'all' && typeof maxPhotos === 'number' && activePhotos.length > maxPhotos) {
+    activePhotos = activePhotos.slice(0, maxPhotos);
+  }
   
   const originalFrente = allFrentes?.find(o => o.id === frente.id);
-  const lat = originalFrente?.latitude || '4.6097';
-  const lng = originalFrente?.longitude || '-74.0817';
+  const lat = originalFrente?.latitude || frente?.latitude || '4.76902';
+  const lng = originalFrente?.longitude || frente?.longitude || '-74.02863';
 
   const frenteIaComment = getIaCommentForFrente(consolidadoIa, frente.frente);
 
@@ -166,7 +82,7 @@ const PrintFrenteCard = ({ frente, printMode, allFrentes, designOverrides, conso
       mappedDate.setDate(start.getDate() + dayIndex);
 
       return mappedDate.toISOString().split('T')[0];
-    } catch (e) {
+    } catch {
       return photoDateStr;
     }
   };
@@ -181,7 +97,7 @@ const PrintFrenteCard = ({ frente, printMode, allFrentes, designOverrides, conso
       const dayNum = mappedDate.getDate();
       const monthNum = String(mappedDate.getMonth() + 1).padStart(2, '0');
       return `${dayName} ${dayNum}/${monthNum}`;
-    } catch (e) {
+    } catch {
       return photoDateStr;
     }
   };
@@ -197,110 +113,99 @@ const PrintFrenteCard = ({ frente, printMode, allFrentes, designOverrides, conso
   }, {});
 
   return (
-    <div className="border border-slate-300 rounded-lg p-4 space-y-3 page-break-inside bg-white shadow-2xs text-left">
+    <div className={`border border-slate-300 rounded-lg p-3.5 space-y-2.5 bg-white shadow-2xs text-left print-frente-card ${
+      pageBreakBefore ? 'print-break-before-frente' : ''
+    }`}>
       
-      {/* Ficha Header */}
-      <div className="flex justify-between items-center border-b border-slate-200 pb-2">
-        <div className="flex items-center gap-2">
-          <div className="bg-primary/10 p-1 rounded text-primary flex items-center justify-center">
-            <span className="material-symbols-outlined text-[16px] font-black">construction</span>
+      {/* Block 1: Header, Analysis, Location Map and Soil Profile (Kept together to avoid breaking) */}
+      <div className="print-frente-header-block space-y-2.5">
+        {/* Ficha Header */}
+        <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+          <div className="flex items-center gap-2">
+            <div className="bg-primary/10 p-1 rounded text-primary flex items-center justify-center">
+              <span className="material-symbols-outlined text-[16px] font-black">construction</span>
+            </div>
+            <div>
+              <h4 className="font-extrabold text-xs text-slate-900 flex items-center gap-1.5 leading-none">
+                FRENTE {frente.frente} <span className="text-[10px] text-slate-400">•</span> CIV {frente.civ}
+              </h4>
+              <p className="text-[9px] text-slate-500 flex items-center gap-1 mt-1 leading-none font-semibold">
+                <span className="material-symbols-outlined text-[11px] text-slate-400">map</span>
+                <strong>Ubicación:</strong> {frente.desde} al {frente.hasta} ({frente.eje})
+              </p>
+            </div>
           </div>
-          <div>
-            <h4 className="font-extrabold text-xs text-slate-900 flex items-center gap-1.5 leading-none">
-              FRENTE {frente.frente} <span className="text-[10px] text-slate-400">•</span> CIV {frente.civ}
-            </h4>
-            <p className="text-[9px] text-slate-500 flex items-center gap-1 mt-1 leading-none font-semibold">
-              <span className="material-symbols-outlined text-[11px] text-slate-400">map</span>
-              <strong>Ubicación:</strong> {frente.desde} al {frente.hasta} ({frente.eje})
-            </p>
-          </div>
+          <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${
+            isMv ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-teal-100 text-teal-800 border border-teal-200'
+          }`}>
+            {isMv ? 'MALLA VIAL' : 'ESPACIO PÚBLICO'}
+          </span>
         </div>
-        <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded ${
-          isMv ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-teal-100 text-teal-800 border border-teal-200'
-        }`}>
-          {isMv ? 'MALLA VIAL' : 'ESPACIO PÚBLICO'}
-        </span>
-      </div>
 
-      {/* Comentario de Interventoría del Frente */}
-      {!isContractorMode && frenteIaComment && (
-        <div className="bg-slate-50 border-l-2 border-primary/50 p-2.5 rounded-r text-[9px] text-slate-800 leading-relaxed italic font-semibold shadow-2xs">
-          <div className="flex items-center gap-1 text-primary text-[8px] font-black uppercase tracking-wider mb-1">
-            <span className="material-symbols-outlined text-[11px]">rate_review</span>
-            Análisis de Interventoría
+        {/* Comentario de Interventoría del Frente */}
+        {!isContractorMode && frenteIaComment && (
+          <div className="bg-slate-50 border-l-2 border-primary/50 p-2 rounded-r text-[9px] text-slate-800 leading-relaxed italic font-semibold shadow-2xs">
+            <div className="flex items-center gap-1 text-primary text-[8px] font-black uppercase tracking-wider mb-0.5">
+              <span className="material-symbols-outlined text-[11px]">rate_review</span>
+              Análisis de Interventoría
+            </div>
+            "{frenteIaComment}"
           </div>
-          "{frenteIaComment}"
-        </div>
-      )}
+        )}
 
-      {/* Mapa y Perfil de Estructura de Suelo */}
-      {printMode === 'full' && (
-        <div className="grid grid-cols-2 gap-4 text-[9px] print:flex print:gap-4 print:w-full">
-          {/* Mapa de Ubicación */}
-          <div className="bg-slate-50 p-2 rounded border border-slate-200 flex flex-col gap-1.5 justify-between print:w-1/2">
-            <p className="font-black text-slate-750 uppercase tracking-wider text-[8px] flex items-center gap-1">
-              <span className="material-symbols-outlined text-[10px] text-slate-400">location_on</span>
-              Ubicación Georreferenciada
-            </p>
-            <div className="w-full h-[140px] overflow-hidden rounded border border-slate-250 relative bg-slate-100">
-              <img 
-                src={`https://static-maps.yandex.ru/1.x/?lang=es_ES&ll=${lng},${lat}&z=15&l=map&size=300,300`} 
-                alt="Ubicación en mapa"
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=15&size=300x300&maptype=mapnik`;
-                }}
-              />
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="relative flex items-center justify-center">
-                  <span className="animate-ping absolute inline-flex h-6 w-6 rounded-full bg-red-400 opacity-75"></span>
-                  <svg className="w-8 h-8 text-red-500 drop-shadow-md" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2ZM12 11.5C10.62 11.5 9.5 10.38 9.5 9C9.5 7.62 10.62 6.5 12 6.5C13.38 6.5 14.5 7.62 14.5 9C14.5 10.38 13.38 11.5 12 11.5Z"/>
-                  </svg>
-                </div>
+        {/* Mapa y Perfil de Estructura de Suelo */}
+        {printMode === 'full' && (
+          <div className="grid grid-cols-2 gap-3 text-[9px] print:flex print:gap-3 print:w-full">
+            {/* Mapa de Ubicación */}
+            <div className="bg-slate-50 p-2 rounded border border-slate-200 flex flex-col gap-1 justify-between print:w-1/2">
+              <p className="font-black text-slate-750 uppercase tracking-wider text-[8px] flex items-center gap-1">
+                <span className="material-symbols-outlined text-[10px] text-slate-400">location_on</span>
+                Ubicación Georreferenciada
+              </p>
+              <div className="w-full h-[130px] overflow-hidden rounded border border-slate-250 relative bg-slate-100">
+                <StaticMapThumbnail lat={lat} lng={lng} zoom={15} width={320} height={130} />
+              </div>
+              <div className="text-[8px] font-bold text-slate-500 text-center font-mono">
+                COORDENADAS: {parseFloat(lat).toFixed(5)}, {parseFloat(lng).toFixed(5)}
               </div>
             </div>
-            <div className="text-[8px] font-bold text-slate-500 text-center font-mono">
-              COORDENADAS: {parseFloat(lat).toFixed(5)}, {parseFloat(lng).toFixed(5)}
+
+            {/* Perfil de Suelo/Pavimento */}
+            <div className="bg-slate-50 p-2 rounded border border-slate-200 flex flex-col gap-1 justify-between print:w-1/2">
+              <p className="font-black text-slate-755 uppercase tracking-wider text-[8px] flex items-center gap-1">
+                <span className="material-symbols-outlined text-[10px] text-slate-400">layers</span>
+                Perfil de Estructura del Suelo
+              </p>
+              {(() => {
+                const design = designOverrides?.[frente.civ] || getDisenoForCiv(frente.civ);
+                const imgUrl = design?.perfil_suelo_img_url || frente.perfil_suelo_img_url;
+                return imgUrl ? (
+                  <div className="w-full h-[130px] overflow-hidden rounded border border-slate-200 relative bg-white flex items-center justify-center p-1 shadow-2xs">
+                    <img 
+                      src={imgUrl} 
+                      alt="Perfil de estructura del suelo" 
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="flex flex-col border border-slate-200 border-dashed rounded overflow-hidden flex-1 min-h-[130px] text-[8px] font-bold bg-slate-100 items-center justify-center text-slate-450 p-3 text-center leading-normal">
+                    <span className="material-symbols-outlined text-slate-400 text-[18px] mb-0.5">image</span>
+                    <span>Sin perfil de estructura de suelo</span>
+                    <span className="text-[6.5px] font-normal opacity-75 mt-0.5">Sube el plano o esquema desde el detalle del frente</span>
+                  </div>
+                );
+              })()}
+              <div className="text-[8px] font-bold text-slate-500 text-center uppercase tracking-wide">
+                Estructura de Pavimento Aprobada
+              </div>
             </div>
           </div>
+        )}
+      </div>
 
-          {/* Perfil de Suelo/Pavimento */}
-          <div className="bg-slate-50 p-2 rounded border border-slate-200 flex flex-col gap-1.5 justify-between print:w-1/2">
-            <p className="font-black text-slate-755 uppercase tracking-wider text-[8px] flex items-center gap-1">
-              <span className="material-symbols-outlined text-[10px] text-slate-400">layers</span>
-              Perfil de Estructura del Suelo
-            </p>
-            {(() => {
-              const design = designOverrides?.[frente.civ] || getDisenoForCiv(frente.civ);
-              const imgUrl = design?.perfil_suelo_img_url || frente.perfil_suelo_img_url;
-              return imgUrl ? (
-                <div className="w-full h-[140px] overflow-hidden rounded border border-slate-200 relative bg-white flex items-center justify-center p-1 shadow-2xs">
-                  <img 
-                    src={imgUrl} 
-                    alt="Perfil de estructura del suelo" 
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-              ) : (
-                <div className="flex flex-col border border-slate-200 border-dashed rounded overflow-hidden flex-1 min-h-[140px] text-[8px] font-bold bg-slate-100 items-center justify-center text-slate-450 p-4 text-center leading-normal">
-                  <span className="material-symbols-outlined text-slate-400 text-[20px] mb-1">image</span>
-                  <span>Sin perfil de estructura de suelo</span>
-                  <span className="text-[6.5px] font-normal opacity-75 mt-0.5">Sube el plano o esquema desde el detalle del frente</span>
-                </div>
-              );
-            })()}
-            <div className="text-[8px] font-bold text-slate-500 text-center uppercase tracking-wide">
-              Estructura de Pavimento Aprobada
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Bitacora Consolidada Semanal */}
+      {/* Block 2: Bitácora Consolidada Semanal */}
       {printMode === 'full' && (
-        <div className="space-y-2">
+        <div className="space-y-1.5 print-frente-header-block">
           <p className="font-black text-slate-750 uppercase tracking-wider text-[8px] flex items-center gap-1">
             <span className="material-symbols-outlined text-[10px] text-slate-400">notes</span>
             Bitácora Diaria del Periodo
@@ -308,11 +213,11 @@ const PrintFrenteCard = ({ frente, printMode, allFrentes, designOverrides, conso
           {activeNotes.length === 0 ? (
             <p className="text-[9px] text-slate-400 italic">No se reportaron bitácoras en este frente durante la semana.</p>
           ) : (
-            <div className="grid grid-cols-1 gap-1.5 text-[9px]">
+            <div className="grid grid-cols-1 gap-1 text-[9px]">
               {activeNotes.map((noteItem) => {
                 const noteDate = new Date(noteItem.date + 'T12:00:00');
                 return (
-                  <div key={noteItem.id} className="bg-slate-50/50 p-2 rounded border border-slate-100 flex gap-2">
+                  <div key={noteItem.id} className="bg-slate-50/70 p-1.5 rounded border border-slate-100 flex gap-2">
                     <div className="min-w-[65px] font-black text-slate-500 border-r border-slate-200 pr-2 uppercase text-[8px] flex items-center gap-0.5">
                       <span className="material-symbols-outlined text-[9px] text-slate-400">event</span>
                       {getDayName(noteDate)} {noteDate.getDate()}
@@ -326,17 +231,24 @@ const PrintFrenteCard = ({ frente, printMode, allFrentes, designOverrides, conso
         </div>
       )}
 
-      {/* Photos Consolidada */}
+      {/* Block 3: Evidencia Fotográfica Semanal (Cada foto con break-inside: avoid) */}
       {activePhotos.length > 0 && (
-        <div className="space-y-2">
-          <p className="font-black text-slate-750 uppercase tracking-wider text-[8px] flex items-center gap-1">
-            <span className="material-symbols-outlined text-[10px] text-slate-400">photo_library</span>
-            Evidencia Fotográfica Semanal ({activePhotos.length})
-          </p>
+        <div className="space-y-1.5 pt-1">
+          <div className="flex justify-between items-center">
+            <p className="font-black text-slate-750 uppercase tracking-wider text-[8px] flex items-center gap-1">
+              <span className="material-symbols-outlined text-[10px] text-slate-400">photo_library</span>
+              Evidencia Fotográfica Semanal ({activePhotos.length})
+            </p>
+            {maxPhotos !== 'all' && (
+              <span className="text-[7.5px] font-bold text-slate-400 uppercase">
+                Mostrando {activePhotos.length} fotos
+              </span>
+            )}
+          </div>
           
           {printMode === 'simplified' ? (
             /* Grouped by day */
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               {Object.keys(photosByDay).sort().map(dateStr => {
                 const dateObj = new Date(dateStr + 'T12:00:00');
                 const formattedDate = dateStr !== 'Sin fecha' 
@@ -344,35 +256,37 @@ const PrintFrenteCard = ({ frente, printMode, allFrentes, designOverrides, conso
                   : 'Otros avances';
                 
                 return (
-                  <div key={dateStr} className="space-y-1.5">
+                  <div key={dateStr} className="space-y-1">
                     <p className="font-bold text-slate-700 text-[8px] uppercase tracking-wide border-b border-slate-100 pb-0.5 flex items-center gap-1">
                       <span className="material-symbols-outlined text-[10px] text-slate-400">calendar_month</span>
                       {formattedDate}
                     </p>
-                    <div className="grid grid-cols-4 gap-2">
-                      {photosByDay[dateStr].map((photo) => (
-                        <div key={photo.id} className="border border-slate-200 rounded overflow-hidden shadow-2xs bg-white text-[8px] flex flex-col relative">
-                          <div className="aspect-square bg-slate-100 overflow-hidden relative">
-                            <img 
-                              src={photo.url} 
-                              alt="Avance" 
-                              className="w-full h-full object-cover" 
-                              onError={(e) => { 
-                                e.currentTarget.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%23cbd5e1" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>'; 
-                              }} 
-                            />
-                            {/* Date overlay badge */}
-                            {photo.date && (
-                              <span className="absolute top-1 left-1 bg-black/60 text-white font-black px-1.5 py-0.5 rounded text-[7px] uppercase tracking-wide">
-                                {getFriendlyPhotoDate(photo.date)}
-                              </span>
-                            )}
+                    <div className="print-photos-grid grid grid-cols-4 gap-2">
+                      {photosByDay[dateStr].map((photo) => {
+                        const displayUrl = (optimizedImagesMap && optimizedImagesMap.get(photo.url)) || photo.url;
+                        return (
+                          <div key={photo.id} className="print-photo-item border border-slate-200 rounded overflow-hidden shadow-2xs bg-white text-[8px] flex flex-col relative">
+                            <div className="aspect-square bg-slate-100 overflow-hidden relative">
+                              <img 
+                                src={displayUrl} 
+                                alt="Avance" 
+                                className="w-full h-full object-cover" 
+                                onError={(e) => { 
+                                  e.currentTarget.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%23cbd5e1" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>'; 
+                                }} 
+                              />
+                              {photo.date && (
+                                <span className="absolute top-1 left-1 bg-black/60 text-white font-black px-1.5 py-0.5 rounded text-[7px] uppercase tracking-wide">
+                                  {getFriendlyPhotoDate(photo.date)}
+                                </span>
+                              )}
+                            </div>
+                            <div className="p-1 text-slate-655 font-semibold border-t border-slate-150 break-words whitespace-normal leading-tight">
+                              {photo.caption || 'Avance de obra'}
+                            </div>
                           </div>
-                          <div className="p-1 text-slate-655 font-semibold border-t border-slate-150 break-words whitespace-normal leading-tight">
-                            {photo.caption || 'Avance de obra'}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -380,30 +294,32 @@ const PrintFrenteCard = ({ frente, printMode, allFrentes, designOverrides, conso
             </div>
           ) : (
             /* Standard Grid for Full Mode */
-            <div className="grid grid-cols-4 gap-2">
-              {activePhotos.map((photo) => (
-                <div key={photo.id} className="border border-slate-200 rounded overflow-hidden shadow-2xs bg-white text-[8px] flex flex-col relative">
-                  <div className="aspect-square bg-slate-100 overflow-hidden relative">
-                    <img 
-                      src={photo.url} 
-                      alt="Avance" 
-                      className="w-full h-full object-cover" 
-                      onError={(e) => { 
-                        e.currentTarget.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%23cbd5e1" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>'; 
-                      }} 
-                    />
-                    {/* Date overlay badge */}
-                    {photo.date && (
-                      <span className="absolute top-1 left-1 bg-black/60 text-white font-black px-1.5 py-0.5 rounded text-[7px] uppercase tracking-wide">
-                        {getFriendlyPhotoDate(photo.date)}
-                      </span>
-                    )}
+            <div className="print-photos-grid grid grid-cols-4 gap-2">
+              {activePhotos.map((photo) => {
+                const displayUrl = (optimizedImagesMap && optimizedImagesMap.get(photo.url)) || photo.url;
+                return (
+                  <div key={photo.id} className="print-photo-item border border-slate-200 rounded overflow-hidden shadow-2xs bg-white text-[8px] flex flex-col relative">
+                    <div className="aspect-square bg-slate-100 overflow-hidden relative">
+                      <img 
+                        src={displayUrl} 
+                        alt="Avance" 
+                        className="w-full h-full object-cover" 
+                        onError={(e) => { 
+                          e.currentTarget.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%23cbd5e1" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>'; 
+                        }} 
+                      />
+                      {photo.date && (
+                        <span className="absolute top-1 left-1 bg-black/60 text-white font-black px-1.5 py-0.5 rounded text-[7px] uppercase tracking-wide">
+                          {getFriendlyPhotoDate(photo.date)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="p-1 text-slate-655 font-semibold border-t border-slate-150 break-words whitespace-normal leading-tight">
+                      {photo.caption || 'Avance de obra'}
+                    </div>
                   </div>
-                  <div className="p-1 text-slate-655 font-semibold border-t border-slate-150 break-words whitespace-normal leading-tight">
-                    {photo.caption || 'Avance de obra'}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -430,12 +346,56 @@ export default function WeeklyReportPanel({
   const [editingFrenteId, setEditingFrenteId] = useState(null);
   const [iaText, setIaText] = useState(report?.consolidado_ia || '');
   const [printMode, setPrintMode] = useState('full'); // 'full' or 'simplified'
+  const [pdfQuality, setPdfQuality] = useState('light'); // 'light' (downscaled) or 'original'
+  const [maxPhotosPerFrente, setMaxPhotosPerFrente] = useState(8); // 4, 8, 'all'
+  const [pageBreakPerFrente, setPageBreakPerFrente] = useState(false);
+  const [isOptimizingForPrint, setIsOptimizingForPrint] = useState(false);
+  const [optimizedImagesMap, setOptimizedImagesMap] = useState(null);
+
+  const handleTriggerPrint = async () => {
+    if (pdfQuality === 'light') {
+      setIsOptimizingForPrint(true);
+      try {
+        const activeFrentes = (report?.frentes || []).filter(f => 
+          (f.fotos && f.fotos.length > 0) || (f.photos && f.photos.length > 0)
+        );
+        const allPrintPhotos = [];
+        activeFrentes.forEach(f => {
+          const raw = [...(f.fotos || []), ...(f.photos || [])];
+          const map = new Map();
+          raw.forEach(p => {
+            const key = p.id || p.url;
+            if (key && !map.has(key)) map.set(key, p);
+          });
+          let list = Array.from(map.values());
+          if (maxPhotosPerFrente !== 'all' && typeof maxPhotosPerFrente === 'number') {
+            list = list.slice(0, maxPhotosPerFrente);
+          }
+          allPrintPhotos.push(...list);
+        });
+
+        if (allPrintPhotos.length > 0) {
+          const map = await optimizePhotoListForPrint(allPrintPhotos, 640, 0.70);
+          setOptimizedImagesMap(map);
+        }
+      } catch (err) {
+        console.warn("Print optimization fallback to original:", err);
+      } finally {
+        setIsOptimizingForPrint(false);
+      }
+    }
+
+    // Give DOM brief moment to update img elements with optimized data
+    setTimeout(() => {
+      window.print();
+    }, 250);
+  };
 
   useEffect(() => {
     if (report) {
       setIaText(report.consolidado_ia || '');
     }
-  }, [report?.id_informe, report?.consolidado_ia]);
+  }, [report]);
 
   useEffect(() => {
     if (isContractorMode && activeTab === 'frentes') {
@@ -478,7 +438,6 @@ export default function WeeklyReportPanel({
     text += `=== DETALLES POR FRENTE ===\n\n`;
     const activeFrentes = report.frentes.filter(f => f.fotos && f.fotos.length > 0);
     activeFrentes.forEach(f => {
-      const isMv = f.id.startsWith('f_mv');
       text += `FRENTE ${f.frente} - CIV ${f.civ}\n`;
       text += `Ubicación: ${f.desde} al ${f.hasta} (${f.eje})\n`;
       text += `Progreso: ${f.progress}%\n`;
@@ -587,10 +546,6 @@ export default function WeeklyReportPanel({
 
   const getDayLabel = (date) => {
     return date.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
-  };
-
-  const handlePrint = () => {
-    window.print();
   };
 
   // Tab 1: Filter frentes that had activity on the selected day
@@ -988,39 +943,160 @@ export default function WeeklyReportPanel({
                 </div>
               )}
 
-              {/* Action 3: Printing Modes */}
-              <div className="flex flex-col gap-2">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Modo de Impresión PDF</span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setPrintMode('full');
-                      setTimeout(() => { window.print(); }, 150);
-                    }}
-                    className={`flex-1 text-[10.5px] font-extrabold py-2 px-1 rounded-lg border shadow-2xs transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
-                      printMode === 'full' 
-                        ? 'bg-slate-900 border-slate-900 text-white' 
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[16px]">print</span>
-                    Completo
-                  </button>
-                  <button
-                    onClick={() => {
-                      setPrintMode('simplified');
-                      setTimeout(() => { window.print(); }, 150);
-                    }}
-                    className={`flex-1 text-[10.5px] font-extrabold py-2 px-1 rounded-lg border shadow-2xs transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
-                      printMode === 'simplified' 
-                        ? 'bg-slate-900 border-slate-900 text-white' 
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[16px]">description</span>
-                    Simplificado
-                  </button>
+              {/* Action 3: Printing Modes & PDF Controls */}
+              <div className="flex flex-col gap-3">
+                
+                {/* 1. Format Mode */}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                    Formato de Fichas
+                  </span>
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setPrintMode('full')}
+                      className={`flex-1 text-[10px] font-black py-2 px-1 rounded-lg border transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
+                        printMode === 'full' 
+                          ? 'bg-slate-900 border-slate-900 text-white shadow-xs' 
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[15px]">print</span>
+                      Completo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPrintMode('simplified')}
+                      className={`flex-1 text-[10px] font-black py-2 px-1 rounded-lg border transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
+                        printMode === 'simplified' 
+                          ? 'bg-slate-900 border-slate-900 text-white shadow-xs' 
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[15px]">description</span>
+                      Simplificado
+                    </button>
+                  </div>
                 </div>
+
+                {/* 2. PDF Quality & File Size Optimizer */}
+                <div className="flex flex-col gap-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                      <Zap size={12} className="text-amber-500" />
+                      Peso del PDF
+                    </span>
+                    <span className="text-[8px] font-black text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded uppercase">
+                      {pdfQuality === 'light' ? 'Ligero (<10MB)' : 'Alta Res.'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 text-[9.5px]">
+                    <button
+                      type="button"
+                      onClick={() => setPdfQuality('light')}
+                      className={`py-1.5 px-2 rounded-lg font-black border transition-all text-center ${
+                        pdfQuality === 'light'
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                      title="Comprime imágenes en canvas para que el archivo PDF pese menos de 10MB (ideal correo/WhatsApp)"
+                    >
+                      🚀 Ligero (-85%)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPdfQuality('original')}
+                      className={`py-1.5 px-2 rounded-lg font-black border transition-all text-center ${
+                        pdfQuality === 'original'
+                          ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                      title="Resolución máxima de archivo original (puede generar un PDF de más de 50MB)"
+                    >
+                      💎 Original
+                    </button>
+                  </div>
+                  <p className="text-[8.5px] text-slate-500 leading-tight">
+                    {pdfQuality === 'light' 
+                      ? 'Recomendado: comprime fotos para envío ágil sin perder nitidez de impresión.' 
+                      : 'Descarga las fotos a su tamaño nativo de cámara.'}
+                  </p>
+                </div>
+
+                {/* 3. Photos per frente limit */}
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                    Fotos por Frente
+                  </span>
+                  <div className="flex gap-1 text-[9.5px]">
+                    {[4, 8, 'all'].map((val) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setMaxPhotosPerFrente(val)}
+                        className={`flex-1 py-1.5 rounded-lg font-black border transition-all text-center ${
+                          maxPhotosPerFrente === val
+                            ? 'bg-primary text-white border-primary shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        {val === 'all' ? 'Todas' : `Máx. ${val}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 4. Page Break Option */}
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">
+                    Distribución de Hojas
+                  </span>
+                  <div className="grid grid-cols-2 gap-1.5 text-[9.5px]">
+                    <button
+                      type="button"
+                      onClick={() => setPageBreakPerFrente(false)}
+                      className={`py-1.5 px-1 rounded-lg font-black border transition-all text-center ${
+                        !pageBreakPerFrente
+                          ? 'bg-slate-800 text-white border-slate-800 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      Continuo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPageBreakPerFrente(true)}
+                      className={`py-1.5 px-1 rounded-lg font-black border transition-all text-center ${
+                        pageBreakPerFrente
+                          ? 'bg-slate-800 text-white border-slate-800 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      1 Frente / Hoja
+                    </button>
+                  </div>
+                </div>
+
+                {/* 5. Main Print / PDF Button */}
+                <button
+                  type="button"
+                  onClick={handleTriggerPrint}
+                  disabled={isOptimizingForPrint}
+                  className="w-full bg-primary hover:bg-primary-container active:scale-98 text-white font-black text-xs py-3 px-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-1"
+                >
+                  {isOptimizingForPrint ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Optimizando PDF...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Printer size={16} />
+                      <span>Descargar PDF / Imprimir</span>
+                    </>
+                  )}
+                </button>
+
               </div>
             </div>
 
@@ -1030,27 +1106,38 @@ export default function WeeklyReportPanel({
               {/* Info Banner */}
               <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-sm flex items-center justify-between no-print flex-wrap gap-3">
                 <div>
-                  <h3 className="font-bold text-xs text-slate-800">
-                    Vista Previa ({printMode === 'full' ? 'Completo' : 'Simplificado'})
+                  <h3 className="font-bold text-xs text-slate-800 flex items-center gap-2">
+                    <span>Vista Previa ({printMode === 'full' ? 'Completo' : 'Simplificado'})</span>
+                    <span className="text-[9px] font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                      {pdfQuality === 'light' ? '🚀 PDF Ligero Activado' : '💎 Máxima Calidad'}
+                    </span>
                   </h3>
-                  <p className="text-[10px] text-slate-500">Muestra el diseño exacto que se exportará al PDF.</p>
+                  <p className="text-[10px] text-slate-500">Muestra el diseño exacto anti-corte que se exportará al PDF.</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setPrintMode(printMode === 'full' ? 'simplified' : 'full')}
-                    className="bg-slate-50 hover:bg-slate-100 text-slate-700 text-[10px] font-extrabold py-1.5 px-3 rounded-lg border border-slate-250 transition-all cursor-pointer flex items-center gap-1"
+                    className="bg-slate-50 hover:bg-slate-100 text-slate-700 text-[10px] font-extrabold py-2 px-3 rounded-lg border border-slate-250 transition-all cursor-pointer flex items-center gap-1"
                   >
                     <span className="material-symbols-outlined text-[14px]">swap_horiz</span>
                     {printMode === 'full' ? 'Simplificado' : 'Completo'}
                   </button>
                   <button
-                    onClick={() => {
-                      setTimeout(() => { window.print(); }, 150);
-                    }}
-                    className="bg-primary hover:bg-primary-container text-white text-[10px] font-extrabold py-1.5 px-3.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                    onClick={handleTriggerPrint}
+                    disabled={isOptimizingForPrint}
+                    className="bg-primary hover:bg-primary-container active:scale-98 text-white text-[10px] font-black py-2 px-4 rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-sm disabled:opacity-50"
                   >
-                    <span className="material-symbols-outlined text-[14px]">print</span>
-                    Descargar PDF / Imprimir
+                    {isOptimizingForPrint ? (
+                      <>
+                        <RefreshCw size={14} className="animate-spin" />
+                        <span>Preparando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Printer size={14} />
+                        <span>Descargar PDF / Imprimir</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -1105,7 +1192,9 @@ export default function WeeklyReportPanel({
                       </tr>
                     </thead>
                     <tbody>
-                      {report.frentes.filter(f => f.fotos && f.fotos.length > 0).map(f => {
+                      {report.frentes
+                        .filter(f => (f.fotos && f.fotos.length > 0) || (f.photos && f.photos.length > 0))
+                        .map(f => {
                         const isMv = f.id.startsWith('f_mv');
                         return (
                           <tr key={f.id} className="border-b border-slate-100 hover:bg-slate-50/50">
@@ -1143,7 +1232,7 @@ export default function WeeklyReportPanel({
               )}
 
               {/* PDF Fichas Técnicas Individuales (Frente por Frente) */}
-              <div className="py-4 space-y-8 page-break-before">
+              <div className="py-4 space-y-6">
                 <h3 className="text-xs font-black text-slate-955 uppercase mb-4 border-b border-slate-300 pb-1 flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-primary text-[14px]">engineering</span>
                   {printMode === 'full' 
@@ -1151,18 +1240,23 @@ export default function WeeklyReportPanel({
                     : (!isContractorMode && report.consolidado_ia) ? 'II. Evidencia Fotográfica por Frente' : 'I. Evidencia Fotográfica por Frente'}
                 </h3>
 
-                {report.frentes.filter(f => f.fotos && f.fotos.length > 0).map((frente) => (
-                  <PrintFrenteCard 
-                    key={frente.id} 
-                    frente={frente} 
-                    printMode={printMode} 
-                    allFrentes={allFrentes} 
-                    designOverrides={designOverrides}
-                    consolidadoIa={iaText} 
-                    getDayName={getDayName} 
-                    report={report}
-                    isContractorMode={isContractorMode}
-                  />
+                {report.frentes
+                  .filter(f => (f.fotos && f.fotos.length > 0) || (f.photos && f.photos.length > 0))
+                  .map((frente) => (
+                    <PrintFrenteCard 
+                      key={frente.id} 
+                      frente={frente} 
+                      printMode={printMode} 
+                      allFrentes={allFrentes} 
+                      designOverrides={designOverrides}
+                      consolidadoIa={iaText} 
+                      getDayName={getDayName} 
+                      report={report}
+                      isContractorMode={isContractorMode}
+                      maxPhotos={maxPhotosPerFrente}
+                      optimizedImagesMap={optimizedImagesMap}
+                      pageBreakBefore={pageBreakPerFrente}
+                    />
                 ))}
               </div>
 
@@ -1362,16 +1456,22 @@ export default function WeeklyReportPanel({
               : (!isContractorMode && report.consolidado_ia) ? 'II. Evidencia Fotográfica por Frente' : 'I. Evidencia Fotográfica por Frente'}
           </h3>
 
-          {report.frentes.filter(f => f.fotos && f.fotos.length > 0).map((frente) => (
+          {report.frentes
+            .filter(f => (f.fotos && f.fotos.length > 0) || (f.photos && f.photos.length > 0))
+            .map((frente) => (
             <PrintFrenteCard 
               key={frente.id} 
               frente={frente} 
               printMode={printMode} 
               allFrentes={allFrentes} 
+              designOverrides={designOverrides}
               consolidadoIa={iaText} 
               getDayName={getDayName} 
               report={report}
               isContractorMode={isContractorMode}
+              maxPhotos={maxPhotosPerFrente}
+              optimizedImagesMap={optimizedImagesMap}
+              pageBreakBefore={pageBreakPerFrente}
             />
           ))}
         </div>

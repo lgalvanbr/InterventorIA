@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { getDisenoForCiv, DESIGN_TEMPLATES } from '../data/frentesDisenos';
 import { Layers, AlertTriangle, FileText, Info, Search, Upload, ExternalLink, HelpCircle } from 'lucide-react';
+import { compressImage, uploadPhotoResiliently } from '../utils/imageCompressor';
 
 function MiniMap({ latitude, longitude, status }) {
   const mapContainerRef = useRef(null);
@@ -285,53 +286,14 @@ export default function FrentesControl({ projects, designOverrides, onUpdateDesi
     window.location.reload();
   };
 
-  const compressImage = (file, maxWidth = 800, maxHeight = 800, quality = 0.7) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target.result;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > maxWidth) {
-              height = Math.round((height * maxWidth) / width);
-              width = maxWidth;
-            }
-          } else {
-            if (height > maxHeight) {
-              width = Math.round((width * maxHeight) / height);
-              height = maxHeight;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', quality));
-        };
-        img.onerror = (err) => reject(err);
-      };
-      reader.onerror = (err) => reject(err);
-    });
-  };
-
   const handlePerfilImageChange = async (e) => {
     const file = e.target.files?.[0];
     if (file && file.type.startsWith('image/')) {
       try {
-        const base64 = await compressImage(file);
+        const base64 = await compressImage(file, 1600, 1600, 0.82);
         const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
         const fileName = `perfil_control_${Date.now()}_${cleanName}`;
         
-        let previewUrl = base64;
-        
-        // Supabase configuration lookup
         let supabaseConfig = {
           supabaseUrl: 'https://rjghsenbsrprbajhkwxr.supabase.co',
           supabaseKey: 'sb_publishable_QQ_O2_zR4gy1jlJzoLc8uA_SIKzyZtS',
@@ -340,55 +302,18 @@ export default function FrentesControl({ projects, designOverrides, onUpdateDesi
         try {
           const saved = JSON.parse(localStorage.getItem('geo_interventoria_supabase_config') || 'null');
           if (saved) supabaseConfig = saved;
-        } catch (e) {}
+        } catch {}
 
-        let uploadedToSupabase = false;
-        if (supabaseConfig && supabaseConfig.supabaseUrl && supabaseConfig.supabaseKey) {
-          try {
-            const base64Response = await fetch(base64);
-            const blob = await base64Response.blob();
-            const url = `${supabaseConfig.supabaseUrl}/storage/v1/object/${supabaseConfig.supabaseBucket || 'frentes-fotos'}/control_diseno/${fileName}`;
+        const uploadRes = await uploadPhotoResiliently({
+          semana: 999, // General design week
+          frenteId: selectedCiv,
+          fileName,
+          base64,
+          supabaseConfig,
+          bucket: supabaseConfig.supabaseBucket || 'frentes-fotos'
+        });
 
-            const response = await fetch(url, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${supabaseConfig.supabaseKey}`,
-                'apikey': supabaseConfig.supabaseKey,
-                'Content-Type': blob.type || 'image/jpeg'
-              },
-              body: blob
-            });
-
-            if (response.ok || response.status === 409) {
-              previewUrl = `${supabaseConfig.supabaseUrl}/storage/v1/object/public/${supabaseConfig.supabaseBucket || 'frentes-fotos'}/control_diseno/${fileName}`;
-              uploadedToSupabase = true;
-            }
-          } catch (sErr) {
-            console.error("Error uploading profile to Supabase:", sErr);
-          }
-        }
-
-        if (!uploadedToSupabase) {
-          try {
-            const response = await fetch('/api/upload-photo', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                semana: 999, // General design week
-                frenteId: selectedCiv,
-                fileName: fileName,
-                base64: base64,
-                bucket: supabaseConfig.supabaseBucket || 'frentes-fotos'
-              })
-            });
-            if (response.ok) {
-              const result = await response.json();
-              if (result.url) previewUrl = result.url;
-            }
-          } catch (apiErr) {
-            console.warn("Could not save profile image to server, using base64:", apiErr);
-          }
-        }
+        const previewUrl = uploadRes.url || base64;
 
         // Save to global design override
         const overrides = { ...designOverrides };
@@ -439,97 +364,6 @@ export default function FrentesControl({ projects, designOverrides, onUpdateDesi
   const fallbackPdfUrl = selectedCiv ? `/frentes/${selectedCiv}/diseno.pdf` : '';
   const uploadedPdfUrl = (selectedCiv && uploadedPdfs[selectedCiv]) ? uploadedPdfs[selectedCiv] : '';
   const finalPdfUrl = localPdfUrl || uploadedPdfUrl || publicPdfUrl || fallbackPdfUrl;
-
-  // Render layer background styles based on material type
-  const getLayerStyle = (type) => {
-    switch (type) {
-      case 'concreto':
-        return 'bg-slate-200 border-slate-400 text-slate-700 pattern-concrete';
-      case 'asfalto':
-        return 'bg-slate-800 border-slate-900 text-slate-200 pattern-asphalt';
-      case 'base_cemento':
-      case 'subbase_cemento':
-        return 'bg-stone-300 border-stone-400 text-stone-700';
-      case 'subbase':
-        return 'bg-amber-100 border-amber-200 text-amber-800';
-      case 'geomalla':
-        return 'bg-yellow-50 border-yellow-300 text-yellow-900 border-dashed border-2';
-      case 'geocelda':
-        return 'bg-orange-50 border-orange-300 text-orange-900 border-double border-4';
-      case 'geotextil':
-      case 'geotextil_nt':
-        return 'bg-blue-50 border-blue-300 text-blue-900 border-dotted border-2';
-      case 'imprimacion':
-        return 'bg-zinc-700 border-zinc-800 text-zinc-300 h-2 min-h-0 py-0 text-[8px] flex items-center justify-center';
-      case 'arena':
-        return 'bg-yellow-100 border-yellow-200 text-yellow-700 pattern-sand';
-      default:
-        return 'bg-slate-100 border-slate-300 text-slate-700';
-    }
-  };
-
-  const getVisualLayerStyle = (type) => {
-    switch (type) {
-      case 'asfalto':
-        return {
-          background: 'linear-gradient(135deg, #1e293b 25%, #334155 100%)',
-          color: '#f8fafc',
-          borderColor: '#0f172a'
-        };
-      case 'concreto':
-        return {
-          background: 'linear-gradient(to bottom, #e2e8f0 0%, #cbd5e1 100%)',
-          color: '#0f172a',
-          borderColor: '#94a3b8',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5)'
-        };
-      case 'base_cemento':
-        return {
-          background: 'repeating-linear-gradient(45deg, #fef08a, #fef08a 8px, #fde68a 8px, #fde68a 16px)',
-          color: '#713f12',
-          borderColor: '#d97706',
-          borderStyle: 'dashed'
-        };
-      case 'subbase':
-      case 'subbase_cemento':
-        return {
-          background: '#fef08a',
-          backgroundImage: 'radial-gradient(#eab308 15%, transparent 16%)',
-          backgroundSize: '5px 5px',
-          color: '#713f12',
-          borderColor: '#ca8a04',
-          borderStyle: 'dashed'
-        };
-      case 'geomalla':
-        return {
-          background: '#1e1b4b',
-          backgroundImage: 'linear-gradient(to right, #4f46e5 1px, transparent 1px), linear-gradient(to bottom, #4f46e5 1px, transparent 1px)',
-          backgroundSize: '3.5px 3.5px',
-          color: '#e0e7ff',
-          borderColor: '#312e81'
-        };
-      case 'geocelda':
-        return {
-          background: '#ffedd5',
-          backgroundImage: 'repeating-linear-gradient(90deg, #ea580c 0px, #ea580c 1.5px, transparent 1.5px, transparent 10px)',
-          color: '#c2410c',
-          borderColor: '#ea580c'
-        };
-      case 'geotextil':
-      case 'geotextil_nt':
-        return {
-          background: 'repeating-linear-gradient(90deg, #3b82f6, #3b82f6 5px, transparent 5px, transparent 10px)',
-          color: '#1e3a8a',
-          borderColor: '#2563eb'
-        };
-      default:
-        return {
-          background: '#cbd5e1',
-          color: '#334155',
-          borderColor: '#cbd5e1'
-        };
-    }
-  };
 
   return (
     <div className="flex-1 p-gutter max-w-container-max mx-auto min-h-screen pb-16">

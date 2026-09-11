@@ -1,10 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { Camera, Image as ImageIcon, Upload, X, Trash2, Calendar, Tag, AlertCircle } from 'lucide-react';
+import { compressImageFile, generateStandardPhotoFileName, uploadPhotoResiliently } from '../utils/imageCompressor';
 
 export default function PhotoGallery({ frente, onAddPhoto, onDeletePhoto, isContractorMode }) {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
+  const [isCompressing, setIsCompressing] = useState(false);
   
   // Photo metadata form state
   const [title, setTitle] = useState('');
@@ -27,29 +29,30 @@ export default function PhotoGallery({ frente, onAddPhoto, onDeletePhoto, isCont
 
   const photos = frente.photos || [];
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
+  const processSelectedFile = async (file) => {
+    if (!file || !file.type.startsWith('image/')) {
       alert('Por favor selecciona un archivo de imagen válido.');
       return;
     }
 
-    // Limit to 4MB for localStorage demonstration
-    if (file.size > 4 * 1024 * 1024) {
-      alert('La imagen es demasiado grande. Elige una menor a 4MB.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setPreviewUrl(event.target.result);
+    try {
+      setIsCompressing(true);
+      const compressed = await compressImageFile(file, { maxDimension: 1600, quality: 0.82 });
+      setPreviewUrl(compressed.base64);
       setSelectedFile(file);
-      setTitle(file.name.split('.')[0]); // Default title is the filename
+      setTitle(file.name.split('.')[0]); // Default title is filename
       setIsUploading(true);
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Error al procesar la imagen:', err);
+      alert('No se pudo procesar la imagen seleccionada. Intente con otro formato.');
+    } finally {
+      setIsCompressing(false);
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) processSelectedFile(file);
   };
 
   const handleDragOver = (e) => {
@@ -58,21 +61,8 @@ export default function PhotoGallery({ frente, onAddPhoto, onDeletePhoto, isCont
 
   const handleDrop = (e) => {
     e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
-      if (file.size > 4 * 1024 * 1024) {
-        alert('La imagen es demasiado grande. Elige una menor a 4MB.');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setPreviewUrl(event.target.result);
-        setSelectedFile(file);
-        setTitle(file.name.split('.')[0]);
-        setIsUploading(true);
-      };
-      reader.readAsDataURL(file);
-    }
+    const file = e.dataTransfer.files?.[0];
+    if (file) processSelectedFile(file);
   };
 
   const handleUploadSubmit = async (e) => {
@@ -80,24 +70,23 @@ export default function PhotoGallery({ frente, onAddPhoto, onDeletePhoto, isCont
     if (!previewUrl) return;
 
     let finalUrl = previewUrl;
+    const dateCode = new Date().toISOString().split('T')[0];
 
-    // Attempt to upload image to disk via server API
+    const fileName = generateStandardPhotoFileName({
+      frenteId: frente.id,
+      semana: 'gallery',
+      dateStr: dateCode,
+      originalName: selectedFile?.name
+    });
+
     try {
-      const fileName = selectedFile ? `${Date.now()}_${selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_')}` : `${Date.now()}_photo.jpg`;
-      const response = await fetch('/api/upload-photo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          semana: 'gallery',
-          frenteId: frente.id,
-          fileName: fileName,
-          base64: previewUrl
-        })
+      const uploadRes = await uploadPhotoResiliently({
+        semana: 'gallery',
+        frenteId: frente.id,
+        fileName,
+        base64: previewUrl
       });
-      if (response.ok) {
-        const data = await response.json();
-        if (data.url) finalUrl = data.url;
-      }
+      if (uploadRes?.url) finalUrl = uploadRes.url;
     } catch (err) {
       console.warn("Could not save photo to server disk, fallback to base64 previewUrl:", err);
     }

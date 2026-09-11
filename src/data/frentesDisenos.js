@@ -182,6 +182,48 @@ const ESTRUCTURA_TIPO_4 = (civId, espesorLosa = 18) => {
   };
 };
 
+const ESTRUCTURA_CIV_1005243 = (civId) => ({
+  civ_id: civId,
+  grupo: "Rígido Andén (Emergencia)",
+  nombre_grupo: "Andén en Concreto Hidráulico MR-40 sobre Subbase Estabilizada",
+  tecnologia_aprobada: "Pavimento Rígido / Andén (Concreto)",
+  alternativa_aprobada: "0.10m Losa Concreto MR-40 sobre 0.16m Subbase AR-SBG50 Estabilizada y Cama de Arena",
+  periodo_diseno_anos: 20,
+  transito_ejes_equivalentes: 350000,
+  datos_geotecnicos: {
+    cbr_saturado_promedio_porcentaje: 2.1,
+    modulo_resiliente_saturado_psi: 1850.0,
+    clasificacion_uscs: "CL (Suelo Natural Santa Ana Occidental)",
+    presion_lambe_mpa: 0.022
+  },
+  paquete_estructural_capas: [
+    { posicion: 1, nombre: "Losa de concreto hidráulico MR-40", espesor_cm: 10.0, especificacion_idu: "ET IDU 800-18", tipo_material: "concreto", modulo_psi: 4200000 },
+    { posicion: 2, nombre: "Subbase granular reciclada (AR-SBG50) estabilizada con cemento", espesor_cm: 16.0, especificacion_idu: "ET IDU 533-18", tipo_material: "subbase_cemento", modulo_psi: 37000 },
+    { posicion: 3, nombre: "Cama de arena niveladora (Ensayo densímetro nuclear GD 1.954 g/cm³)", espesor_cm: 4.0, especificacion_idu: "ET IDU 231-18", tipo_material: "arena", modulo_psi: 15000 }
+  ],
+  elementos_estabilizacion_subrasante: {
+    tipo: "Compactación mecánica de la subrasante y verificación con densímetro nuclear",
+    diametro_m: 0.0,
+    profundidad_m: 0.20,
+    distribucion: "Uniforme",
+    espaciamiento_m: 0.0
+  },
+  alertas_interventoria: [
+    {
+      id: "ep_21_1",
+      titulo: "Densidad de Cama de Arena con Densímetro Nuclear",
+      tipo: "info",
+      mensaje: "Ensayo verificado: Humedad 9.5%, Densidad Seca GD 1.954 g/cm³. Cumple especificaciones IDU."
+    },
+    {
+      id: "ep_21_2",
+      titulo: "Avance de Preliminares y Demoliciones",
+      tipo: "success",
+      mensaje: "Preliminares y excavaciones 100% ejecutado. Demoliciones 100% ejecutado de lo programado."
+    }
+  ]
+});
+
 export const FRENTES_DISENOS = {
   // Frente 1: Tipo 1
   "1002332": ESTRUCTURA_TIPO_1("1002332"),
@@ -228,6 +270,9 @@ export const FRENTES_DISENOS = {
   // Frente 22: Tipo 1B
   "1008209": ESTRUCTURA_TIPO_1B("1008209"),
   
+  // Frente 201 (Espacio Público - Emergencia Santa Ana Occidental)
+  "1005243": ESTRUCTURA_CIV_1005243("1005243"),
+
   // Soporte de compatibilidad hacia atrás para el CIV original de Frente 9
   "1002087": ESTRUCTURA_TIPO_3("1002087", 18)
 };

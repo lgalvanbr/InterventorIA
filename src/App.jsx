@@ -1,18 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import Sidebar from './components/Sidebar';
-import Dashboard from './components/Dashboard';
-import ProjectDetail from './components/ProjectDetail';
-import ReportsView from './components/ReportsView';
-import ConfigView from './components/ConfigView';
-import FrentesControl from './components/FrentesControl';
-import WeeklyReports from './components/WeeklyReports';
-import WeeklyFrenteDetail from './components/WeeklyFrenteDetail';
-import WeeklyReportPanel from './components/WeeklyReportPanel';
-import EngineersView from './components/EngineersView';
-import InspectorPortal from './components/InspectorPortal';
-import MapView from './components/MapView';
-import ProjectInfo from './components/ProjectInfo';
 import { initializeWeeklyReports, calculateConsolidatedMetrics } from './data/reportsWeekly';
+
+// Vistas con carga perezosa para optimización de bundle y code-splitting
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const ProjectDetail = lazy(() => import('./components/ProjectDetail'));
+const ReportsView = lazy(() => import('./components/ReportsView'));
+const ConfigView = lazy(() => import('./components/ConfigView'));
+const FrentesControl = lazy(() => import('./components/FrentesControl'));
+const WeeklyReports = lazy(() => import('./components/WeeklyReports'));
+const WeeklyReportPanel = lazy(() => import('./components/WeeklyReportPanel'));
+const EngineersView = lazy(() => import('./components/EngineersView'));
+const InspectorPortal = lazy(() => import('./components/InspectorPortal'));
+const MapView = lazy(() => import('./components/MapView'));
+const ProjectInfo = lazy(() => import('./components/ProjectInfo'));
+
+// Componente visual elegante de carga para transiciones entre módulos
+function ViewLoadingFallback() {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] p-8 text-center animate-fade-in">
+      <div className="relative flex items-center justify-center mb-4">
+        <div className="w-12 h-12 rounded-full border-3 border-primary/20 border-t-primary animate-spin" />
+        <span className="material-symbols-outlined text-primary text-xl absolute">construction</span>
+      </div>
+      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Cargando módulo de interventoría...</p>
+    </div>
+  );
+}
 
 // Helper to initialize compliance list of checks for Colombian regulations
 const createDefaultCompliance = (checkedAll = false) => {
@@ -130,7 +144,29 @@ const ESPACIO_PUBLICO_FRENTES_RAW = [
   { civ: '1001044', pk: '3007', eje: 'Carrera 7c', desde: 'Calle 182', hasta: 'Calle 182B', area: 179.85, lat: '4.759232', lng: '-74.028292', status: 'al-dia', progress: 72, plannedProgress: 70, supervisor: 'Ing. Andrés Castro' },
   { civ: '1000988', pk: '3008', eje: 'Carrera 7c', desde: 'Calle 182B', hasta: 'Calle 183', area: 189.49, lat: '4.759772', lng: '-74.028383', status: 'al-dia', progress: 50, plannedProgress: 50, supervisor: 'Ing. Andrés Castro' },
   { civ: '1000988', pk: '3009', eje: 'Carrera 7c', desde: 'Calle 182B', hasta: 'Calle 183', area: 109.85, lat: '4.759772', lng: '-74.028383', status: 'al-dia', progress: 45, plannedProgress: 50, supervisor: 'Ing. Andrés Castro' },
-  { civ: '1000720', pk: '20013130', eje: 'Calle 185 C bis', desde: 'Kr 3ª', hasta: 'Kr 4', area: 253.41, lat: '4.762149', lng: '-74.024926', status: 'al-dia', progress: 95, plannedProgress: 95, supervisor: 'Ing. Andrés Castro' }
+  { civ: '1000720', pk: '20013130', eje: 'Calle 185 C bis', desde: 'Kr 3ª', hasta: 'Kr 4', area: 253.41, lat: '4.762149', lng: '-74.024926', status: 'al-dia', progress: 95, plannedProgress: 95, supervisor: 'Ing. Andrés Castro' },
+  { 
+    civ: '1005243', 
+    pk: '20004062', 
+    eje: 'carrera 17A', 
+    desde: 'calle 109', 
+    hasta: 'calle 108', 
+    area: 91.5, 
+    lat: '4.693450', 
+    lng: '-74.047620', 
+    status: 'al-dia', 
+    progress: 25, 
+    plannedProgress: 25, 
+    supervisor: 'Ing. Javier Ruiz',
+    barrio: 'Santa Ana Occidental',
+    tipoIntervencion: 'Andén',
+    prioridad: 'Emergencia',
+    frenteNumber: 201,
+    alias: 'Frente 201 (Ítem 21)',
+    totalBudget: 44759461,
+    executedBudget: 11189865,
+    description: 'Tramo: calle 109 hasta calle 108 - Área: 91.5 m² - Andén Concreto MR-40 | Aprobado COI 33 del 13/08/2026 | Emergencia'
+  }
 ];
 
 // Generator to build enriched frentes list from raw configurations
@@ -176,16 +212,20 @@ const generateFrentes = (rawList, isMallaVial) => {
 
     return {
       id: `${isMallaVial ? 'f_mv' : 'f_ep'}_${index + 1}`,
-      frente: isMallaVial ? (index + 1) : (index + 101),
+      frente: f.frenteNumber || (isMallaVial ? (index + 1) : (index + 101)),
+      alias: f.alias || `Frente ${f.frenteNumber || (isMallaVial ? index + 1 : index + 101)}`,
       civ: f.civ,
       eje: f.eje,
       desde: f.desde,
       hasta: f.hasta,
+      barrio: f.barrio || '',
+      tipoIntervencion: f.tipoIntervencion || '',
+      prioridad: f.prioridad || 'Normal',
       name: `${isMallaVial ? 'Malla Vial' : 'Espacio Público'} - CIV ${f.civ} (${f.eje})`,
       description: f.description || `Tramo: ${f.desde} hasta ${f.hasta} - Área: ${f.area} m2 - Malla: ${f.type || 'N/A'}`,
       latitude: f.lat,
       longitude: f.lng,
-      supervisor: 'Ing. Luis Carlos Galvan',
+      supervisor: f.supervisor || 'Ing. Luis Carlos Galvan',
       progress: f.progress,
       plannedProgress: f.plannedProgress,
       status: f.status,
@@ -256,6 +296,7 @@ export default function App() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isInspectorMode, setIsInspectorMode] = useState(false);
   const [isContractorMode, setIsContractorMode] = useState(false);
+  const [isLandingOnlyMode, setIsLandingOnlyMode] = useState(false);
   const [designOverrides, setDesignOverrides] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem('geo_interventoria_design_overrides') || '{}');
@@ -437,13 +478,18 @@ export default function App() {
     }
 
     const params = new URLSearchParams(window.location.search);
-    if (params.get('mode') === 'inspector') {
+    const modeParam = params.get('mode') || params.get('view') || params.get('share');
+    if (modeParam === 'inspector') {
       setIsInspectorMode(true);
       setView('inspector-portal');
-    } else if (params.get('mode') === 'contractor') {
+    } else if (modeParam === 'contractor') {
       setIsContractorMode(true);
       setView('dashboard');
-    } else if (params.get('mode') === 'map') {
+    } else if (modeParam === 'landing' || modeParam === 'dashboard' || modeParam === 'landing-only') {
+      setIsContractorMode(true);
+      setIsLandingOnlyMode(true);
+      setView('dashboard');
+    } else if (modeParam === 'map' || modeParam === 'map-only') {
       setView('map-only');
     }
   }, []);
@@ -622,7 +668,7 @@ export default function App() {
   return (
     <div className="flex min-h-screen bg-[#f7f9fb] text-on-surface">
       {/* Sidebar Navigation */}
-      {!isInspectorMode && view !== 'map-only' && (
+      {!isInspectorMode && !isLandingOnlyMode && view !== 'map-only' && (
         <Sidebar 
           currentView={view} 
           onViewChange={handleViewChange} 
@@ -637,9 +683,39 @@ export default function App() {
       )}
 
       {/* Main Content routing with dynamic padding-left for sidebar offset */}
-      <div className={`flex-1 transition-all duration-300 min-w-0 ${(isInspectorMode || view === 'map-only') ? 'pl-0' : (isSidebarHovered ? 'md:pl-64 pl-0' : 'md:pl-16 pl-0')}`}>
+      <div className={`flex-1 transition-all duration-300 min-w-0 ${(isInspectorMode || isLandingOnlyMode || view === 'map-only') ? 'pl-0' : (isSidebarHovered ? 'md:pl-64 pl-0' : 'md:pl-16 pl-0')}`}>
+        {/* Landing Only Top Bar */}
+        {isLandingOnlyMode && (
+          <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 py-2.5 sticky top-0 z-30 shadow-xs flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                <span className="material-symbols-outlined text-lg">construction</span>
+              </div>
+              <div>
+                <span className="font-headline-md text-sm sm:text-base font-extrabold text-primary tracking-tight block leading-tight">
+                  INCOLTA SAS • Usaquén
+                </span>
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+                  Tablero de Control de Frentes (43 Frentes)
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <a 
+                href="/?mode=map"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/15 text-primary text-xs font-bold transition-all no-underline cursor-pointer"
+                title="Abrir mapa georreferenciado completo"
+              >
+                <span className="material-symbols-outlined text-sm">map</span>
+                <span className="hidden sm:inline">Ver Mapa Interactivo</span>
+                <span className="sm:hidden">Mapa</span>
+              </a>
+            </div>
+          </header>
+        )}
+
         {/* Mobile Header Bar */}
-        {!isInspectorMode && view !== 'map-only' && (
+        {!isInspectorMode && !isLandingOnlyMode && view !== 'map-only' && (
           <header className="flex items-center gap-3 bg-white border-b border-slate-200 px-4 py-3 md:hidden sticky top-0 z-30 shadow-xs">
             <button 
               onClick={() => setIsMobileSidebarOpen(true)}
@@ -656,6 +732,7 @@ export default function App() {
             </div>
           </header>
         )}
+        <Suspense fallback={<ViewLoadingFallback />}>
         {view === 'dashboard' && (
           <Dashboard 
             projects={projects} 
@@ -777,11 +854,38 @@ export default function App() {
           <InspectorPortal 
             weeklyReports={weeklyReports}
             onSaveFrenteData={handleSaveFrenteData}
+            onUpdateReports={handleUpdateWeeklyReports}
           />
         )}
 
         {view === 'map-only' && (
           <div className="map-only-view">
+            <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-2.5 flex items-center justify-between z-10 shadow-xs shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                  <span className="material-symbols-outlined text-lg">map</span>
+                </div>
+                <div>
+                  <h1 className="text-sm font-extrabold text-primary leading-tight">
+                    INCOLTA SAS • Mapa Georreferenciado
+                  </h1>
+                  <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
+                    Usaquén - 43 Frentes de Obra Georreferenciados
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href="/?mode=landing"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors no-underline cursor-pointer"
+                  title="Volver al tablero de frentes"
+                >
+                  <span className="material-symbols-outlined text-sm">view_agenda</span>
+                  <span className="hidden sm:inline">Ver Tablero de Frentes</span>
+                  <span className="sm:hidden">Frentes</span>
+                </a>
+              </div>
+            </header>
             <MapView 
               frentes={projects.flatMap(p => p.frentes || [])}
               isUnified={true}
@@ -808,6 +912,7 @@ export default function App() {
             `}} />
           </div>
         )}
+        </Suspense>
       </div>
     </div>
   );

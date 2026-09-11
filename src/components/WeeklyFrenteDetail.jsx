@@ -1,66 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Activity, FileText, Trash2, ArrowLeft, Image as ImageIcon, Plus, ChevronLeft, ChevronRight, X, Eye, Lock } from 'lucide-react';
 import { getDisenoForCiv } from '../data/frentesDisenos';
-
-const getVisualLayerStyle = (type) => {
-  switch (type) {
-    case 'asfalto':
-      return {
-        background: 'linear-gradient(135deg, #1e293b 25%, #334155 100%)',
-        color: '#f8fafc',
-        borderColor: '#0f172a'
-      };
-    case 'concreto':
-      return {
-        background: 'linear-gradient(to bottom, #e2e8f0 0%, #cbd5e1 100%)',
-        color: '#0f172a',
-        borderColor: '#94a3b8'
-      };
-    case 'base_cemento':
-      return {
-        background: 'repeating-linear-gradient(45deg, #fef08a, #fef08a 8px, #fde68a 8px, #fde68a 16px)',
-        color: '#713f12',
-        borderColor: '#d97706'
-      };
-    case 'subbase':
-    case 'subbase_cemento':
-      return {
-        background: '#fef08a',
-        backgroundImage: 'radial-gradient(#eab308 15%, transparent 16%)',
-        backgroundSize: '5px 5px',
-        color: '#713f12',
-        borderColor: '#ca8a04'
-      };
-    case 'geomalla':
-      return {
-        background: '#1e1b4b',
-        backgroundImage: 'linear-gradient(to right, #4f46e5 1px, transparent 1px), linear-gradient(to bottom, #4f46e5 1px, transparent 1px)',
-        backgroundSize: '3.5px 3.5px',
-        color: '#e0e7ff',
-        borderColor: '#312e81'
-      };
-    case 'geocelda':
-      return {
-        background: '#ffedd5',
-        backgroundImage: 'repeating-linear-gradient(90deg, #ea580c 0px, #ea580c 1.5px, transparent 1.5px, transparent 10px)',
-        color: '#c2410c',
-        borderColor: '#ea580c'
-      };
-    case 'geotextil':
-    case 'geotextil_nt':
-      return {
-        background: 'repeating-linear-gradient(90deg, #3b82f6, #3b82f6 5px, transparent 5px, transparent 10px)',
-        color: '#1e3a8a',
-        borderColor: '#2563eb'
-      };
-    default:
-      return {
-        background: '#cbd5e1',
-        color: '#334155',
-        borderColor: '#cbd5e1'
-      };
-  }
-};
+import { compressImage, generateStandardPhotoFileName, uploadPhotoResiliently } from '../utils/imageCompressor';
 
 export default function WeeklyFrenteDetail({ 
   report, 
@@ -175,43 +116,7 @@ export default function WeeklyFrenteDetail({
 
   const activeDesign = frente ? getDisenoForCiv(frente.civ) : null;
 
-  const compressImage = (file, maxWidth = 800, maxHeight = 800, quality = 0.7) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = (event) => {
-        const img = new Image();
-        img.src = event.target.result;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          let width = img.width;
-          let height = img.height;
-
-          if (width > height) {
-            if (width > maxWidth) {
-              height = Math.round((height * maxWidth) / width);
-              width = maxWidth;
-            }
-          } else {
-            if (height > maxHeight) {
-              width = Math.round((width * maxHeight) / height);
-              height = maxHeight;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', quality));
-        };
-        img.onerror = (err) => reject(err);
-      };
-      reader.onerror = (err) => reject(err);
-    });
-  };
-
-  // Get Supabase config from localStorage with defaults
+  // Configuración de Supabase para subidas resilientes
   let supabaseConfig = {
     supabaseUrl: 'https://rjghsenbsrprbajhkwxr.supabase.co',
     supabaseKey: 'sb_publishable_QQ_O2_zR4gy1jlJzoLc8uA_SIKzyZtS',
@@ -223,35 +128,8 @@ export default function WeeklyFrenteDetail({
       if (saved) {
         supabaseConfig = saved;
       }
-    } catch (e) {}
+    } catch {}
   }
-
-  const uploadToSupabase = async (supabaseUrl, supabaseKey, bucketName, filePath, base64Data) => {
-    const base64Response = await fetch(base64Data);
-    const blob = await base64Response.blob();
-
-    const cleanPath = filePath.replace(/^\//, '');
-    const url = `${supabaseUrl}/storage/v1/object/${bucketName}/${cleanPath}`;
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${supabaseKey}`,
-        'apikey': supabaseKey,
-        'Content-Type': blob.type || 'image/jpeg'
-      },
-      body: blob
-    });
-
-    if (!response.ok) {
-      const err = await response.json();
-      if (response.status !== 409) {
-        throw new Error(err.message || 'Error al subir a Supabase Storage');
-      }
-    }
-
-    return `${supabaseUrl}/storage/v1/object/public/${bucketName}/${cleanPath}`;
-  };
 
   const handlePhotoUpload = async (e) => {
     const files = Array.from(e.target.files);
@@ -260,76 +138,45 @@ export default function WeeklyFrenteDetail({
     for (const file of files) {
       if (file.type.startsWith('image/')) {
         try {
-          const base64 = await compressImage(file);
+          // Compresión de alta resolución en cliente (1600px, JPEG 0.82)
+          const base64 = await compressImage(file, 1600, 1600, 0.82);
           
-          // Standardized file name format: FECHA_2026-07-25_SEM31_FRENTE_f_mv_1_143059_a1b2.jpeg
           const dateCode = activeDateStr || new Date().toISOString().split('T')[0];
           const semCode = report ? report.numero_semana : 'XX';
-          const cleanFrenteId = (frente?.id || 'frente').replace(/[^a-zA-Z0-9_]/g, '');
-          const extMatch = file.name.match(/\.(jpg|jpeg|png|webp|jfif|heic)$/i);
-          const ext = extMatch ? extMatch[0].toLowerCase() : '.jpeg';
-          const timestamp = Date.now().toString().slice(-6);
-          const randomStr = Math.random().toString(36).substring(2, 6);
 
-          const fileName = `FECHA_${dateCode}_SEM${semCode}_FRENTE_${cleanFrenteId}_${timestamp}_${randomStr}${ext}`;
-          
-          let previewUrl = base64; // Fallback to base64 data URL
-          
-          let uploadedToSupabase = false;
-          if (supabaseConfig && supabaseConfig.supabaseUrl && supabaseConfig.supabaseKey) {
-            try {
-              const cloudUrl = await uploadToSupabase(
-                supabaseConfig.supabaseUrl,
-                supabaseConfig.supabaseKey,
-                supabaseConfig.supabaseBucket || 'frentes-fotos',
-                `semana_${report.numero_semana}/frente_${frente.id}/${fileName}`,
-                base64
-              );
-              previewUrl = cloudUrl;
-              uploadedToSupabase = true;
-            } catch (sErr) {
-              console.error("Error uploading to Supabase, falling back:", sErr);
-            }
-          }
+          const fileName = generateStandardPhotoFileName({
+            frenteId: frente?.id,
+            semana: semCode,
+            dateStr: dateCode,
+            originalName: file.name
+          });
 
-          if (!uploadedToSupabase) {
-            try {
-              const response = await fetch('/api/upload-photo', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  semana: report.numero_semana,
-                  frenteId: frente.id,
-                  fileName: fileName,
-                  base64: base64,
-                  bucket: supabaseConfig.supabaseBucket || 'frentes-fotos'
-                })
-              });
-              if (response.ok) {
-                const result = await response.json();
-                if (result.url) {
-                  previewUrl = result.url;
-                }
-              } else {
-                console.warn("Server upload failed, falling back to base64 previewUrl");
-              }
-            } catch (apiErr) {
-              console.warn("Could not save to backend server, using base64 preview:", apiErr);
-            }
-          }
+          // Subida resiliente a Supabase Storage con fallback
+          const uploadRes = await uploadPhotoResiliently({
+            semana: semCode,
+            frenteId: frente?.id,
+            fileName,
+            base64,
+            supabaseConfig,
+            bucket: supabaseConfig.supabaseBucket || 'frentes-fotos'
+          });
 
           uploadedPhotos.push({
             id: Date.now() + Math.random().toString(36).substring(2, 11),
-            url: previewUrl,
+            url: uploadRes.url || base64,
             caption: '',
-            date: activeDateStr // Statically bound to the active day
+            date: dateCode,
+            category: 'avance',
+            semana: semCode
           });
         } catch (err) {
-          console.error("Error processing photo:", err);
+          console.error("Error compressing or uploading photo:", err);
         }
       }
     }
-    setFotos(prev => [...prev, ...uploadedPhotos]);
+    if (uploadedPhotos.length > 0) {
+      setFotos(prev => [...prev, ...uploadedPhotos]);
+    }
   };
 
   const handleUpdateCaption = (photoId, caption) => {
@@ -633,53 +480,20 @@ export default function WeeklyFrenteDetail({
                         const file = e.target.files?.[0];
                         if (file) {
                           try {
-                            const base64 = await compressImage(file);
+                            const base64 = await compressImage(file, 1600, 1600, 0.82);
                             const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
                             const fileName = `perfil_${Date.now()}_${cleanName}`;
                             
-                            let finalUrl = base64;
-                            
-                            let uploadedToSupabase = false;
-                            if (supabaseConfig && supabaseConfig.supabaseUrl && supabaseConfig.supabaseKey) {
-                              try {
-                                const cloudUrl = await uploadToSupabase(
-                                  supabaseConfig.supabaseUrl,
-                                  supabaseConfig.supabaseKey,
-                                  supabaseConfig.supabaseBucket || 'frentes-fotos',
-                                  `semana_${report.numero_semana}/frente_${frente.id}/${fileName}`,
-                                  base64
-                                );
-                                finalUrl = cloudUrl;
-                                uploadedToSupabase = true;
-                              } catch (sErr) {
-                                console.error("Error uploading soil profile to Supabase:", sErr);
-                              }
-                            }
+                            const uploadRes = await uploadPhotoResiliently({
+                              semana: report?.numero_semana,
+                              frenteId: frente?.id,
+                              fileName,
+                              base64,
+                              supabaseConfig,
+                              bucket: supabaseConfig.supabaseBucket || 'frentes-fotos'
+                            });
 
-                            if (!uploadedToSupabase) {
-                              try {
-                                const response = await fetch('/api/upload-photo', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({
-                                    semana: report.numero_semana,
-                                    frenteId: frente.id,
-                                    fileName: fileName,
-                                    base64: base64
-                                  })
-                                });
-                                if (response.ok) {
-                                  const result = await response.json();
-                                  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-                                  if (result.url && isLocal) {
-                                    finalUrl = result.url;
-                                  }
-                                }
-                              } catch (apiErr) {
-                                console.warn("Could not save to server, using base64:", apiErr);
-                              }
-                            }
-                            setPerfilSueloImgUrl(finalUrl);
+                            setPerfilSueloImgUrl(uploadRes.url || base64);
                           } catch (err) {
                             console.error("Error uploading soil profile:", err);
                           }

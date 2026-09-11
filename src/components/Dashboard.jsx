@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { 
   Search, Calendar, MapPin, 
   ChevronLeft, ChevronRight, X, Eye, Image as ImageIcon, ArrowRight, Layers,
-  FileText, Copy, Check, Sparkles, Table, FileSpreadsheet, Download
+  FileText, Copy, Check, Sparkles, Table,
+  SlidersHorizontal, ArrowUpDown, CheckCircle2, AlertTriangle, Zap,
+  Building2, Route, Footprints, ShieldAlert, Clock3
 } from 'lucide-react';
 import { getDisenoForCiv } from '../data/frentesDisenos';
 import { 
@@ -13,6 +15,7 @@ import {
   generateMonthlyPhotosTSV 
 } from '../data/reportsWeekly';
 import MapView from './MapView';
+import StaticMapThumbnail from './StaticMapThumbnail';
 import L from 'leaflet';
 
 
@@ -28,58 +31,20 @@ let DefaultIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultIcon;
 
 
-// Mini Static Map component for each frente card (Zero Leaflet instances, 0 MB extra RAM)
+// Mini Static Map component for each frente card (High fidelity with Esri & Web Mercator)
 function MiniFrenteMap({ lat, lng, frenteId }) {
-  if (!lat || !lng) {
-    return (
-      <div className="w-full h-36 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-[10px] text-slate-400 italic">
-        Sin georreferenciación asignada
-      </div>
-    );
-  }
-
-  const parsedLat = parseFloat(lat);
-  const parsedLng = parseFloat(lng);
-
-  if (isNaN(parsedLat) || isNaN(parsedLng)) {
-    return (
-      <div className="w-full h-36 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-[10px] text-slate-400 italic">
-        Coordenadas inválidas
-      </div>
-    );
-  }
-
-  // Calculate static CartoDB basemap tile URL at zoom level 15
-  const zoom = 15;
-  const n = Math.pow(2, zoom);
-  const xTile = Math.floor(((parsedLng + 180) / 360) * n);
-  const latRad = (parsedLat * Math.PI) / 180;
-  const yTile = Math.floor(((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad))) / Math.PI) / 2 * n);
-
-  const tileUrl = `https://a.basemaps.cartocdn.com/light_all/${zoom}/${xTile}/${yTile}.png`;
-
   return (
     <div className="w-full h-36 rounded-lg border border-slate-200 overflow-hidden shadow-2xs bg-slate-100 relative group cursor-pointer">
-      {/* High-speed Static Tile Image */}
-      <img 
-        src={tileUrl} 
+      <StaticMapThumbnail 
+        lat={lat} 
+        lng={lng} 
+        zoom={15} 
+        width={340} 
+        height={144} 
+        className="group-hover:scale-105 transition-transform duration-300"
         alt={`Mapa Frente ${frenteId}`} 
-        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-        loading="lazy"
       />
-      
-      {/* Marker Pin Overlay at Center */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div className="relative -mt-4 animate-bounce" style={{ animationDuration: '2.5s' }}>
-          <div className="w-7 h-7 bg-primary rounded-full border-2 border-white shadow-lg flex items-center justify-center text-white">
-            <span className="material-symbols-outlined text-sm font-bold">location_on</span>
-          </div>
-          <div className="w-2 h-2 bg-primary/60 rounded-full mx-auto -mt-1 blur-[1px]"></div>
-        </div>
-      </div>
-
-      {/* Hover Overlay */}
-      <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center no-print">
+      <div className="absolute inset-0 bg-slate-900/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center no-print pointer-events-none">
         <span className="bg-white/95 text-slate-900 text-[10px] font-black px-2.5 py-1 rounded-md shadow-sm border border-slate-200">
           Ubicación Georreferenciada
         </span>
@@ -117,9 +82,12 @@ const getLayerColor = (type) => {
   }
 };
 
-export default function Dashboard({ projects = [], onSelectProject, onAddProject, isContractorMode, weeklyReports = [], onNavigateToReports }) {
+export default function Dashboard({ projects = [], onSelectProject, onAddProject: _onAddProject, isContractorMode, weeklyReports = [], onNavigateToReports }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'map'
+  const [contractFilter, setContractFilter] = useState('all'); // 'all', 'malla_vial', 'espacio_publico'
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'al-dia', 'alerta', 'emergencia'
+  const [sortBy, setSortBy] = useState('frente_asc'); // 'frente_asc', 'progress_desc', 'progress_asc', 'budget_desc', 'photos_desc'
   
   // Extract all unique weeks available from weeklyReports
   const availableWeeks = [...new Set((weeklyReports || []).map(r => r.numero_semana))].sort((a, b) => b - a);
@@ -207,7 +175,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
       const label = `${capitalizedMonth} ${year}`;
       const key = `${year}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       return { key, label };
-    } catch (e) {
+    } catch {
       return { key: 'sin_fecha', label: 'Sin fecha' };
     }
   };
@@ -272,7 +240,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
     try {
       const saved = localStorage.getItem('geo_interventoria_active_frentes');
       return saved ? JSON.parse(saved) : {};
-    } catch (e) {
+    } catch {
       return {};
     }
   });
@@ -285,7 +253,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
       const updated = { ...prev, [frenteId]: !current };
       try {
         localStorage.setItem('geo_interventoria_active_frentes', JSON.stringify(updated));
-      } catch (e) {}
+      } catch {}
       return updated;
     });
   };
@@ -311,7 +279,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
         d = new Date(dateStr);
       }
       return !isNaN(d.getTime()) ? d.getTime() : 0;
-    } catch (e) {
+    } catch {
       return 0;
     }
   };
@@ -470,33 +438,86 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
   // Option to show/hide inactive frentes on the main screen (Default: false = show ONLY active frentes)
   const [showInactiveFrentes, setShowInactiveFrentes] = useState(false);
 
-  // Filter frentes by text search, active state & daily report status
+  // Filter frentes by text search, active state, contract, status, daily report status & sorting
   const filteredFrentes = frentes.filter(f => {
     const { isActive, isMissingUpload, hasUploadToday } = getFrenteDailyUploadStatus(f);
 
     // By default, hide inactive/paused frentes from the main Dashboard screen
     if (!showInactiveFrentes && !isActive) return false;
 
-    const searchLower = searchTerm.toLowerCase();
-    const frenteVal = String(f.frente || '').toLowerCase();
-    const ejeVal = String(f.eje || '').toLowerCase();
-    const civVal = String(f.civ || '');
-    const projNameVal = String(f.projectName || '').toLowerCase();
-    
-    const matchesSearch = (
-      frenteVal.includes(searchLower) ||
-      ejeVal.includes(searchLower) ||
-      civVal.includes(searchLower) ||
-      projNameVal.includes(searchLower)
-    );
+    // Filter by Contract (Malla Vial vs Espacio Público)
+    if (contractFilter === 'malla_vial' && !f.id.startsWith('f_mv')) return false;
+    if (contractFilter === 'espacio_publico' && !f.id.startsWith('f_ep')) return false;
 
-    if (!matchesSearch) return false;
+    // Filter by Status
+    if (statusFilter === 'al-dia' && f.status !== 'al-dia') return false;
+    if (statusFilter === 'alerta' && f.status !== 'alerta') return false;
+    if (statusFilter === 'emergencia' && f.prioridad !== 'Emergencia') return false;
 
-    if (dailyReportFilter === 'pending') return isMissingUpload;
-    if (dailyReportFilter === 'reported') return hasUploadToday;
+    // Filter by Daily Report
+    if (dailyReportFilter === 'pending' && !isMissingUpload) return false;
+    if (dailyReportFilter === 'reported' && !hasUploadToday) return false;
+
+    // Universal Search
+    if (searchTerm.trim() !== '') {
+      const searchLower = searchTerm.toLowerCase().trim();
+      const frenteVal = String(f.frente || '').toLowerCase();
+      const aliasVal = String(f.alias || '').toLowerCase();
+      const ejeVal = String(f.eje || '').toLowerCase();
+      const civVal = String(f.civ || '');
+      const barrioVal = String(f.barrio || '').toLowerCase();
+      const projNameVal = String(f.projectName || '').toLowerCase();
+      const contractNoVal = String(f.contractNo || '').toLowerCase();
+      const priorityVal = String(f.prioridad || '').toLowerCase();
+
+      const matchesSearch = (
+        frenteVal.includes(searchLower) ||
+        aliasVal.includes(searchLower) ||
+        ejeVal.includes(searchLower) ||
+        civVal.includes(searchLower) ||
+        barrioVal.includes(searchLower) ||
+        projNameVal.includes(searchLower) ||
+        contractNoVal.includes(searchLower) ||
+        priorityVal.includes(searchLower)
+      );
+
+      if (!matchesSearch) return false;
+    }
 
     return true;
+  }).sort((a, b) => {
+    if (sortBy === 'progress_desc') return (b.progress || 0) - (a.progress || 0);
+    if (sortBy === 'progress_asc') return (a.progress || 0) - (b.progress || 0);
+    if (sortBy === 'budget_desc') return (b.financialMetrics?.totalBudget || 0) - (a.financialMetrics?.totalBudget || 0);
+    if (sortBy === 'photos_desc') return getFrentePhotos(b.id).length - getFrentePhotos(a.id).length;
+    // Default: Sort by frente number
+    return (Number(a.frente) || 0) - (Number(b.frente) || 0);
   });
+
+  // Calculate dynamic KPI metric counts
+  const totalCount = frentes.length;
+  const mvCount = frentes.filter(f => f.id.startsWith('f_mv')).length;
+  const epCount = frentes.filter(f => f.id.startsWith('f_ep')).length;
+  const pendingCount = frentes.filter(f => getFrenteDailyUploadStatus(f).isMissingUpload).length;
+  const reportedCount = frentes.filter(f => getFrenteDailyUploadStatus(f).hasUploadToday).length;
+  const emergencyCount = frentes.filter(f => f.prioridad === 'Emergencia').length;
+  const avgProgress = totalCount > 0 ? Math.round(frentes.reduce((acc, f) => acc + (f.progress || 0), 0) / totalCount) : 0;
+
+  const hasActiveFilters = (
+    searchTerm.trim() !== '' ||
+    contractFilter !== 'all' ||
+    statusFilter !== 'all' ||
+    dailyReportFilter !== 'all' ||
+    sortBy !== 'frente_asc'
+  );
+
+  const handleClearAllFilters = () => {
+    setSearchTerm('');
+    setContractFilter('all');
+    setStatusFilter('all');
+    setDailyReportFilter('all');
+    setSortBy('frente_asc');
+  };
 
   // Lightbox opening handler
   const handleOpenLightbox = (photosList, photoIndex) => {
@@ -571,50 +592,50 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
   const activeReport = (weeklyReports || []).find(r => r.numero_semana === Number(selectedWeek));
 
   return (
-    <div className="flex-1 p-gutter max-w-container-max mx-auto grid-bg min-h-screen pb-16 relative">
+    <div className="flex-1 px-3 py-4 sm:px-6 sm:py-6 max-w-container-max mx-auto grid-bg min-h-screen pb-16 relative">
       
       {/* 1. Header Hero Banner with INCOLTA SAS and Radar Telemetry */}
-      <section className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white rounded-2xl p-8 mb-8 shadow-md no-print">
+      <section className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white rounded-xl sm:rounded-2xl p-5 sm:p-8 mb-5 sm:mb-6 shadow-md no-print">
         <div className="relative z-10 max-w-2xl">
-          <span className="bg-indigo-500/20 text-indigo-300 font-extrabold text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full border border-indigo-500/30 inline-block mb-3.5">
+          <span className="bg-indigo-500/20 text-indigo-300 font-extrabold text-[9.5px] sm:text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full border border-indigo-500/30 inline-block mb-3">
             {isContractorMode ? 'INCOLTA SAS • PORTAL DEL CONTRATISTA' : 'INCOLTA SAS • CONSOLA DE AUDITORÍA'}
           </span>
-          <h1 className="text-3xl md:text-4xl font-black font-headline tracking-tight text-white mb-2 leading-tight">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black font-headline tracking-tight text-white mb-2 leading-tight">
             INCOLTA <span className="text-cyan-400">SAS</span> — Control de Frentes
           </h1>
-          <p className="text-slate-350 text-xs md:text-sm leading-relaxed mb-6 font-medium max-w-xl">
+          <p className="text-slate-350 text-xs sm:text-sm leading-relaxed mb-4 sm:mb-6 font-medium max-w-xl">
             Plataforma didáctica de interventoría y control. Navega por semanas de avance físico, visualiza las estructuras de suelo certificadas y consulta registros fotográficos de campo.
           </p>
           
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
               onClick={() => setViewMode('grid')}
-              className={`text-xs font-bold px-4 py-2 rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`text-xs font-bold px-3.5 sm:px-4 py-2 rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1.5 flex-1 sm:flex-initial ${
                 viewMode === 'grid' 
                   ? 'bg-white text-slate-900 border-white shadow-sm' 
                   : 'bg-white/10 text-white border-white/10 hover:bg-white/15'
               }`}
             >
               <Layers size={14} />
-              Ver Cuadrícula de Frentes
+              <span>Cuadrícula</span>
             </button>
             <button
               onClick={() => setViewMode('map')}
-              className={`text-xs font-bold px-4 py-2 rounded-lg border transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`text-xs font-bold px-3.5 sm:px-4 py-2 rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1.5 flex-1 sm:flex-initial ${
                 viewMode === 'map' 
                   ? 'bg-white text-slate-900 border-white shadow-sm' 
                   : 'bg-white/10 text-white border-white/10 hover:bg-white/15'
               }`}
             >
               <MapPin size={14} />
-              Ver Mapa Unificado
+              <span>Mapa Unificado</span>
             </button>
             <button
               onClick={() => setShowMonthlyCopyModal(true)}
-              className="bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black px-4 py-2 rounded-lg transition-all shadow-md flex items-center gap-2 cursor-pointer border border-amber-300 active:scale-95"
+              className="bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black px-3.5 sm:px-4 py-2 rounded-lg transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer border border-amber-300 active:scale-95 w-full sm:w-auto"
             >
-              <FileText size={15} />
-              <span>Copiar Datos del Mes (IA / Word)</span>
+              <FileText size={14} />
+              <span>Copiar Datos del Mes (Word / IA)</span>
             </button>
           </div>
         </div>
@@ -639,111 +660,421 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
         </div>
       </section>
 
-      {/* 2. Search, Month/Week Filter & Print Toolbar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col md:flex-row justify-between items-center gap-3 mb-4 no-print">
-        
-        {/* Search Input */}
-        <div className="flex-1 w-full relative">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Buscar por frente, eje vial, número de CIV o contrato..."
-            className="w-full bg-slate-50 border border-slate-250 rounded-lg pl-9 pr-4 py-2 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary/20"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-
-        {/* Filter Mode Selector (Por Mes vs Por Semana) */}
-        <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 shrink-0 w-full md:w-auto justify-center">
-          <button
-            onClick={() => setPhotoFilterMode('month')}
-            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
-              photoFilterMode === 'month' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Calendar size={13} className="text-primary" />
-            Fotos por Mes
-          </button>
-          <button
-            onClick={() => setPhotoFilterMode('week')}
-            className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
-              photoFilterMode === 'week' ? 'bg-white text-primary shadow-xs' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <ImageIcon size={13} className="text-slate-500" />
-            Fotos por Semana
-          </button>
-        </div>
-
-        {/* Global Month Selector */}
-        {photoFilterMode === 'month' ? (
-          <div className="flex items-center gap-2 shrink-0 w-full md:w-auto bg-indigo-50/60 border border-indigo-150 rounded-lg px-3 py-1.5 justify-between md:justify-start">
-            <div className="flex items-center gap-1.5">
-              <Calendar size={14} className="text-primary" />
-              <span className="text-[10px] text-primary font-extrabold uppercase tracking-wider">Mes:</span>
-            </div>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="bg-transparent text-slate-900 text-xs font-black focus:outline-none cursor-pointer border-none py-0.5 pr-2"
-            >
-              <option value="all">Todos los Meses</option>
-              {availableMonths.map(m => (
-                <option key={m.key} value={m.key}>{m.label}</option>
-              ))}
-            </select>
-          </div>
-        ) : (
-          /* Global Week Selector */
-          <div className="flex items-center gap-2 shrink-0 w-full md:w-auto bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 justify-between md:justify-start">
-            <div className="flex items-center gap-1.5">
-              <Calendar size={14} className="text-primary" />
-              <span className="text-[10px] text-slate-455 font-bold uppercase tracking-wider">Semana:</span>
-            </div>
-            <select
-              value={selectedWeek}
-              onChange={(e) => setSelectedWeek(Number(e.target.value))}
-              className="bg-transparent text-slate-900 text-xs font-black focus:outline-none cursor-pointer border-none py-0.5 pr-2"
-            >
-              {availableWeeks.map(wNum => (
-                <option key={wNum} value={wNum}>Semana {wNum}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Dates Range Label */}
-        {activeReport && (
-          <div className="text-[10px] font-bold text-slate-500 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg shrink-0 w-full md:w-auto text-center font-mono">
-            Período: {activeReport.fecha_inicial_corte} al {activeReport.fecha_final_corte}
-          </div>
-        )}
-
-        {/* Print Report Button */}
+      {/* 1.5 Interactive KPI Telemetry Strip */}
+      <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 mb-5 sm:mb-6 no-print">
+        {/* Total Frentes */}
         <button
-          onClick={() => window.print()}
-          className="bg-[#00236f] hover:bg-slate-800 text-white text-xs font-black px-4 py-2 rounded-lg transition-all active:scale-95 duration-100 flex items-center gap-1.5 shadow-sm cursor-pointer shrink-0 w-full md:w-auto justify-center"
+          type="button"
+          onClick={handleClearAllFilters}
+          className={`p-3 sm:p-3.5 rounded-xl border text-left transition-all duration-200 cursor-pointer relative overflow-hidden group ${
+            contractFilter === 'all' && statusFilter === 'all' && dailyReportFilter === 'all'
+              ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-slate-900/20'
+              : 'bg-white text-slate-800 border-slate-200 hover:border-slate-300 hover:shadow-xs'
+          }`}
+          title="Ver todos los frentes sin filtros"
         >
-          <span className="material-symbols-outlined text-sm font-bold">print</span>
-          Imprimir Informe
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider opacity-75">Total Frentes</span>
+            <Building2 size={14} className="opacity-70 group-hover:scale-110 transition-transform" />
+          </div>
+          <div className="text-xl sm:text-2xl font-black font-mono-numbers tracking-tight">{totalCount}</div>
+          <div className="text-[9.5px] sm:text-[10px] font-medium opacity-65 truncate mt-0.5">22 MV • 21 EP ({avgProgress}% av.)</div>
         </button>
 
-        {/* Quick Monthly Copy Button */}
+        {/* Malla Vial */}
         <button
-          onClick={() => setShowMonthlyCopyModal(true)}
-          className="bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black px-4 py-2 rounded-lg transition-all active:scale-95 flex items-center gap-1.5 shadow-sm cursor-pointer shrink-0 w-full md:w-auto justify-center border border-amber-400"
-          title="Copiar datos consolidados del mes seleccionado"
+          type="button"
+          onClick={() => setContractFilter(prev => prev === 'malla_vial' ? 'all' : 'malla_vial')}
+          className={`p-3 sm:p-3.5 rounded-xl border text-left transition-all duration-200 cursor-pointer relative overflow-hidden group ${
+            contractFilter === 'malla_vial'
+              ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-500/30'
+              : 'bg-white text-slate-800 border-slate-200 hover:border-blue-300 hover:shadow-xs'
+          }`}
+          title="Filtrar frentes del contrato de Malla Vial"
         >
-          <FileText size={15} />
-          <span>Copiar Datos del Mes</span>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider opacity-75">Malla Vial</span>
+            <Route size={14} className={contractFilter === 'malla_vial' ? 'text-white' : 'text-blue-500'} />
+          </div>
+          <div className={`text-xl sm:text-2xl font-black font-mono-numbers tracking-tight ${contractFilter === 'malla_vial' ? 'text-white' : 'text-blue-600'}`}>{mvCount}</div>
+          <div className="text-[9.5px] sm:text-[10px] font-medium opacity-65 truncate mt-0.5">IDU-Usaquén-CONS</div>
         </button>
 
-        <div className="text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-200 px-3 py-2 rounded-lg shrink-0 w-full md:w-auto text-center">
-          Frentes: <strong className="text-slate-700 font-mono-numbers">{filteredFrentes.length}</strong> de <strong className="text-slate-700 font-mono-numbers">{frentes.length}</strong>
+        {/* Espacio Público */}
+        <button
+          type="button"
+          onClick={() => setContractFilter(prev => prev === 'espacio_publico' ? 'all' : 'espacio_publico')}
+          className={`p-3 sm:p-3.5 rounded-xl border text-left transition-all duration-200 cursor-pointer relative overflow-hidden group ${
+            contractFilter === 'espacio_publico'
+              ? 'bg-indigo-600 text-white border-indigo-600 shadow-md ring-2 ring-indigo-500/30'
+              : 'bg-white text-slate-800 border-slate-200 hover:border-indigo-300 hover:shadow-xs'
+          }`}
+          title="Filtrar frentes del contrato de Espacio Público"
+        >
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider opacity-75">Espacio Público</span>
+            <Footprints size={14} className={contractFilter === 'espacio_publico' ? 'text-white' : 'text-indigo-500'} />
+          </div>
+          <div className={`text-xl sm:text-2xl font-black font-mono-numbers tracking-tight ${contractFilter === 'espacio_publico' ? 'text-white' : 'text-indigo-600'}`}>{epCount}</div>
+          <div className="text-[9.5px] sm:text-[10px] font-medium opacity-65 truncate mt-0.5">IDU-ESP-2026-042</div>
+        </button>
+
+        {/* Al Día */}
+        <button
+          type="button"
+          onClick={() => setDailyReportFilter(prev => prev === 'reported' ? 'all' : 'reported')}
+          className={`p-3 sm:p-3.5 rounded-xl border text-left transition-all duration-200 cursor-pointer relative overflow-hidden group ${
+            dailyReportFilter === 'reported'
+              ? 'bg-emerald-600 text-white border-emerald-600 shadow-md ring-2 ring-emerald-500/30'
+              : 'bg-white text-slate-800 border-slate-200 hover:border-emerald-300 hover:shadow-xs'
+          }`}
+          title="Filtrar frentes con reporte diario cargado hoy"
+        >
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider opacity-75">Reportes Al Día</span>
+            <CheckCircle2 size={14} className={dailyReportFilter === 'reported' ? 'text-white' : 'text-emerald-500'} />
+          </div>
+          <div className={`text-xl sm:text-2xl font-black font-mono-numbers tracking-tight ${dailyReportFilter === 'reported' ? 'text-white' : 'text-emerald-600'}`}>{reportedCount}</div>
+          <div className="text-[9.5px] sm:text-[10px] font-medium opacity-65 truncate mt-0.5">Control diario al día</div>
+        </button>
+
+        {/* Pendientes Hoy */}
+        <button
+          type="button"
+          onClick={() => setDailyReportFilter(prev => prev === 'pending' ? 'all' : 'pending')}
+          className={`p-3 sm:p-3.5 rounded-xl border text-left transition-all duration-200 cursor-pointer relative overflow-hidden group ${
+            dailyReportFilter === 'pending'
+              ? 'bg-amber-500 text-white border-amber-600 shadow-md ring-2 ring-amber-400/30'
+              : 'bg-white text-slate-800 border-slate-200 hover:border-amber-300 hover:shadow-xs'
+          }`}
+          title="Filtrar frentes activos pendientes por reporte diario"
+        >
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider opacity-75">Pendientes Hoy</span>
+            <Clock3 size={14} className={dailyReportFilter === 'pending' ? 'text-white' : 'text-amber-500'} />
+          </div>
+          <div className={`text-xl sm:text-2xl font-black font-mono-numbers tracking-tight ${dailyReportFilter === 'pending' ? 'text-white' : 'text-amber-600'}`}>{pendingCount}</div>
+          <div className="text-[9.5px] sm:text-[10px] font-medium opacity-65 truncate mt-0.5">Requieren reporte</div>
+        </button>
+
+        {/* Emergencia */}
+        <button
+          type="button"
+          onClick={() => setStatusFilter(prev => prev === 'emergencia' ? 'all' : 'emergencia')}
+          className={`p-3 sm:p-3.5 rounded-xl border text-left transition-all duration-200 cursor-pointer relative overflow-hidden group ${
+            statusFilter === 'emergencia'
+              ? 'bg-rose-600 text-white border-rose-600 shadow-md ring-2 ring-rose-400/30'
+              : 'bg-white text-slate-800 border-slate-200 hover:border-rose-300 hover:shadow-xs'
+          }`}
+          title="Filtrar frentes con prioridad de Emergencia"
+        >
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider opacity-75">Emergencia</span>
+            <ShieldAlert size={14} className={statusFilter === 'emergencia' ? 'text-white' : 'text-rose-500'} />
+          </div>
+          <div className={`text-xl sm:text-2xl font-black font-mono-numbers tracking-tight ${statusFilter === 'emergencia' ? 'text-white' : 'text-rose-600'}`}>{emergencyCount}</div>
+          <div className="text-[9.5px] sm:text-[10px] font-medium opacity-65 truncate mt-0.5">Frente 201 • COI 33</div>
+        </button>
+      </section>
+
+      {/* 2. Unified Smart Filter Bar */}
+      <section className="bg-white border border-slate-200 rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-sm mb-5 sm:mb-6 no-print space-y-3">
+        {/* Row 1: Search + Contract Tabs + View Modes */}
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5 sm:gap-3">
+          {/* Universal Search with Quick Clear Button */}
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Buscar por frente (ej: 201), CIV (1005243), eje vial, barrio (Santa Ana) o contrato..."
+              className="w-full bg-slate-50 border border-slate-250 hover:border-slate-300 focus:border-primary rounded-xl pl-9 pr-9 py-2 sm:py-2.5 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/15 transition-all"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-200 transition-colors cursor-pointer"
+                title="Borrar búsqueda"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Contract Segmented Tabs */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setContractFilter('all')}
+              className={`flex-1 sm:flex-initial px-3 py-1.5 text-[11px] sm:text-xs font-extrabold rounded-lg transition-all cursor-pointer text-center ${
+                contractFilter === 'all'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Todos ({totalCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setContractFilter('malla_vial')}
+              className={`flex-1 sm:flex-initial px-3 py-1.5 text-[11px] sm:text-xs font-extrabold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                contractFilter === 'malla_vial'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Route size={13} />
+              <span>Malla Vial ({mvCount})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setContractFilter('espacio_publico')}
+              className={`flex-1 sm:flex-initial px-3 py-1.5 text-[11px] sm:text-xs font-extrabold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                contractFilter === 'espacio_publico'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Footprints size={13} />
+              <span>Espacio Público ({epCount})</span>
+            </button>
+          </div>
+
+          {/* View Toggle */}
+          <div className="flex items-center justify-center bg-slate-100 p-1 rounded-xl border border-slate-200 shrink-0 self-center w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setViewMode('grid')}
+              className={`flex-1 sm:flex-initial p-1.5 sm:p-2 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-bold ${
+                viewMode === 'grid' ? 'bg-white text-primary shadow-xs' : 'text-slate-500 hover:text-slate-800'
+              }`}
+              title="Vista en Cuadrícula"
+            >
+              <Layers size={14} />
+              <span>Tarjetas</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('map')}
+              className={`flex-1 sm:flex-initial p-1.5 sm:p-2 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs font-bold ${
+                viewMode === 'map' ? 'bg-white text-primary shadow-xs' : 'text-slate-500 hover:text-slate-800'
+              }`}
+              title="Vista en Mapa"
+            >
+              <MapPin size={14} />
+              <span>Mapa</span>
+            </button>
+          </div>
         </div>
 
-      </div>
+        {/* Row 2: Status Chips, Sort, Period Selector, Actions */}
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2.5 pt-2 border-t border-slate-100">
+          {/* Status & Daily Verification Chips (Horizontal touch scrollable on mobile) */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 xl:pb-0 scrollbar-none w-full xl:w-auto">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mr-1 flex items-center gap-1 shrink-0">
+              <SlidersHorizontal size={11} /> Estado:
+            </span>
+            <button
+              type="button"
+              onClick={() => { setDailyReportFilter('all'); setStatusFilter('all'); }}
+              className={`shrink-0 px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
+                dailyReportFilter === 'all' && statusFilter === 'all'
+                  ? 'bg-slate-800 text-white border-slate-800'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              Todos
+            </button>
+            <button
+              type="button"
+              onClick={() => setDailyReportFilter(prev => prev === 'reported' ? 'all' : 'reported')}
+              className={`shrink-0 px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
+                dailyReportFilter === 'reported'
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                  : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+              }`}
+            >
+              <CheckCircle2 size={12} />
+              Al Día ({reportedCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setDailyReportFilter(prev => prev === 'pending' ? 'all' : 'pending')}
+              className={`shrink-0 px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
+                dailyReportFilter === 'pending'
+                  ? 'bg-amber-500 text-white border-amber-600 shadow-xs'
+                  : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+              }`}
+            >
+              <Clock3 size={12} />
+              Pendientes Hoy ({pendingCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter(prev => prev === 'emergencia' ? 'all' : 'emergencia')}
+              className={`shrink-0 px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
+                statusFilter === 'emergencia'
+                  ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                  : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'
+              }`}
+            >
+              <ShieldAlert size={12} />
+              Emergencias ({emergencyCount})
+            </button>
+          </div>
+
+          {/* Sorting & Period Selection & Tool Actions */}
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            {/* Sort Dropdown */}
+            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1">
+              <ArrowUpDown size={12} className="text-slate-400" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-transparent text-[11px] font-bold text-slate-700 focus:outline-none cursor-pointer border-none py-0.5 pr-1"
+              >
+                <option value="frente_asc">Orden: N° Frente</option>
+                <option value="progress_desc">Mayor Avance (%)</option>
+                <option value="progress_asc">Menor Avance (%)</option>
+                <option value="budget_desc">Mayor Presupuesto</option>
+                <option value="photos_desc">Más Fotografías</option>
+              </select>
+            </div>
+
+            {/* Period Selector (Month / Week) */}
+            <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1">
+              <Calendar size={12} className="text-primary" />
+              {photoFilterMode === 'month' ? (
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="bg-transparent text-[11px] font-bold text-slate-800 focus:outline-none cursor-pointer border-none py-0.5 pr-1"
+                >
+                  <option value="all">Todos los Meses</option>
+                  {availableMonths.map(m => (
+                    <option key={m.key} value={m.key}>{m.label}</option>
+                  ))}
+                </select>
+              ) : (
+                <select
+                  value={selectedWeek}
+                  onChange={(e) => setSelectedWeek(Number(e.target.value))}
+                  className="bg-transparent text-[11px] font-bold text-slate-800 focus:outline-none cursor-pointer border-none py-0.5 pr-1"
+                >
+                  {availableWeeks.map(wNum => (
+                    <option key={wNum} value={wNum}>Semana {wNum}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Quick Actions Menu */}
+            <button
+              type="button"
+              onClick={() => setShowInactiveFrentes(prev => !prev)}
+              className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border transition-all flex items-center gap-1 cursor-pointer ${
+                showInactiveFrentes
+                  ? 'bg-amber-100 text-amber-900 border-amber-300'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+              title="Mostrar u ocultar los frentes inactivos"
+            >
+              <Eye size={12} />
+              <span className="hidden sm:inline">{showInactiveFrentes ? 'Inactivos visibles' : 'Sin inactivos'}</span>
+              <span className="sm:hidden">Inactivos</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsManageActiveModalOpen(true)}
+              className="bg-indigo-50 hover:bg-indigo-100 text-primary border border-indigo-200 text-[11px] font-bold px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+              title="Configurar qué frentes están actualmente activos"
+            >
+              <span className="material-symbols-outlined text-[13px]">tune</span>
+              <span>Gestionar</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowMonthlyCopyModal(true)}
+              className="bg-amber-400 hover:bg-amber-300 text-slate-950 text-[11px] font-black px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer border border-amber-400 active:scale-95 shadow-2xs"
+              title="Copiar datos consolidados del mes seleccionado"
+            >
+              <FileText size={13} />
+              <span>Copiar Mes</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="bg-[#00236f] hover:bg-slate-800 text-white text-[11px] font-black px-3 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-xs active:scale-95"
+            >
+              <span className="material-symbols-outlined text-[13px]">print</span>
+              <span>Imprimir</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Row 3: Active Filter Tags & Result Counter */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mostrando:</span>
+            <span className="bg-slate-100 text-slate-800 font-extrabold text-[11px] px-2 py-0.5 rounded font-mono-numbers">
+              {filteredFrentes.length} de {frentes.length} frentes
+            </span>
+
+            {/* Active filter badges with 1-click removal */}
+            {searchTerm && (
+              <span className="bg-primary/10 text-primary border border-primary/20 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                Búsqueda: "{searchTerm}"
+                <button type="button" onClick={() => setSearchTerm('')} className="hover:text-primary cursor-pointer"><X size={10} /></button>
+              </span>
+            )}
+            {contractFilter !== 'all' && (
+              <span className="bg-blue-50 text-blue-800 border border-blue-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                {contractFilter === 'malla_vial' ? 'Malla Vial' : 'Espacio Público'}
+                <button type="button" onClick={() => setContractFilter('all')} className="hover:text-blue-950 cursor-pointer"><X size={10} /></button>
+              </span>
+            )}
+            {dailyReportFilter !== 'all' && (
+              <span className="bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                {dailyReportFilter === 'pending' ? 'Pendientes Hoy' : 'Al Día'}
+                <button type="button" onClick={() => setDailyReportFilter('all')} className="hover:text-amber-950 cursor-pointer"><X size={10} /></button>
+              </span>
+            )}
+            {statusFilter !== 'all' && (
+              <span className="bg-rose-50 text-rose-800 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                {statusFilter === 'emergencia' ? 'Emergencias' : statusFilter}
+                <button type="button" onClick={() => setStatusFilter('all')} className="hover:text-rose-950 cursor-pointer"><X size={10} /></button>
+              </span>
+            )}
+            {sortBy !== 'frente_asc' && (
+              <span className="bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                Ordenado
+                <button type="button" onClick={() => setSortBy('frente_asc')} className="hover:text-slate-900 cursor-pointer"><X size={10} /></button>
+              </span>
+            )}
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={handleClearAllFilters}
+                className="text-[10px] font-extrabold text-rose-600 hover:text-rose-800 hover:underline ml-1 cursor-pointer"
+              >
+                Limpiar filtros
+              </button>
+            )}
+          </div>
+
+          {activeReport && (
+            <div className="text-[10px] font-bold text-slate-500 font-mono">
+              Semana {selectedWeek} • Corte: {activeReport.fecha_inicial_corte} al {activeReport.fecha_final_corte}
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* Print-only Report Header */}
       <div className="hidden print-report-header mb-6 pb-4 border-b-2 border-slate-800">
@@ -762,80 +1093,6 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
               </p>
             )}
           </div>
-        </div>
-      </div>
-
-      {/* 2.5 Daily Upload Verification Filter Bar */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm mb-6 flex flex-col md:flex-row items-center justify-between gap-3 no-print">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-primary text-base">verified</span>
-            Verificación Reporte Diario:
-          </span>
-          {(() => {
-            const pendingCount = frentes.filter(f => getFrenteDailyUploadStatus(f).isMissingUpload).length;
-            const reportedCount = frentes.filter(f => getFrenteDailyUploadStatus(f).hasUploadToday).length;
-            return (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => setDailyReportFilter('all')}
-                  className={`px-3 py-1 text-[11px] font-extrabold rounded-md border transition-all cursor-pointer ${
-                    dailyReportFilter === 'all' ? 'bg-slate-800 text-white border-slate-800' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  Todos ({frentes.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDailyReportFilter('pending')}
-                  className={`px-3 py-1 text-[11px] font-extrabold rounded-md border transition-all cursor-pointer flex items-center gap-1 ${
-                    dailyReportFilter === 'pending' 
-                      ? 'bg-amber-500 text-white border-amber-600 shadow-sm animate-pulse' 
-                      : 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-xs">warning</span>
-                  ⚠️ Pendientes Hoy ({pendingCount})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDailyReportFilter('reported')}
-                  className={`px-3 py-1 text-[11px] font-extrabold rounded-md border transition-all cursor-pointer flex items-center gap-1 ${
-                    dailyReportFilter === 'reported' ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-xs">check_circle</span>
-                  ✓ Al Día ({reportedCount})
-                </button>
-              </div>
-            );
-          })()}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowInactiveFrentes(prev => !prev)}
-            className={`text-xs font-black px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-              showInactiveFrentes 
-                ? 'bg-amber-100 text-amber-900 border-amber-300' 
-                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-            }`}
-            title="Mostrar u ocultar los frentes que están en estado inactivo o pausado"
-          >
-            <Eye size={13} />
-            {showInactiveFrentes ? 'Ocultar Inactivos' : 'Incluir Inactivos'}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsManageActiveModalOpen(true)}
-            className="bg-indigo-50 hover:bg-indigo-100 text-primary border border-indigo-200 text-xs font-black px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
-          >
-            <span className="material-symbols-outlined text-sm">tune</span>
-            Definir Frentes Activos
-          </button>
         </div>
       </div>
 
@@ -883,11 +1140,29 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                 <div>
                   <div className="flex justify-between items-start mb-2">
                     <div>
-                      <h3 className="font-headline font-black text-slate-900 text-lg leading-tight uppercase">
-                        FRENTE {frente.frente} — CIV {frente.civ}
-                      </h3>
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <h3 className="font-headline font-black text-slate-900 text-lg leading-tight uppercase">
+                          {frente.alias ? frente.alias : `FRENTE ${frente.frente}`} — CIV {frente.civ}
+                        </h3>
+                        {frente.prioridad === 'Emergencia' && (
+                          <span className="bg-rose-600 text-white text-[9.5px] font-black uppercase px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
+                            <ShieldAlert size={11} />
+                            Emergencia (COI 33)
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-slate-550 font-bold leading-normal mt-1">
                         Ubicación: <span className="text-slate-700 font-semibold">{frente.eje}</span>
+                        {frente.barrio && (
+                          <span className="ml-2 text-slate-500 font-normal">
+                            • Sector: <strong className="text-slate-700">{frente.barrio}</strong>
+                          </span>
+                        )}
+                        {frente.tipoIntervencion && (
+                          <span className="ml-2 text-slate-500 font-normal">
+                            • Tipo: <strong className="text-slate-700">{frente.tipoIntervencion}</strong>
+                          </span>
+                        )}
                       </p>
                     </div>
                     
@@ -1120,7 +1395,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                           <span>({photos.length} fotos)</span>
                         </div>
                         <div className="flex gap-2.5 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-slate-300">
-                          {photos.map((photo, pIdx) => (
+                          {photos.map((photo) => (
                             <div 
                               key={photo.id}
                               onClick={() => handleOpenLightbox(allPhotosHistory, allPhotosHistory.findIndex(p => p.id === photo.id))}
@@ -1485,8 +1760,9 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                           <Copy size={15} className="text-white/80" />
                         )}
                       </div>
-                      <h4 className="font-black text-xs text-white mb-0.5">
-                        📋 Copiar Datos Reales del Mes
+                      <h4 className="font-black text-xs text-white mb-0.5 flex items-center gap-1.5">
+                        <FileText size={14} />
+                        <span>Copiar Datos Consolidados</span>
                       </h4>
                       <p className="text-[10px] text-slate-200 leading-tight">
                         Capas de pavimento, hitos semanales, bitácoras y fotos frente por frente.
@@ -1519,8 +1795,9 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                           <Sparkles size={15} className="text-slate-950" />
                         )}
                       </div>
-                      <h4 className="font-black text-xs text-slate-950 mb-0.5">
-                        🤖 Copiar Prompt para IA
+                      <h4 className="font-black text-xs text-slate-950 mb-0.5 flex items-center gap-1.5">
+                        <Sparkles size={14} />
+                        <span>Generar Prompt para IA</span>
                       </h4>
                       <p className="text-[10px] text-slate-900 leading-tight font-medium">
                         Instrucción ultra-compacta para redactar el informe en ChatGPT / Claude.
@@ -1553,8 +1830,9 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                           <Table size={15} className="text-white/80" />
                         )}
                       </div>
-                      <h4 className="font-black text-xs text-white mb-0.5">
-                        📊 Copiar Tabla para Excel (TSV)
+                      <h4 className="font-black text-xs text-white mb-0.5 flex items-center gap-1.5">
+                        <Table size={14} />
+                        <span>Exportar Tabla Excel (TSV)</span>
                       </h4>
                       <p className="text-[10px] text-emerald-100 leading-tight">
                         Columnas tabuladas para pegar directamente en celdas de Excel.
@@ -1587,8 +1865,9 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                           <ImageIcon size={15} className="text-white/80" />
                         )}
                       </div>
-                      <h4 className="font-black text-xs text-white mb-0.5">
-                        📸 Copiar Fotos del Mes
+                      <h4 className="font-black text-xs text-white mb-0.5 flex items-center gap-1.5">
+                        <ImageIcon size={14} />
+                        <span>Exportar Registro Fotográfico</span>
                       </h4>
                       <p className="text-[10px] text-purple-100 leading-tight">
                         Listado con fechas, anotaciones y enlaces públicos de fotos.

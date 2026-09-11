@@ -22,7 +22,8 @@ export default function Sidebar({
   const internalMenuItems = [
     { id: 'reports', label: 'Informes Mensuales y Actas', icon: 'description' },
     { id: 'contractor-hub', label: 'Compartir Hub Contratista', icon: 'share', isAction: true },
-
+    { id: 'share-landing', label: 'Compartir Landing Frentes', icon: 'public', isAction: true },
+    { id: 'share-map', label: 'Compartir Mapa de Obra', icon: 'map', isAction: true },
     { id: 'inspector-portal', label: 'Portal Inspectores', icon: 'share_location', isAction: true },
     { id: 'engineers', label: 'Perfiles de Ingenieros', icon: 'badge' },
     { id: 'config', label: 'Configuración', icon: 'settings' }
@@ -49,6 +50,16 @@ export default function Sidebar({
         navigator.clipboard.writeText(portalUrl)
           .then(() => alert(`¡Enlace del Hub del Contratista copiado!\n\nComparte este enlace con el contratista de obra para que consulte los mapas, planos y reportes semanales en modo de lectura:\n\n${portalUrl}`))
           .catch(() => alert(`Por favor, copia y comparte este enlace:\n\n${portalUrl}`));
+      } else if (item.id === 'share-landing') {
+        const landingUrl = `${window.location.origin}/?mode=landing`;
+        navigator.clipboard.writeText(landingUrl)
+          .then(() => alert(`¡Enlace de Landing copiado al portapapeles!\n\nComparte este enlace con tus compañeros para que consulten el tablero de frentes de Usaquén sin distracciones:\n\n${landingUrl}`))
+          .catch(() => alert(`Por favor, copia y comparte este enlace:\n\n${landingUrl}`));
+      } else if (item.id === 'share-map') {
+        const mapUrl = `${window.location.origin}/?mode=map`;
+        navigator.clipboard.writeText(mapUrl)
+          .then(() => alert(`¡Enlace del Mapa Georreferenciado copiado al portapapeles!\n\nComparte este enlace para que exploren directamente todos los 43 frentes georreferenciados:\n\n${mapUrl}`))
+          .catch(() => alert(`Por favor, copia y comparte este enlace:\n\n${mapUrl}`));
       }
     } else {
       onViewChange(item.id);

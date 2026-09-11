@@ -97,23 +97,19 @@ export function cloneWeeklyReport(prevReport) {
   const nextMvProg = parseFloat((prevReport.malla_vial_programado + 0.02).toFixed(3));
   const nextEpProg = parseFloat((prevReport.espacio_publico_programado + 0.01).toFixed(3));
 
-  // Clone frentes list. Keep structure but:
+  // Clone frentes list. Keep structure and all coordinates/metadata but:
   // - activities/hitos are set to empty for the new week
   // - budget of the week starts at 0
+  // - photos and bitacoras are reset for new entries
   const clonedFrentes = prevReport.frentes.map(f => ({
-    id: f.id,
-    frente: f.frente,
-    civ: f.civ,
-    eje: f.eje,
-    desde: f.desde,
-    hasta: f.hasta,
-    projectName: f.projectName,
+    ...f,
     porcentaje_avance_semana: f.porcentaje_avance_semana, // inherits cumulative progress
     ejecucion_presupuestal_semana: 0, // new budget invested in this week starts at 0
-    actividades_ejecutadas_hitos: '', // hits are empty
-    pmt_estado: f.pmt_estado,
+    actividades_ejecutadas_hitos: '', // hitos are empty
     fotos: [],
-    bitacora_notas: []
+    photos: [],
+    bitacora_notas: [],
+    bitacora_notes: []
   }));
 
   const nextReportDraft = {
