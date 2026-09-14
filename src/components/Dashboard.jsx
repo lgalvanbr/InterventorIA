@@ -1377,7 +1377,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                                       onClick={() => handleOpenLightbox(allPhotosHist, photoIndexInAll >= 0 ? photoIndexInAll : 0)}
                                       className="w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-2xs shrink-0 cursor-pointer hover:border-primary transition-all relative group bg-slate-900"
                                     >
-                                      <img src={photo.url} alt={photo.caption} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                      <img src={photo.url} alt={photo.caption} className="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" decoding="async" />
                                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-0.5 text-white no-print">
                                         <Eye size={12} />
                                         <span className="text-[7.5px] font-black uppercase tracking-wider">Ver</span>
@@ -1409,7 +1409,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                               onClick={() => handleOpenLightbox(allPhotosHistory, allPhotosHistory.findIndex(p => p.id === photo.id))}
                               className="w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-2xs shrink-0 cursor-pointer hover:border-primary transition-all relative group bg-slate-900"
                             >
-                              <img src={photo.url} alt={photo.caption} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                              <img src={photo.url} alt={photo.caption} className="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" decoding="async" />
                               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-0.5 text-white no-print">
                                 <Eye size={12} />
                                 <span className="text-[7.5px] font-black uppercase tracking-wider">Ver Foto</span>

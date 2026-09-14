@@ -185,6 +185,8 @@ const PrintFrenteCard = ({
                       src={imgUrl} 
                       alt="Perfil de estructura del suelo" 
                       className="w-full h-full object-contain"
+                      loading="lazy"
+                      decoding="async"
                     />
                   </div>
                 ) : (
@@ -876,6 +878,8 @@ export default function WeeklyReportPanel({
                                         src={photo.url} 
                                         alt={photo.caption || 'Foto de avance'} 
                                         className="w-full h-full object-cover"
+                                        loading="lazy"
+                                        decoding="async"
                                       />
                                     </div>
                                     {photo.caption && (

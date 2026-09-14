@@ -1,19 +1,20 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Sidebar from './components/Sidebar';
 import { initializeWeeklyReports, calculateConsolidatedMetrics } from './data/reportsWeekly';
+import { lazyWithRetry } from './utils/lazyWithRetry';
 
-// Vistas con carga perezosa para optimización de bundle y code-splitting
-const Dashboard = lazy(() => import('./components/Dashboard'));
-const ProjectDetail = lazy(() => import('./components/ProjectDetail'));
-const ReportsView = lazy(() => import('./components/ReportsView'));
-const ConfigView = lazy(() => import('./components/ConfigView'));
-const FrentesControl = lazy(() => import('./components/FrentesControl'));
-const WeeklyReports = lazy(() => import('./components/WeeklyReports'));
-const WeeklyReportPanel = lazy(() => import('./components/WeeklyReportPanel'));
-const EngineersView = lazy(() => import('./components/EngineersView'));
-const InspectorPortal = lazy(() => import('./components/InspectorPortal'));
-const MapView = lazy(() => import('./components/MapView'));
-const ProjectInfo = lazy(() => import('./components/ProjectInfo'));
+// Vistas con carga perezosa resiliente a nuevos despliegues (auto-recuperación de chunks obsoletos)
+const Dashboard = lazyWithRetry(() => import('./components/Dashboard'));
+const ProjectDetail = lazyWithRetry(() => import('./components/ProjectDetail'));
+const ReportsView = lazyWithRetry(() => import('./components/ReportsView'));
+const ConfigView = lazyWithRetry(() => import('./components/ConfigView'));
+const FrentesControl = lazyWithRetry(() => import('./components/FrentesControl'));
+const WeeklyReports = lazyWithRetry(() => import('./components/WeeklyReports'));
+const WeeklyReportPanel = lazyWithRetry(() => import('./components/WeeklyReportPanel'));
+const EngineersView = lazyWithRetry(() => import('./components/EngineersView'));
+const InspectorPortal = lazyWithRetry(() => import('./components/InspectorPortal'));
+const MapView = lazyWithRetry(() => import('./components/MapView'));
+const ProjectInfo = lazyWithRetry(() => import('./components/ProjectInfo'));
 
 // Componente visual elegante de carga para transiciones entre módulos
 function ViewLoadingFallback() {
