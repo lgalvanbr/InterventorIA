@@ -527,22 +527,19 @@ export default async function handler(req, res) {
     return;
   }
 
-  // GET /api/weekly-reports
+  // GET /api/weekly-reports (Fast, Cached, Zero recursive crawling)
   if (pathname === '/api/weekly-reports' && req.method === 'GET') {
-    // Try Supabase first
+    res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=120, stale-while-revalidate=300');
+
+    // 1. Try Supabase Cloud Database first (Direct single read)
     let cloudReports = await getReportsFromSupabase();
-    if (cloudReports) {
-      // Automatically sync photos from storage into reports
-      try {
-        cloudReports = await syncStoragePhotosIntoReports(cloudReports);
-      } catch (syncErr) {
-        console.warn("Auto-sync storage photos non-fatal error:", syncErr);
-      }
+    if (cloudReports && Array.isArray(cloudReports) && cloudReports.length > 0) {
       memoryReports = cloudReports;
       res.status(200).json(cloudReports);
       return;
     }
 
+    // 2. Return memory cache or disk seed
     if (memoryReports === null) {
       memoryReports = getInitialReports();
     }

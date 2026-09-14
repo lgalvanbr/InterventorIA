@@ -52,11 +52,8 @@ export default function ProjectInfo({ isContractorMode }) {
         }
       }
 
-      // 2. Fetch from Supabase via API
+      // 2. Fetch project info from Supabase via API
       try {
-        const response = await fetch('/api/weekly-reports?path=weekly-reports'); // Or separate project-info endpoint
-        // Let's call our special design-overrides or project-info endpoint
-        const infoRes = await fetch('/api/weekly-reports'); // fallback if no specific endpoint yet
         const cloudRes = await fetch('/api/project-info');
         if (cloudRes.ok) {
           const data = await cloudRes.json();
