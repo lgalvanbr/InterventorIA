@@ -86,6 +86,180 @@ export async function compressImageFile(file, options = {}) {
 }
 
 /**
+ * Compresión rápida para subir fotos de campo: devuelve un Blob JPEG (no Base64).
+ * - Se hace en un Web Worker (OffscreenCanvas): la interfaz no se congela.
+ * - Si el navegador no lo soporta o el formato falla en el worker, se comprime en el hilo principal.
+ * - Evita el Base64 (33 % más pesado) y la reconversión byte a byte antes de subir.
+ *
+ * @returns {Promise<{blob: Blob, width: number, height: number, originalSize: number}>}
+ */
+export async function compressImageToBlob(file, { maxDimension = 1600, quality = 0.8, thumbDimension = 0 } = {}) {
+  if (!file || !file.type.startsWith('image/')) {
+    throw new Error('El archivo proporcionado no es una imagen válida.');
+  }
+  try {
+    const result = await compressInWorker(file, maxDimension, quality, thumbDimension);
+    if (result) return { ...result, originalSize: file.size };
+  } catch (err) {
+    console.warn('Compresión en worker no disponible, usando hilo principal:', err.message);
+  }
+  return { ...(await compressOnMainThread(file, maxDimension, quality, thumbDimension)), originalSize: file.size };
+}
+
+let photoWorker = null;
+let workerUnsupported = false;
+let workerSeq = 0;
+const workerPending = new Map();
+
+function getPhotoWorker() {
+  if (workerUnsupported) return null;
+  if (photoWorker) return photoWorker;
+  if (typeof Worker === 'undefined' || typeof OffscreenCanvas === 'undefined') {
+    workerUnsupported = true;
+    return null;
+  }
+  try {
+    photoWorker = new Worker(new URL('./photoWorker.js', import.meta.url), { type: 'module' });
+    photoWorker.onmessage = ({ data }) => {
+      const pending = workerPending.get(data.id);
+      if (!pending) return;
+      workerPending.delete(data.id);
+      if (data.error) pending.reject(new Error(data.error));
+      else pending.resolve({ blob: data.blob, thumbBlob: data.thumbBlob, width: data.width, height: data.height });
+    };
+    photoWorker.onerror = () => {
+      workerUnsupported = true;
+      workerPending.forEach(p => p.reject(new Error('Worker no disponible')));
+      workerPending.clear();
+      photoWorker = null;
+    };
+  } catch {
+    workerUnsupported = true;
+    photoWorker = null;
+  }
+  return photoWorker;
+}
+
+function compressInWorker(file, maxDimension, quality, thumbDimension) {
+  const worker = getPhotoWorker();
+  if (!worker) return Promise.resolve(null);
+  return new Promise((resolve, reject) => {
+    const id = ++workerSeq;
+    workerPending.set(id, { resolve, reject });
+    worker.postMessage({ id, file, maxDimension, quality, thumbDimension });
+  });
+}
+
+async function compressOnMainThread(file, maxDimension, quality, thumbDimension) {
+  let source;
+  let srcWidth;
+  let srcHeight;
+  try {
+    source = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    srcWidth = source.width;
+    srcHeight = source.height;
+  } catch {
+    source = await loadImageElement(file);
+    srcWidth = source.naturalWidth;
+    srcHeight = source.naturalHeight;
+  }
+  const encode = (dim, q) => {
+    const { width, height } = calculateAspectDimensions(srcWidth, srcHeight, dim);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext('2d').drawImage(source, 0, 0, width, height);
+    return new Promise((resolve, reject) =>
+      canvas.toBlob(b => (b ? resolve({ blob: b, width, height }) : reject(new Error('No se pudo comprimir la imagen.'))), 'image/jpeg', q)
+    );
+  };
+  const main = await encode(maxDimension, quality);
+  const thumb = thumbDimension ? await encode(thumbDimension, 0.7).catch(() => null) : null;
+  source.close?.();
+  return { ...main, thumbBlob: thumb?.blob || null };
+}
+
+function loadImageElement(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Formato de imagen no compatible.')); };
+    img.src = url;
+  });
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('No se pudo leer la imagen comprimida.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Sube un Blob ya comprimido. Intenta Supabase Storage directo y, si falla, el endpoint del servidor.
+ * A diferencia de uploadPhotoResiliently, LANZA un error si ninguna ruta funciona: así la foto
+ * queda marcada como "no subida" en vez de guardarse en Base64 dentro del informe.
+ */
+export async function uploadPhotoBlob({ blob, semana, frenteId, fileName, supabaseConfig = null, bucket = 'frentes-fotos' }) {
+  const bucketName = supabaseConfig?.supabaseBucket || bucket;
+  const filePath = `semana_${semana || 'general'}/frente_${frenteId || 'frente'}/${fileName}`;
+
+  if (supabaseConfig?.supabaseUrl && supabaseConfig?.supabaseKey) {
+    try {
+      const res = await fetch(`${supabaseConfig.supabaseUrl}/storage/v1/object/${bucketName}/${filePath}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseConfig.supabaseKey}`,
+          'apikey': supabaseConfig.supabaseKey,
+          'Content-Type': blob.type || 'image/jpeg',
+          'x-upsert': 'true'
+        },
+        body: blob
+      });
+      if (res.ok) {
+        return `${supabaseConfig.supabaseUrl}/storage/v1/object/public/${bucketName}/${filePath}`;
+      }
+    } catch {
+      // continuar con el servidor
+    }
+  }
+
+  const res = await fetch('/api/upload-photo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      semana: semana || 'general',
+      frenteId: frenteId || 'frente',
+      fileName,
+      base64: await blobToDataUrl(blob),
+      bucket: bucketName
+    })
+  });
+  const result = res.ok ? await res.json().catch(() => ({})) : {};
+  if (!result.url || !String(result.url).startsWith('http')) {
+    throw new Error(`No se pudo subir la foto (HTTP ${res.status}).`);
+  }
+  return result.url;
+}
+
+/**
+ * Ejecuta tareas con un máximo de `limit` en paralelo (ej. 3 fotos subiendo a la vez).
+ */
+export async function runWithConcurrency(items, limit, worker) {
+  let next = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const idx = next++;
+      await worker(items[idx], idx);
+    }
+  });
+  await Promise.all(runners);
+}
+
+/**
  * Función de compatibilidad directa para componentes existentes.
  * Retorna directamente el string Base64 comprimido.
  */
