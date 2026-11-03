@@ -331,10 +331,10 @@ async function syncStoragePhotosIntoReports(reports, scannedFiles = [], customFi
   let hasChanges = false;
   const updatedReports = reports.map(report => {
     const semNum = report.numero_semana;
-    const matchingWeekFiles = allFiles.filter(f => 
+    const matchingWeekFiles = allFiles.filter(f => !f.fullPath.includes('/miniaturas/') && (
       // Separador obligatorio: "semana_4" no debe coincidir con "semana_44/..."
       f.fullPath.startsWith(`semana_${semNum}/`) || f.fullPath.includes(`_SEM${semNum}_`)
-    );
+    ));
 
     if (matchingWeekFiles.length === 0) return report;
 
