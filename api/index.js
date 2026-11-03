@@ -4,58 +4,72 @@ import path from 'path';
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://rjghsenbsrprbajhkwxr.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// In-memory fallback database for Vercel Serverless (since filesystem is read-only)
+import crypto from 'crypto';
+import { applyChanges, legacyArrayToChanges, normalizeReports } from '../src/data/reportsMerge.js';
+
+// In-memory fallback database (solo desarrollo local sin SUPABASE_KEY)
 let memoryReports = null;
 const memoryUploadedFiles = {}; // stores base64/buffers in memory to mock download
 
+const supabaseHeaders = () => ({
+  'apikey': SUPABASE_KEY,
+  'Authorization': `Bearer ${SUPABASE_KEY}`
+});
+
+// Lee las semanas desde Supabase. Lanza error si Supabase no responde:
+// nunca se debe confundir "Supabase caído" con "no hay datos".
 async function getReportsFromSupabase() {
-  if (!SUPABASE_KEY) {
-    console.warn("Supabase key is missing. Skipping fetching from cloud.");
-    return null;
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/weekly_reports?id=eq.main_reports&select=data`, {
+    headers: supabaseHeaders(),
+    signal: AbortSignal.timeout(15000)
+  });
+  if (!res.ok) {
+    throw new Error(`Supabase respondió HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
   }
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/weekly_reports?id=eq.main_reports&select=data`, {
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`
-      }
-    });
-    if (res.ok) {
-      const rows = await res.json();
-      if (rows && rows.length > 0) {
-        return rows[0].data;
-      }
-    }
-  } catch (e) {
-    console.error("Failed to fetch reports from Supabase:", e);
-  }
-  return null;
+  const rows = await res.json();
+  return rows && rows.length > 0 && Array.isArray(rows[0].data) ? rows[0].data : [];
 }
 
 async function saveReportsToSupabase(reportsData) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/weekly_reports`, {
+    method: 'POST',
+    headers: {
+      ...supabaseHeaders(),
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates,return=minimal'
+    },
+    body: JSON.stringify({
+      id: 'main_reports',
+      data: reportsData
+    }),
+    signal: AbortSignal.timeout(20000)
+  });
+  if (!res.ok) {
+    throw new Error(`Supabase rechazó el guardado HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`);
+  }
+}
+
+// Fuente de verdad: Supabase en producción; archivo semilla solo en local sin credenciales.
+async function loadReports() {
   if (!SUPABASE_KEY) {
-    console.warn("Supabase key is missing. Skipping saving to cloud.");
-    return false;
+    if (memoryReports === null) memoryReports = getInitialReports();
+    return normalizeReports(memoryReports);
   }
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/weekly_reports`, {
-      method: 'POST',
-      headers: {
-        'apikey': SUPABASE_KEY,
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates'
-      },
-      body: JSON.stringify({
-        id: 'main_reports',
-        data: reportsData
-      })
-    });
-    return res.ok;
-  } catch (e) {
-    console.error("Failed to save reports to Supabase:", e);
+  return normalizeReports(await getReportsFromSupabase());
+}
+
+async function persistReports(reports) {
+  if (!SUPABASE_KEY) {
+    memoryReports = reports;
+    try {
+      const filePath = path.join(process.cwd(), 'src/data/saved_weekly_reports.json');
+      fs.writeFileSync(filePath, JSON.stringify(reports, null, 2), 'utf8');
+    } catch (diskErr) {
+      console.warn("Disk write failed:", diskErr.message);
+    }
+    return;
   }
-  return false;
+  await saveReportsToSupabase(reports);
 }
 
 async function uploadPhotoToSupabase(semana, frenteId, fileName, base64Data, bucketName = 'frentes-fotos') {
@@ -245,29 +259,13 @@ async function saveOverridesToSupabase(overridesData) {
 }
 
 // Recursively list files from Supabase Storage bucket
-async function listAllFilesRecursively(prefix = 'semana_37', bucketName = 'frentes-fotos', customFolders = []) {
+async function listAllFilesRecursively(prefixes = [], bucketName = 'frentes-fotos', customFolders = []) {
   if (!SUPABASE_KEY) return [];
   const result = [];
   const seenPaths = new Set();
-  
-  // Known subfolders for semana 37 plus general prefix
-  const queue = [
-    prefix,
-    ...customFolders,
-    `${prefix}/frente_f_ep_10`,
-    `${prefix}/frente_f_ep_2`,
-    `${prefix}/frente_f_ep_20`,
-    `${prefix}/frente_f_ep_3`,
-    `${prefix}/frente_f_ep_9`,
-    `${prefix}/frente_f_mv_1`,
-    `${prefix}/frente_f_mv_12`,
-    `${prefix}/frente_f_mv_14`,
-    `${prefix}/frente_f_mv_18`,
-    `${prefix}/frente_f_mv_2`,
-    `${prefix}/frente_f_mv_20`,
-    `${prefix}/frente_f_mv_8`,
-    `${prefix}/frente_f_mv_9`
-  ];
+
+  // Se listan las carpetas semana_N pedidas; las subcarpetas de frente se descubren solas.
+  const queue = [...prefixes, ...customFolders];
   
   const processedPrefixes = new Set();
 
@@ -323,10 +321,9 @@ async function listAllFilesRecursively(prefix = 'semana_37', bucketName = 'frent
 }
 
 // Sync photos found in Supabase Storage into the weekly_reports structure
-async function syncStoragePhotosIntoReports(reports, customFiles = []) {
+async function syncStoragePhotosIntoReports(reports, scannedFiles = [], customFiles = []) {
   if (!Array.isArray(reports) || reports.length === 0) return reports;
 
-  const scannedFiles = await listAllFilesRecursively('semana_37');
   const allFiles = [...scannedFiles, ...customFiles];
 
   if (allFiles.length === 0) return reports;
@@ -335,7 +332,8 @@ async function syncStoragePhotosIntoReports(reports, customFiles = []) {
   const updatedReports = reports.map(report => {
     const semNum = report.numero_semana;
     const matchingWeekFiles = allFiles.filter(f => 
-      f.fullPath.includes(`semana_${semNum}`) || f.fullPath.includes(`SEM${semNum}`)
+      // Separador obligatorio: "semana_4" no debe coincidir con "semana_44/..."
+      f.fullPath.startsWith(`semana_${semNum}/`) || f.fullPath.includes(`_SEM${semNum}_`)
     );
 
     if (matchingWeekFiles.length === 0) return report;
@@ -392,7 +390,7 @@ async function syncStoragePhotosIntoReports(reports, customFiles = []) {
   });
 
   if (hasChanges) {
-    await saveReportsToSupabase(updatedReports);
+    await persistReports(updatedReports.map(r => ({ ...r, _rev: (r._rev || 1) + 1 })));
   }
   return updatedReports;
 }
@@ -443,13 +441,24 @@ export default async function handler(req, res) {
     pathname = '/' + pathParam;
   }
 
-  // GET /api/health
+  // GET /api/health -> verifica la conexión real con Supabase
   if (pathname === '/api/health' && req.method === 'GET') {
-    res.status(200).json({
-      status: 'ok',
-      supabaseConnected: !!SUPABASE_KEY,
-      supabaseUrl: SUPABASE_URL
-    });
+    res.setHeader('Cache-Control', 'no-store');
+    if (!SUPABASE_KEY) {
+      res.status(200).json({ status: 'local', supabaseConnected: false, supabaseUrl: SUPABASE_URL });
+      return;
+    }
+    try {
+      const reports = await getReportsFromSupabase();
+      res.status(200).json({
+        status: 'ok',
+        supabaseConnected: true,
+        supabaseUrl: SUPABASE_URL,
+        semanas: reports.map(r => r.numero_semana).sort((x, y) => x - y)
+      });
+    } catch (err) {
+      res.status(503).json({ status: 'error', supabaseConnected: false, supabaseUrl: SUPABASE_URL, error: err.message });
+    }
     return;
   }
 
@@ -479,44 +488,37 @@ export default async function handler(req, res) {
       return;
     }
 
-    // Fallback: Fetch from Supabase Storage bucket 'frentes-fotos'
+    // Fallback: redirigir al bucket público de Supabase (sin pasar los bytes por la función)
     const storagePath = pathname.replace(/^\/uploads\//, '');
-    const supabaseCloudUrl = `${SUPABASE_URL}/storage/v1/object/public/frentes-fotos/${storagePath}`;
-    
-    try {
-      const cloudRes = await fetch(supabaseCloudUrl);
-      if (cloudRes.ok) {
-        const arrayBuf = await cloudRes.arrayBuffer();
-        const contentType = cloudRes.headers.get('content-type') || 'image/jpeg';
-        res.setHeader('Content-Type', contentType);
-        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-        res.status(200).send(Buffer.from(arrayBuf));
-        return;
-      }
-    } catch (e) {
-      console.error("Error fetching image from Supabase Storage fallback:", e);
-    }
-
-    res.status(404).send('Image Not Found');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.redirect(302, `${SUPABASE_URL}/storage/v1/object/public/frentes-fotos/${storagePath}`);
     return;
   }
 
-  // GET /api/sync-storage-photos or POST /api/sync-storage-photos
+
+  // GET /api/sync-storage-photos?semana=44  or  POST { semanas: [44], folders, files }
   if (pathname === '/api/sync-storage-photos' && (req.method === 'GET' || req.method === 'POST')) {
     try {
       let customFolders = [];
       let customFiles = [];
+      let semanas = url.searchParams.getAll('semana').map(Number).filter(Number.isFinite);
       if (req.method === 'POST') {
         const body = await getBody(req);
         if (body && Array.isArray(body.folders)) customFolders = body.folders;
         if (body && Array.isArray(body.files)) customFiles = body.files;
+        if (body && Array.isArray(body.semanas)) semanas = body.semanas.map(Number).filter(Number.isFinite);
       }
-      const scannedFiles = await listAllFilesRecursively('semana_37', 'frentes-fotos', customFolders);
-      const cloudReports = (await getReportsFromSupabase()) || getInitialReports();
-      const syncedReports = await syncStoragePhotosIntoReports(cloudReports, customFiles);
+      const reports = await loadReports();
+      // Por defecto solo la semana más reciente, para no recorrer todo el bucket.
+      if (semanas.length === 0 && reports.length > 0) {
+        semanas = [Math.max(...reports.map(r => Number(r.numero_semana)))];
+      }
+      const scannedFiles = await listAllFilesRecursively(semanas.map(n => `semana_${n}`), 'frentes-fotos', customFolders);
+      const syncedReports = await syncStoragePhotosIntoReports(reports, scannedFiles, customFiles);
 
       res.status(200).json({
         success: true,
+        semanas,
         scannedCount: scannedFiles.length,
         files: scannedFiles.map(f => f.fullPath),
         reportsCount: syncedReports.length
@@ -527,55 +529,67 @@ export default async function handler(req, res) {
     return;
   }
 
-  // GET /api/weekly-reports (Fast, Cached, Zero recursive crawling)
+  // GET /api/weekly-reports -> siempre la versión real de Supabase (con ETag para no re-descargar)
   if (pathname === '/api/weekly-reports' && req.method === 'GET') {
-    res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=120, stale-while-revalidate=300');
-
-    // 1. Try Supabase Cloud Database first (Direct single read)
-    let cloudReports = await getReportsFromSupabase();
-    if (cloudReports && Array.isArray(cloudReports) && cloudReports.length > 0) {
-      memoryReports = cloudReports;
-      res.status(200).json(cloudReports);
+    // no-cache: el navegador puede reutilizar su copia solo tras validar el ETag; la CDN no la guarda.
+    res.setHeader('Cache-Control', 'no-cache');
+    let reports;
+    try {
+      reports = await loadReports();
+    } catch (err) {
+      console.error("No se pudieron leer los informes de Supabase:", err);
+      res.status(503).json({ error: 'No hay conexión con la base de datos (Supabase).', detail: err.message });
       return;
     }
-
-    // 2. Return memory cache or disk seed
-    if (memoryReports === null) {
-      memoryReports = getInitialReports();
+    const payload = JSON.stringify(reports);
+    const etag = `"${crypto.createHash('sha1').update(payload).digest('base64url')}"`;
+    res.setHeader('ETag', etag);
+    if (req.headers['if-none-match'] === etag) {
+      res.status(304).end();
+      return;
     }
-    res.status(200).json(memoryReports);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.status(200).send(payload);
     return;
   }
 
   // POST /api/weekly-reports
+  //   Formato nuevo: { changes: [{ semana, isNew, report } | { semana, meta, frentes }] }
+  //   Formato antiguo (arreglo completo): solo se agregan semanas que no existen.
   if (pathname === '/api/weekly-reports' && req.method === 'POST') {
-    try {
-      const body = await getBody(req);
-      if (!Array.isArray(body) || body.length === 0) {
-        res.status(400).json({ error: "Invalid reports array format" });
-        return;
-      }
-      memoryReports = body; // save to memory
-
-      // 1. Attempt to write to Supabase Storage/Database
-      const savedToCloud = await saveReportsToSupabase(body);
-
-      // 2. Attempt to write to disk (will succeed locally, fail on Vercel gracefully)
-      try {
-        const filePath = path.join(process.cwd(), 'src/data/saved_weekly_reports.json');
-        fs.writeFileSync(filePath, JSON.stringify(body, null, 2), 'utf8');
-      } catch (diskErr) {
-        console.warn("Disk write failed (expected on Vercel read-only filesystem):", diskErr);
-      }
-
-      res.status(200).json({ 
-        success: true, 
-        persisted: savedToCloud, 
-        message: savedToCloud ? "Report saved to Supabase Cloud Database." : "Report saved in memory only (fallback)." 
-      });
-    } catch (e) {
-      res.status(500).json({ error: 'Failed to process request' });
+    res.setHeader('Cache-Control', 'no-store');
+    const body = await getBody(req);
+    const isLegacy = Array.isArray(body);
+    if (!isLegacy && !(body && Array.isArray(body.changes))) {
+      res.status(400).json({ error: 'Formato inválido: se espera { changes: [...] }' });
+      return;
     }
+
+    let stored;
+    try {
+      stored = await loadReports();
+    } catch (err) {
+      console.error("No se pudieron leer los informes antes de guardar:", err);
+      res.status(503).json({ success: false, persisted: false, error: 'No hay conexión con la base de datos (Supabase). No se guardó nada.' });
+      return;
+    }
+
+    const changes = isLegacy ? legacyArrayToChanges(stored, body) : body.changes;
+    if (changes.length === 0) {
+      res.status(200).json({ success: true, persisted: true, reports: [], conflicts: [] });
+      return;
+    }
+
+    const { reports, affected, conflicts } = applyChanges(stored, changes);
+    try {
+      await persistReports(reports);
+    } catch (err) {
+      console.error("Fallo al guardar informes en Supabase:", err);
+      res.status(502).json({ success: false, persisted: false, error: err.message });
+      return;
+    }
+
+    res.status(200).json({ success: true, persisted: true, reports: affected, conflicts });
     return;
   }
 

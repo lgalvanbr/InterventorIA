@@ -317,15 +317,20 @@ export default function InspectorPortal({
 
       // Auto-save immediately after upload so photos are never lost
       if (onSaveFrenteData && currentReport && selectedFrenteId) {
-        onSaveFrenteData(currentReport.id_informe, selectedFrenteId, {
-          fotos: updatedFotos,
-          photos: updatedFotos,
-          bitacora_notes: bitacoraNotes,
-          bitacora_notas: bitacoraNotes
-        });
-        setIsSuccess(true);
-        setSuccessMessage(`${uploadedPhotos.length} foto(s) guardadas en la nube`);
-        setTimeout(() => setIsSuccess(false), 2500);
+        try {
+          await onSaveFrenteData(currentReport.id_informe, selectedFrenteId, {
+            fotos: updatedFotos,
+            photos: updatedFotos,
+            bitacora_notes: bitacoraNotes,
+            bitacora_notas: bitacoraNotes
+          });
+          setIsSuccess(true);
+          setSuccessMessage(`${uploadedPhotos.length} foto(s) guardadas en la nube`);
+          setTimeout(() => setIsSuccess(false), 2500);
+        } catch (err) {
+          console.error("Error guardando fotos en el informe:", err);
+          alert("Las fotos se subieron, pero no se pudo registrar el informe en la nube. Pulsa Guardar cuando vuelva la conexión.");
+        }
       }
     }
 
