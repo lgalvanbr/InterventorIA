@@ -2,6 +2,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
+import { applyChanges, legacyArrayToChanges } from './src/data/reportsMerge.js';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -79,10 +80,13 @@ export default defineConfig({
             try {
               const body = await getBody(req);
               const filePath = path.join(__dirname, 'src/data/saved_weekly_reports.json');
+              const stored = fs.existsSync(filePath) ? JSON.parse(fs.readFileSync(filePath, 'utf8')) : [];
+              const changes = Array.isArray(body) ? legacyArrayToChanges(stored, body) : (body?.changes || []);
+              const { reports, affected, conflicts } = applyChanges(stored, changes);
               fs.mkdirSync(path.dirname(filePath), { recursive: true });
-              fs.writeFileSync(filePath, JSON.stringify(body, null, 2), 'utf8');
+              fs.writeFileSync(filePath, JSON.stringify(reports, null, 2), 'utf8');
               res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ success: true }));
+              res.end(JSON.stringify({ success: true, persisted: true, reports: affected, conflicts }));
             } catch (e) {
               res.writeHead(500, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ error: 'Failed to write file' }));

@@ -1,6 +1,7 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import Sidebar from './components/Sidebar';
 import { initializeWeeklyReports, calculateConsolidatedMetrics } from './data/reportsWeekly';
+import { diffReports } from './data/reportsMerge';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 
 // Vistas con carga perezosa resiliente a nuevos despliegues (auto-recuperación de chunks obsoletos)
@@ -290,7 +291,16 @@ export default function App() {
   const [activeProjectId, setActiveProjectId] = useState(null);
   const [activeFrenteId, setActiveFrenteId] = useState(null);
   const [view, setView] = useState('dashboard'); // 'dashboard', 'project-detail', 'reports', 'config', 'weekly-detail'
-  const [weeklyReports, setWeeklyReports] = useState([]);
+  const [weeklyReports, setWeeklyReportsState] = useState([]);
+  // Copia síncrona del estado: evita que guardados consecutivos partan de una versión vieja
+  const weeklyReportsRef = useRef([]);
+  const saveQueueRef = useRef(Promise.resolve());
+  const [syncError, setSyncError] = useState('');
+  const setWeeklyReports = useCallback((next) => {
+    const value = typeof next === 'function' ? next(weeklyReportsRef.current) : next;
+    weeklyReportsRef.current = value;
+    setWeeklyReportsState(value);
+  }, []);
   const [selectedReportId, setSelectedReportId] = useState(null);
   const [selectedDetailFrenteId, setSelectedDetailFrenteId] = useState(null);
   const [isSidebarHovered, setIsSidebarHovered] = useState(false);
@@ -421,8 +431,15 @@ export default function App() {
     }
 
     fetch('/api/weekly-reports')
-      .then(res => res.json())
+      .then(async res => {
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `HTTP ${res.status}`);
+        }
+        return res.json();
+      })
       .then(data => {
+        setSyncError('');
         if (Array.isArray(data) && data.length > 0) {
           setWeeklyReports(data);
           saveWeeklyReportsToStorage(data);
@@ -458,18 +475,12 @@ export default function App() {
             })
           );
           const seededWeekly = initializeWeeklyReports(allFrentes);
-          setWeeklyReports(seededWeekly);
-          saveWeeklyReportsToStorage(seededWeekly);
-          
-          fetch('/api/weekly-reports', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(seededWeekly)
-          }).catch(err => console.error("Error saving seeded reports to disk:", err));
+          handleUpdateWeeklyReports(seededWeekly).catch(() => {});
         }
       })
       .catch(err => {
         console.error("Error loading weekly reports from API:", err);
+        setSyncError(`No se pudieron cargar las semanas desde la base de datos (${err.message}). Se muestra la copia guardada en este dispositivo; los cambios no se guardarán en la nube hasta que vuelva la conexión.`);
       });
 
     // Default active project
@@ -504,18 +515,52 @@ export default function App() {
     }
   };
 
-  const handleUpdateWeeklyReports = (updatedReports) => {
+  // Guarda solo lo que cambió (semanas nuevas / frentes editados). El servidor lo fusiona con
+  // la última versión en Supabase, así un dispositivo desactualizado no borra semanas de otros.
+  // Devuelve una promesa que falla si la nube no confirmó el guardado.
+  function handleUpdateWeeklyReports(updatedReports) {
+    const changes = diffReports(weeklyReportsRef.current, updatedReports);
     setWeeklyReports(updatedReports);
     saveWeeklyReportsToStorage(updatedReports);
-    fetch('/api/weekly-reports', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updatedReports)
-    }).catch(err => console.error("Error saving updated reports to disk:", err));
-  };
+    if (changes.length === 0) return Promise.resolve();
+
+    // Cola: un guardado espera al anterior para no pisarse en el servidor
+    const run = saveQueueRef.current.then(async () => {
+      const res = await fetch('/api/weekly-reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ changes })
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result.persisted) {
+        throw new Error(result.error || `HTTP ${res.status}`);
+      }
+      setSyncError('');
+      const saved = result.reports || [];
+      if (saved.length > 0) {
+        // Reemplaza cada semana por la versión confirmada por el servidor
+        setWeeklyReports(prev => {
+          const savedWeeks = new Set(saved.map(r => Number(r.numero_semana)));
+          const next = [...saved, ...prev.filter(r => !savedWeeks.has(Number(r.numero_semana)))];
+          saveWeeklyReportsToStorage(next);
+          return next;
+        });
+      }
+      if (result.conflicts?.some(c => c.reason === 'exists')) {
+        alert('Esa semana ya había sido creada desde otro dispositivo. Se cargó la versión existente.');
+      }
+      return result;
+    });
+    saveQueueRef.current = run.catch(() => {});
+    run.catch(err => {
+      console.error("Error guardando informes semanales:", err);
+      setSyncError(`No se pudo guardar en la nube: ${err.message}. Revisa la conexión y vuelve a intentarlo.`);
+    });
+    return run;
+  }
 
   const handleSaveFrenteData = (reportId, frenteId, updatedData) => {
-    const updatedReports = weeklyReports.map(r => {
+    const updatedReports = weeklyReportsRef.current.map(r => {
       if (String(r.id_informe) === String(reportId)) {
         const newFrentes = r.frentes.map(f => {
           if (f.id === frenteId) {
@@ -530,7 +575,7 @@ export default function App() {
       }
       return r;
     });
-    handleUpdateWeeklyReports(updatedReports);
+    return handleUpdateWeeklyReports(updatedReports);
   };
 
   const handleAddProject = (newProject) => {
@@ -554,12 +599,12 @@ export default function App() {
   };
 
   const syncFrentesPhotosToWeeklyReports = (updatedFrentes) => {
-    if (!weeklyReports || weeklyReports.length === 0 || !updatedFrentes) return;
-    const sorted = [...weeklyReports].sort((a, b) => b.numero_semana - a.numero_semana);
+    if (!weeklyReportsRef.current || weeklyReportsRef.current.length === 0 || !updatedFrentes) return;
+    const sorted = [...weeklyReportsRef.current].sort((a, b) => b.numero_semana - a.numero_semana);
     const latestReportId = sorted[0].id_informe;
     
     let hasChanges = false;
-    const nextWeekly = weeklyReports.map(r => {
+    const nextWeekly = weeklyReportsRef.current.map(r => {
       if (String(r.id_informe) === String(latestReportId)) {
         const newFrentes = (r.frentes || []).map(wf => {
           const matchingUpdated = updatedFrentes.find(uf => uf.id === wf.id);
@@ -685,6 +730,13 @@ export default function App() {
 
       {/* Main Content routing with dynamic padding-left for sidebar offset */}
       <div className={`flex-1 transition-all duration-300 min-w-0 ${(isInspectorMode || isLandingOnlyMode || view === 'map-only') ? 'pl-0' : (isSidebarHovered ? 'md:pl-64 pl-0' : 'md:pl-16 pl-0')}`}>
+        {syncError && (
+          <div role="alert" className="sticky top-0 z-50 flex items-start gap-2 bg-red-50 border-b border-red-200 px-4 py-2.5 text-xs font-semibold text-red-700">
+            <span className="material-symbols-outlined text-base">cloud_off</span>
+            <span className="flex-1">{syncError}</span>
+            <button onClick={() => setSyncError('')} className="bg-transparent border-none text-red-700 cursor-pointer font-bold" aria-label="Cerrar aviso">×</button>
+          </div>
+        )}
         {/* Landing Only Top Bar */}
         {isLandingOnlyMode && (
           <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 py-2.5 sticky top-0 z-30 shadow-xs flex items-center justify-between">
@@ -827,7 +879,7 @@ export default function App() {
               setSelectedDetailFrenteId(null);
             }}
             onSaveFrente={(updatedFrente) => {
-              const updatedReports = weeklyReports.map(r => {
+              const updatedReports = weeklyReportsRef.current.map(r => {
                 if (String(r.id_informe) === String(selectedReportId)) {
                   const newFrentes = r.frentes.map(f => f.id === updatedFrente.id ? updatedFrente : f);
                   return calculateConsolidatedMetrics(newFrentes, r);
@@ -837,7 +889,7 @@ export default function App() {
               handleUpdateWeeklyReports(updatedReports);
             }}
             onSaveReport={(updatedReport) => {
-              const updatedReports = weeklyReports.map(r => String(r.id_informe) === String(updatedReport.id_informe) ? updatedReport : r);
+              const updatedReports = weeklyReportsRef.current.map(r => String(r.id_informe) === String(updatedReport.id_informe) ? updatedReport : r);
               handleUpdateWeeklyReports(updatedReports);
             }}
           />

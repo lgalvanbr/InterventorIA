@@ -169,7 +169,7 @@ export function generateMonthlyBitacoraText(weeklyReports = [], targetMonthKey =
   return generateMonthlyFullOfficialReport(weeklyReports, [], targetMonthKey, 'all', true);
 }
 
-import { getDisenoForCiv } from './frentesDisenos';
+import { getDisenoForCiv } from './frentesDisenos.js';
 
 /**
  * Retorna la información pura y estructurada de los frentes intervenidos en un mes
