@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { todayLocalIso } from '../utils/dates';
 import { 
   Search, Calendar, MapPin, 
   ChevronLeft, ChevronRight, X, Eye, Image as ImageIcon, ArrowRight, Layers,
@@ -81,6 +82,8 @@ const getLayerColor = (type) => {
       return 'bg-slate-100 text-slate-700 border border-slate-200';
   }
 };
+
+const MONTH_STRIP_LIMIT = 10;
 
 export default function Dashboard({ projects = [], onSelectProject, onAddProject: _onAddProject, isContractorMode, weeklyReports = [], onNavigateToReports }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -306,7 +309,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
     const photos = reportFrente?.fotos || frente.fotos || [];
     const notes = reportFrente?.bitacora_notes || reportFrente?.bitacora_notas || frente.bitacora_notes || frente.bitacora_notas || [];
     
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = todayLocalIso();
     const corteDate = reportForWeek?.fecha_final_corte || todayStr;
 
     // Has notes or photos registered for today or for the current week corte
@@ -325,19 +328,22 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
     };
   };
 
-  // Extract photos for a given frente across all weekly reports AND projects sorted strictly chronologically
-  const getFrentePhotos = (frenteId) => {
-    const photosMap = new Map();
-
-    // 1. Extract from all weekly reports (Supabase data)
+  // Fotos de cada frente (todas las semanas + galería de proyectos), en orden cronológico.
+  // Se calcula una sola vez por cambio de datos; antes se recorría todo en cada render y
+  // varias veces por tarjeta (incluso dentro del ordenamiento).
+  const photosByFrente = useMemo(() => {
+    const byFrente = new Map();
+    const bucket = (id) => {
+      if (!byFrente.has(id)) byFrente.set(id, new Map());
+      return byFrente.get(id);
+    };
     (weeklyReports || []).forEach(report => {
-      const reportFrente = report.frentes?.find(rf => rf.id === frenteId);
-      if (reportFrente) {
-        const list = [...(reportFrente.fotos || []), ...(reportFrente.photos || [])];
-        list.forEach(photo => {
+      (report.frentes || []).forEach(rf => {
+        const map = bucket(rf.id);
+        [...(rf.fotos || []), ...(rf.photos || [])].forEach(photo => {
           const key = photo.id || photo.url;
-          if (key && !photosMap.has(key)) {
-            photosMap.set(key, {
+          if (key && !map.has(key)) {
+            map.set(key, {
               ...photo,
               semana: photo.semana || report.numero_semana,
               fechaCorte: report.fecha_final_corte,
@@ -345,55 +351,54 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
             });
           }
         });
-      }
+      });
     });
-
-    // 2. Extract from project frentes (PhotoGallery data)
+    const today = todayLocalIso();
     (projects || []).forEach(proj => {
-      const prjFrente = proj.frentes?.find(pf => pf.id === frenteId);
-      if (prjFrente) {
-        const list = [...(prjFrente.photos || []), ...(prjFrente.fotos || [])];
-        list.forEach(photo => {
+      (proj.frentes || []).forEach(pf => {
+        const map = bucket(pf.id);
+        [...(pf.photos || []), ...(pf.fotos || [])].forEach(photo => {
           const key = photo.id || photo.url;
-          if (key && !photosMap.has(key)) {
-            photosMap.set(key, {
-              ...photo,
-              semana: photo.semana || 20,
-              date: photo.date || new Date().toISOString().split('T')[0]
-            });
+          if (key && !map.has(key)) {
+            map.set(key, { ...photo, semana: photo.semana || 20, date: photo.date || today });
           }
         });
-      }
+      });
     });
+    const result = new Map();
+    byFrente.forEach((map, id) => {
+      result.set(id, Array.from(map.values()).sort((a, b) => getPhotoTimestamp(a) - getPhotoTimestamp(b)));
+    });
+    return result;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weeklyReports, projects]);
 
-    const photos = Array.from(photosMap.values());
-    return photos.sort((a, b) => getPhotoTimestamp(a) - getPhotoTimestamp(b));
-  };
+  const getFrentePhotos = (frenteId) => photosByFrente.get(frenteId) || [];
 
   // Group photos of a frente by month (sorted chronologically)
-  const getFrentePhotosGroupedByMonth = (frenteId) => {
-    const allPhotos = getFrentePhotos(frenteId);
-    const groupsMap = new Map();
-
-    allPhotos.forEach(photo => {
-      const { key, label } = getPhotoMonthYear(photo);
-      if (!groupsMap.has(key)) {
-        groupsMap.set(key, { key, label, photos: [] });
-      }
-      groupsMap.get(key).photos.push(photo);
+  // Grupos por mes e índice de cada foto, calculados una vez por cambio de datos
+  const monthGroupsByFrente = useMemo(() => {
+    const result = new Map();
+    photosByFrente.forEach((allPhotos, frenteId) => {
+      const groupsMap = new Map();
+      allPhotos.forEach(photo => {
+        const { key, label } = getPhotoMonthYear(photo);
+        if (!groupsMap.has(key)) groupsMap.set(key, { key, label, photos: [] });
+        groupsMap.get(key).photos.push(photo);
+      });
+      // allPhotos ya viene en orden cronológico, así que cada grupo también
+      const groups = Array.from(groupsMap.values()).sort((x, y) => x.key.localeCompare(y.key));
+      result.set(frenteId, {
+        groups,
+        indexById: new Map(allPhotos.map((p, i) => [p.id || p.url, i]))
+      });
     });
+    return result;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photosByFrente]);
 
-    const groups = Array.from(groupsMap.values());
-    // Sort groups chronologically (ascending month key)
-    groups.sort((a, b) => a.key.localeCompare(b.key));
-
-    // Sort photos inside each group chronologically
-    groups.forEach(g => {
-      g.photos.sort((a, b) => getPhotoTimestamp(a) - getPhotoTimestamp(b));
-    });
-
-    return groups;
-  };
+  const getFrentePhotosGroupedByMonth = (frenteId) => monthGroupsByFrente.get(frenteId)?.groups || [];
+  const getPhotoIndex = (frenteId, photo) => monthGroupsByFrente.get(frenteId)?.indexById.get(photo.id || photo.url) ?? 0;
 
   // Get photos specifically uploaded during the selected week (sorted chronologically)
   const getFrentePhotosForWeek = (frenteId, weekNum) => {
@@ -1368,16 +1373,25 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                               </div>
 
                               <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-300">
-                                {group.photos.map((photo) => {
-                                  const allPhotosHist = getFrentePhotos(frente.id);
-                                  const photoIndexInAll = allPhotosHist.findIndex(p => p.id === photo.id);
+                                {/* Máximo MONTH_STRIP_LIMIT miniaturas por mes; el resto se ve en el visor */}
+                                {group.photos.length > MONTH_STRIP_LIMIT && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenLightbox(allPhotosHistory, getPhotoIndex(frente.id, group.photos[MONTH_STRIP_LIMIT]))}
+                                    className="order-last w-16 h-16 rounded-lg border border-slate-200 bg-slate-100 hover:bg-slate-200 shrink-0 text-[11px] font-black text-slate-600 cursor-pointer"
+                                    title="Ver todas las fotos del mes"
+                                  >
+                                    +{group.photos.length - MONTH_STRIP_LIMIT}
+                                  </button>
+                                )}
+                                {group.photos.slice(0, MONTH_STRIP_LIMIT).map((photo) => {
                                   return (
                                     <div 
                                       key={photo.id}
-                                      onClick={() => handleOpenLightbox(allPhotosHist, photoIndexInAll >= 0 ? photoIndexInAll : 0)}
+                                      onClick={() => handleOpenLightbox(allPhotosHistory, getPhotoIndex(frente.id, photo))}
                                       className="w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-2xs shrink-0 cursor-pointer hover:border-primary transition-all relative group bg-slate-900"
                                     >
-                                      <img src={photo.url} alt={photo.caption} className="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" decoding="async" />
+                                      <img src={photo.thumb || photo.url} alt={photo.caption} className="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" decoding="async" />
                                       <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-0.5 text-white no-print">
                                         <Eye size={12} />
                                         <span className="text-[7.5px] font-black uppercase tracking-wider">Ver</span>
@@ -1406,10 +1420,10 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                           {photos.map((photo) => (
                             <div 
                               key={photo.id}
-                              onClick={() => handleOpenLightbox(allPhotosHistory, allPhotosHistory.findIndex(p => p.id === photo.id))}
+                              onClick={() => handleOpenLightbox(allPhotosHistory, getPhotoIndex(frente.id, photo))}
                               className="w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-2xs shrink-0 cursor-pointer hover:border-primary transition-all relative group bg-slate-900"
                             >
-                              <img src={photo.url} alt={photo.caption} className="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" decoding="async" />
+                              <img src={photo.thumb || photo.url} alt={photo.caption} className="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" decoding="async" />
                               <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-0.5 text-white no-print">
                                 <Eye size={12} />
                                 <span className="text-[7.5px] font-black uppercase tracking-wider">Ver Foto</span>

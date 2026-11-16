@@ -6,81 +6,32 @@ Desarrollada con **React + Vite** y estilizada mediante **Tailwind CSS**, esta a
 
 ---
 
-## 🟢 INICIO RÁPIDO — Paso a Paso para Arrancar Mañana
+## 🟢 INICIO RÁPIDO
 
-> Sigue estos pasos en orden cada vez que quieras prender el proyecto en tu computador.
+La app está publicada en **Vercel** y guarda los datos en **Supabase**; no hace falta encender nada en un computador.
 
-### Paso 1 — Abrir una terminal en la carpeta del proyecto
-Abre **PowerShell** o la terminal de VS Code y navega a la carpeta del proyecto:
-```
-cd "C:\Users\LuisPc\OneDrive - Universidad de los Andes\Documentos\2026-2\Usaquen\FrentesObra"
-```
+| Qué | Enlace |
+|-----|--------|
+| Aplicación | https://interventor-ia.vercel.app |
+| Portal de inspectores (celular) | https://interventor-ia.vercel.app/?mode=inspector |
+| Estado de la conexión con Supabase | https://interventor-ia.vercel.app/api/health |
 
----
+Cada `push` a `main` en GitHub despliega automáticamente una versión nueva.
 
-### Paso 2 — Compilar la aplicación (Solo si hiciste cambios en el código)
-Si modificaste algún archivo fuente, vuelve a compilar para que los cambios queden en producción:
+### Desarrollo local
 ```bash
-npm run build
+npm install
+npm run dev
 ```
-> ⚠️ Si no hiciste cambios, **puedes saltarte este paso**. La carpeta `dist/` ya tiene la última versión compilada.
+Abre http://localhost:5173. La API (`/api/*`) es la misma que en Vercel: sin la variable `SUPABASE_KEY` trabaja con el archivo local `src/data/saved_weekly_reports.json`; con `SUPABASE_KEY` usa la base real.
+
+Antes de publicar: `npm run build` y `npm test`.
+
+### Datos
+- Tabla `weekly_reports` en Supabase: **una fila por semana** (`id = semana_<N>`). Cada guardado envía solo los cambios y se aplica sobre la versión más reciente, con reintento si otro dispositivo guardó al mismo tiempo.
+- La fila `main_reports` (todas las semanas en una sola fila) es el formato anterior y se conserva como respaldo; se migró automáticamente a filas por semana.
 
 ---
-
-### Paso 3 — Iniciar el servidor de producción
-Este comando enciende el servidor que sirve la app a tu red local y permite la subida de fotos y guardado de reportes en tu computador:
-```bash
-node server.js
-```
-✅ Verás el mensaje: `Production server running at http://0.0.0.0:5173`
-
-> Deja esta terminal **abierta** mientras uses la app. Si la cierras, el servidor se apaga.
-
----
-
-### Paso 4 — Crear el túnel público para acceso desde el celular
-Abre una **segunda terminal** (nueva, no la del paso anterior) y ejecuta:
-```bash
-ssh -T -o StrictHostKeyChecking=no -R 80:127.0.0.1:5173 nokey@localhost.run
-```
-Espera unos segundos y verás una línea así:
-```
-xxxxxxxxxxxxxxxx.lhr.life tunneled with tls termination, https://xxxxxxxxxxxxxxxx.lhr.life
-```
-📱 **Copia ese enlace `https://...lhr.life`** y ábrelo en el navegador de tu celular o compártelo con los inspectores de obra.
-
-> ⚠️ La URL cambia cada vez que reinicias el túnel. Debes copiarla y reenviarla a los inspectores cuando arranques.
-
----
-
-### Paso 5 — Compartir el Portal de Inspectores
-Para que los inspectores suban sus fotos y bitácoras diarias, el enlace del portal es:
-```
-https://xxxxxxxxxxxxxxxx.lhr.life/?mode=inspector
-```
-*(Reemplaza `xxxxxxxxxxxxxxxx.lhr.life` con el dominio que te generó el Paso 4)*
-
-También puedes hacer clic en **"Portal Inspectores"** en el menú lateral izquierdo de la app en tu PC para copiar el enlace automáticamente.
-
----
-
-### 🔴 Para apagar todo al final del día
-1. Ve a la terminal del servidor (`node server.js`) y presiona `Ctrl + C`.
-2. Ve a la terminal del túnel SSH y presiona `Ctrl + C`.
-
----
-
-### ✅ Resumen de los 3 comandos clave
-
-| Paso | Acción | Comando |
-|------|--------|---------|
-| (Opcional) | Recompilar si hiciste cambios | `npm run build` |
-| 1 | Encender servidor de producción | `node server.js` |
-| 2 | Abrir túnel público para el celular | `ssh -T -o StrictHostKeyChecking=no -R 80:127.0.0.1:5173 nokey@localhost.run` |
-
----
-
-
 
 ## 🚀 Requisitos Previos
 

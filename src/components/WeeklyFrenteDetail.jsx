@@ -1,3 +1,4 @@
+import { todayLocalIso } from '../utils/dates';
 import React, { useState, useEffect } from 'react';
 import { Calendar, Activity, FileText, Trash2, ArrowLeft, Image as ImageIcon, Plus, ChevronLeft, ChevronRight, X, Eye, Lock } from 'lucide-react';
 import { getDisenoForCiv } from '../data/frentesDisenos';
@@ -141,7 +142,7 @@ export default function WeeklyFrenteDetail({
           // Compresión de alta resolución en cliente (1600px, JPEG 0.82)
           const base64 = await compressImage(file, 1600, 1600, 0.82);
           
-          const dateCode = activeDateStr || new Date().toISOString().split('T')[0];
+          const dateCode = activeDateStr || todayLocalIso();
           const semCode = report ? report.numero_semana : 'XX';
 
           const fileName = generateStandardPhotoFileName({

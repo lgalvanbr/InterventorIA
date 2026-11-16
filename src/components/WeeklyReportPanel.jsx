@@ -405,14 +405,19 @@ export default function WeeklyReportPanel({
     }
   }, [report]);
 
-  const handleSaveIAConsolidated = () => {
-    if (onSaveReport) {
-      onSaveReport({
+  const [iaSaveMsg, setIaSaveMsg] = useState('');
+  const handleSaveIAConsolidated = async () => {
+    if (!onSaveReport) return;
+    try {
+      await onSaveReport({
         ...report,
         consolidado_ia: iaText
       });
-      alert('¡Texto consolidado de interventoría guardado con éxito!');
+      setIaSaveMsg('Guardado en la nube');
+    } catch {
+      setIaSaveMsg('No se pudo guardar en la nube; se reintentará al reconectar');
     }
+    setTimeout(() => setIaSaveMsg(''), 4000);
   };
 
   const handleBlur = () => {
@@ -969,6 +974,9 @@ export default function WeeklyReportPanel({
                     <span className="material-symbols-outlined text-[15px]">save</span>
                     Guardar Consolidado
                   </button>
+                  {iaSaveMsg && (
+                    <p role="status" className="text-[11px] font-semibold text-center text-slate-600 -mt-1">{iaSaveMsg}</p>
+                  )}
 
                   <hr className="border-slate-100" />
                 </>

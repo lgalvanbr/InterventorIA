@@ -1,12 +1,16 @@
+import { todayLocalIso } from '../utils/dates';
 import React, { useState, useRef } from 'react';
 import { Camera, Image as ImageIcon, Upload, X, Trash2, Calendar, Tag, AlertCircle } from 'lucide-react';
-import { compressImageFile, generateStandardPhotoFileName, uploadPhotoResiliently } from '../utils/imageCompressor';
+import { compressImageToBlob, generateStandardPhotoFileName, uploadPhotoBlob } from '../utils/imageCompressor';
 
 export default function PhotoGallery({ frente, onAddPhoto, onDeletePhoto, isContractorMode }) {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [isCompressing, setIsCompressing] = useState(false);
+  const [compressedBlob, setCompressedBlob] = useState(null);
+  const [isSending, setIsSending] = useState(false);
+  const [uploadError, setUploadError] = useState('');
   
   // Photo metadata form state
   const [title, setTitle] = useState('');
@@ -37,8 +41,11 @@ export default function PhotoGallery({ frente, onAddPhoto, onDeletePhoto, isCont
 
     try {
       setIsCompressing(true);
-      const compressed = await compressImageFile(file, { maxDimension: 1600, quality: 0.82 });
-      setPreviewUrl(compressed.base64);
+      const { blob } = await compressImageToBlob(file, { maxDimension: 1600, quality: 0.8 });
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(URL.createObjectURL(blob));
+      setCompressedBlob(blob);
+      setUploadError('');
       setSelectedFile(file);
       setTitle(file.name.split('.')[0]); // Default title is filename
       setIsUploading(true);
@@ -67,51 +74,46 @@ export default function PhotoGallery({ frente, onAddPhoto, onDeletePhoto, isCont
 
   const handleUploadSubmit = async (e) => {
     e.preventDefault();
-    if (!previewUrl) return;
+    if (!compressedBlob || isSending) return;
 
-    let finalUrl = previewUrl;
-    const dateCode = new Date().toISOString().split('T')[0];
-
+    const dateCode = todayLocalIso();
     const fileName = generateStandardPhotoFileName({
       frenteId: frente.id,
       semana: 'gallery',
       dateStr: dateCode,
-      originalName: selectedFile?.name
+      originalName: 'foto.jpg'
     });
 
+    // Si no sube, se avisa y se puede reintentar: ya no se guarda la foto en Base64 dentro de los datos
+    setIsSending(true);
+    setUploadError('');
+    let url;
     try {
-      const uploadRes = await uploadPhotoResiliently({
-        semana: 'gallery',
-        frenteId: frente.id,
-        fileName,
-        base64: previewUrl
-      });
-      if (uploadRes?.url) finalUrl = uploadRes.url;
+      url = await uploadPhotoBlob({ blob: compressedBlob, semana: 'gallery', frenteId: frente.id, fileName });
     } catch (err) {
-      console.warn("Could not save photo to server disk, fallback to base64 previewUrl:", err);
+      console.error('No se pudo subir la foto:', err);
+      setUploadError('No se pudo subir la foto. Revisa la conexión y vuelve a intentarlo.');
+      setIsSending(false);
+      return;
     }
 
-    const newPhoto = {
+    onAddPhoto(frente.id, {
       id: 'photo_' + Date.now(),
-      url: finalUrl,
+      url,
       title: title || 'Registro Fotográfico',
       description: description || 'Fotografía de control en obra.',
       category: category,
-      date: new Date().toLocaleDateString('es-CO', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    };
-
-    onAddPhoto(frente.id, newPhoto);
+      date: dateCode
+    });
+    setIsSending(false);
     resetForm();
   };
 
   const resetForm = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     setSelectedFile(null);
+    setCompressedBlob(null);
+    setUploadError('');
     setPreviewUrl('');
     setTitle('');
     setDescription('');
@@ -219,10 +221,15 @@ export default function PhotoGallery({ frente, onAddPhoto, onDeletePhoto, isCont
                   <div className="form-group" style={{ marginBottom: 0, display: 'flex', alignItems: 'flex-end' }}>
                     <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
                       <button type="button" onClick={resetForm} className="btn btn-secondary" style={{ flex: 1 }}>Cancelar</button>
-                      <button type="submit" className="btn btn-primary" style={{ flex: 2 }}>Registrar Foto</button>
+                      <button type="submit" className="btn btn-primary" style={{ flex: 2 }} disabled={isSending}>
+                        {isSending ? 'Subiendo…' : uploadError ? 'Reintentar' : 'Registrar Foto'}
+                      </button>
                     </div>
                   </div>
                 </div>
+                {uploadError && (
+                  <p role="alert" style={{ color: '#b91c1c', fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>{uploadError}</p>
+                )}
 
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label className="form-label">Descripción de la Evidencia</label>

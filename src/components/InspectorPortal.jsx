@@ -24,6 +24,7 @@ import {
   generateStandardPhotoFileName
 } from '../utils/imageCompressor';
 import { cloneWeeklyReport, calculateConsolidatedMetrics } from '../data/reportsWeekly';
+import { frentePhotoList, frenteNoteList, mergeEditedList, photoKey, noteKey } from '../data/reportsMerge';
 
 // Novedades frecuentes para la bitácora (un toque)
 const QUICK_LOG_TAGS = [
@@ -64,15 +65,13 @@ const shortDate = (iso) => {
 };
 
 const isMallaVial = (f) => f?.id?.startsWith('f_mv');
-const frentePhotos = (f) => {
-  const map = new Map();
-  [...(f?.fotos || []), ...(f?.photos || [])].forEach(p => {
-    const key = p.id || p.url;
-    if (key && !map.has(key)) map.set(key, p);
-  });
-  return Array.from(map.values());
+const frentePhotos = frentePhotoList;
+const frenteNotes = frenteNoteList;
+const addDaysIso = (iso, days) => {
+  const d = new Date(`${iso}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  return toLocalIso(d);
 };
-const frenteNotes = (f) => f?.bitacora_notes || f?.bitacora_notas || [];
 const hasActivityOn = (f, dateStr) =>
   frentePhotos(f).some(p => p.date === dateStr) ||
   frenteNotes(f).some(n => n.date === dateStr && n.note?.trim());
@@ -88,7 +87,9 @@ const getSupabaseConfig = () => {
 export default function InspectorPortal({
   weeklyReports = [],
   onSaveFrenteData,
-  onUpdateReports
+  onUpdateReports,
+  isDataFresh = true,
+  pendingSyncCount = 0
 }) {
   const sortedReports = useMemo(
     () => [...weeklyReports].sort((a, b) => b.numero_semana - a.numero_semana),
@@ -121,10 +122,23 @@ export default function InspectorPortal({
   const selectionRef = useRef({ reportId: null, frenteId: '' });
   const noteTimerRef = useRef(null);
   const toastTimerRef = useRef(null);
+  // Lo que había en la nube cuando se cargó el frente: los cambios locales se calculan contra
+  // esto y se aplican sobre la versión más reciente (no se pisan fotos/notas de otros celulares)
+  const baseFotosRef = useRef([]);
+  const baseNotesRef = useRef([]);
+  const seedKeyRef = useRef('');
+  const saveStateRef = useRef('idle');
+  const editVersionRef = useRef(0);
+  const pendingWeekSelectRef = useRef(null);
+  // Funciones del padre por ref: cambian en cada render y no deben re-disparar efectos
+  const onSaveRef = useRef(onSaveFrenteData);
+  onSaveRef.current = onSaveFrenteData;
+  const autoCreatedRef = useRef(false);
 
   reportsRef.current = weeklyReports;
   fotosRef.current = fotos;
   notesRef.current = bitacoraNotes;
+  saveStateRef.current = saveState;
 
   const showToast = useCallback((message, tone = 'ok') => {
     clearTimeout(toastTimerRef.current);
@@ -141,6 +155,17 @@ export default function InspectorPortal({
     const saved = sortedReports.find(r => String(r.id_informe) === String(savedId));
     setSelectedReportId((containsToday || saved || sortedReports[0]).id_informe);
   }, [sortedReports, selectedReportId, todayIso]);
+
+  // Tras crear una semana se selecciona por número (el servidor puede devolver otra id si ya existía)
+  useEffect(() => {
+    const wanted = pendingWeekSelectRef.current;
+    if (wanted == null) return;
+    const match = sortedReports.find(r => Number(r.numero_semana) === wanted);
+    if (match) {
+      pendingWeekSelectRef.current = null;
+      setSelectedReportId(match.id_informe);
+    }
+  }, [sortedReports]);
 
   const currentReport =
     sortedReports.find(r => String(r.id_informe) === String(selectedReportId)) || sortedReports[0] || null;
@@ -177,83 +202,140 @@ export default function InspectorPortal({
   const frenteIndex = frentes.findIndex(f => f.id === selectedFrenteId);
   selectionRef.current = { reportId: currentReport?.id_informe ?? null, frenteId: selectedFrenteId };
 
-  // Cargar fotos y notas del frente seleccionado (solo las de esta semana)
+  // Cargar fotos y notas del frente. Al cambiar de frente/semana siempre; si llegan datos nuevos
+  // de la nube (otro celular, o la carga inicial) solo cuando no hay ediciones sin guardar.
   useEffect(() => {
-    if (!activeFrente) {
-      setFotos([]);
-      setBitacoraNotes([]);
-      return;
-    }
-    const week = currentReport ? Number(currentReport.numero_semana) : null;
-    setFotos(frentePhotos(activeFrente).filter(p => p.semana == null || Number(p.semana) === week));
-    setBitacoraNotes(frenteNotes(activeFrente));
-    setSaveState(s => (s === 'dirty' || s === 'saving' ? s : 'idle'));
-    // Solo al cambiar de frente o de semana: no pisar lo que el inspector está editando
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFrenteId, currentReport?.id_informe]);
+    const key = `${currentReport?.id_informe}:${selectedFrenteId}`;
+    const switched = key !== seedKeyRef.current;
+    if (!switched && (saveStateRef.current === 'dirty' || saveStateRef.current === 'saving')) return;
+    seedKeyRef.current = key;
+    const list = activeFrente ? frentePhotos(activeFrente) : [];
+    const notes = activeFrente ? frenteNotes(activeFrente) : [];
+    baseFotosRef.current = list;
+    baseNotesRef.current = notes;
+    fotosRef.current = list;
+    notesRef.current = notes;
+    setFotos(list);
+    setBitacoraNotes(notes);
+    if (switched) setSaveState(s => (s === 'error' ? s : 'idle'));
+  }, [activeFrente, selectedFrenteId, currentReport?.id_informe]);
 
   useEffect(() => {
+    if (saveStateRef.current === 'dirty') return; // no reemplazar lo que se está escribiendo
     setDailyNote(bitacoraNotes.find(n => n.date === activeDateStr)?.note || '');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDateStr, selectedFrenteId, currentReport?.id_informe]);
+  }, [activeDateStr, bitacoraNotes]);
 
   // ---------- Guardado ----------
   const persistFrente = useCallback(async (reportId, frenteId, data, { silent = false } = {}) => {
-    if (!onSaveFrenteData || !reportId || !frenteId) return;
+    if (!onSaveRef.current || !reportId || !frenteId) return;
+    const version = editVersionRef.current;
     setSaveState('saving');
     try {
-      await onSaveFrenteData(reportId, frenteId, data);
-      setSaveState('saved');
+      await onSaveRef.current(reportId, frenteId, data);
+      // Si se editó algo mientras guardaba, sigue pendiente
+      setSaveState(editVersionRef.current === version ? 'saved' : 'dirty');
       if (!silent) showToast('Reporte guardado en la nube');
     } catch (err) {
       console.error('Error guardando el frente:', err);
       setSaveState('error');
-      showToast('No se pudo guardar. Revisa la conexión e inténtalo de nuevo.', 'error');
+      showToast('Sin conexión: el cambio queda en este celular y se enviará al reconectar.', 'error');
       throw err;
     }
-  }, [onSaveFrenteData, showToast]);
+  }, [showToast]);
+
+  const latestFrente = (reportId, frenteId) =>
+    reportsRef.current.find(r => String(r.id_informe) === String(reportId))?.frentes?.find(f => f.id === frenteId);
 
   const saveCurrent = useCallback((opts) => {
     clearTimeout(noteTimerRef.current);
     const { reportId, frenteId } = selectionRef.current;
-    const list = fotosRef.current;
-    const notes = notesRef.current.filter(n => n.note?.trim());
+    const latest = latestFrente(reportId, frenteId);
+    const editedNotes = notesRef.current.filter(n => n.note?.trim());
+    const fotosMerged = mergeEditedList(baseFotosRef.current, fotosRef.current, frentePhotos(latest), photoKey);
+    const notesMerged = mergeEditedList(baseNotesRef.current, editedNotes, frenteNotes(latest), noteKey);
+    // La nueva base es lo que se envía: el siguiente guardado solo manda lo que cambie después
+    baseFotosRef.current = fotosMerged;
+    baseNotesRef.current = notesMerged;
     return persistFrente(reportId, frenteId, {
-      fotos: list,
-      photos: list,
-      bitacora_notes: notes,
-      bitacora_notas: notes
+      fotos: fotosMerged,
+      photos: fotosMerged,
+      bitacora_notes: notesMerged,
+      bitacora_notas: notesMerged
     }, opts);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [persistFrente]);
 
   const saveIfDirty = useCallback(async () => {
-    if (saveState === 'dirty' || saveState === 'error') {
-      try { await saveCurrent({ silent: true }); } catch { /* el aviso ya se mostró */ }
+    if (saveStateRef.current === 'dirty' || saveStateRef.current === 'error') {
+      try { await saveCurrent({ silent: true }); } catch { /* queda en cola y se reintenta */ }
     }
-  }, [saveState, saveCurrent]);
+  }, [saveCurrent]);
 
-  const markDirty = () => setSaveState('dirty');
+  // Cuando la app logra reenviar la cola pendiente, el error de este portal ya no aplica
+  const prevPendingRef = useRef(pendingSyncCount);
+  useEffect(() => {
+    if (prevPendingRef.current > 0 && pendingSyncCount === 0 && saveStateRef.current === 'error') {
+      setSaveState('saved');
+    }
+    prevPendingRef.current = pendingSyncCount;
+  }, [pendingSyncCount]);
 
-  // Autoguardado de la bitácora mientras se escribe
-  const handleNoteChange = (text) => {
-    setDailyNote(text);
-    setBitacoraNotes(prev => {
-      const exists = prev.some(n => n.date === activeDateStr);
-      return exists
-        ? prev.map(n => (n.date === activeDateStr ? { ...n, note: text } : n))
-        : [{ id: Date.now(), date: activeDateStr, note: text }, ...prev];
-    });
-    markDirty();
+  const markDirty = () => {
+    editVersionRef.current += 1;
+    saveStateRef.current = 'dirty';
+    setSaveState('dirty');
+  };
+
+  const scheduleAutosave = () => {
     clearTimeout(noteTimerRef.current);
     noteTimerRef.current = setTimeout(() => {
       saveCurrent({ silent: true }).catch(() => {});
     }, NOTE_AUTOSAVE_MS);
   };
 
-  useEffect(() => () => {
-    clearTimeout(noteTimerRef.current);
-    clearTimeout(toastTimerRef.current);
-  }, []);
+  // Autoguardado de la bitácora mientras se escribe
+  const handleNoteChange = (text) => {
+    setDailyNote(text);
+    const prev = notesRef.current;
+    const exists = prev.some(n => n.date === activeDateStr);
+    const next = exists
+      ? prev.map(n => (n.date === activeDateStr ? { ...n, note: text } : n))
+      : [{ id: Date.now(), date: activeDateStr, note: text }, ...prev];
+    notesRef.current = next;
+    setBitacoraNotes(next);
+    markDirty();
+    scheduleAutosave();
+  };
+
+  // Guardar lo pendiente si la app se cierra, se minimiza o se sale del portal
+  const uploadsRef = useRef(uploads);
+  uploadsRef.current = uploads;
+  useEffect(() => {
+    const flush = () => {
+      if (saveStateRef.current === 'dirty' || saveStateRef.current === 'error') {
+        saveCurrent({ silent: true }).catch(() => {});
+      }
+    };
+    const onVisibility = () => { if (document.visibilityState === 'hidden') flush(); };
+    const onBeforeUnload = (e) => {
+      flush();
+      if (uploadsRef.current.some(u => u.status !== 'error')) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', flush);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', flush);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      flush();
+      clearTimeout(noteTimerRef.current);
+      clearTimeout(toastTimerRef.current);
+    };
+  }, [saveCurrent]);
 
   const handleAddQuickTag = (tag) => {
     const base = dailyNote.trim();
@@ -279,9 +361,7 @@ export default function InspectorPortal({
       await saveCurrent({ silent: true });
     } else {
       // El inspector cambió de frente mientras subía: se agrega al frente original
-      const report = reportsRef.current.find(r => String(r.id_informe) === String(ctx.reportId));
-      const frente = report?.frentes?.find(f => f.id === ctx.frenteId);
-      const list = [...frentePhotos(frente), photo];
+      const list = [...frentePhotos(latestFrente(ctx.reportId, ctx.frenteId)), photo];
       await persistFrente(ctx.reportId, ctx.frenteId, { fotos: list, photos: list }, { silent: true });
     }
   }, [saveCurrent, persistFrente]);
@@ -363,12 +443,16 @@ export default function InspectorPortal({
     fotosRef.current = next;
     setFotos(next);
     setViewerPhotoId(null);
-    try { await saveCurrent({ silent: true }); } catch { /* aviso ya mostrado */ }
+    markDirty();
+    try { await saveCurrent({ silent: true }); } catch { /* queda en cola */ }
   };
 
   const handleCaptionChange = (photoId, caption) => {
-    setFotos(prev => prev.map(f => (f.id === photoId ? { ...f, caption } : f)));
+    const next = fotosRef.current.map(f => (f.id === photoId ? { ...f, caption } : f));
+    fotosRef.current = next;
+    setFotos(next);
     markDirty();
+    scheduleAutosave();
   };
 
   const closeViewer = async () => {
@@ -409,25 +493,38 @@ export default function InspectorPortal({
   };
 
   const [isCreatingWeek, setIsCreatingWeek] = useState(false);
-  const handleCreateNextWeek = async () => {
+  const handleCreateNextWeek = useCallback(async ({ silent = false } = {}) => {
     if (!onUpdateReports || !latestReport || isCreatingWeek) return;
     setIsCreatingWeek(true);
+    await saveIfDirty();
     const draft = cloneWeeklyReport(latestReport);
     const finalDraft = calculateConsolidatedMetrics(draft.frentes, draft);
+    pendingWeekSelectRef.current = Number(finalDraft.numero_semana);
     try {
-      await onUpdateReports([finalDraft, ...weeklyReports]);
-      setSelectedReportId(finalDraft.id_informe);
-      showToast(`Semana ${finalDraft.numero_semana} creada`);
+      await onUpdateReports([finalDraft, ...reportsRef.current]);
+      if (!silent) showToast(`Semana ${finalDraft.numero_semana} lista`);
     } catch {
-      showToast('No se pudo crear la semana. Revisa la conexión.', 'error');
+      showToast('No se pudo crear la semana en la nube; se reintentará al reconectar.', 'error');
     } finally {
       setIsCreatingWeek(false);
     }
-  };
+  }, [onUpdateReports, latestReport, isCreatingWeek, saveIfDirty, showToast]);
+
+  // Si hoy cae en la semana siguiente a la última creada, se crea sola (con datos ya sincronizados)
+  useEffect(() => {
+    if (autoCreatedRef.current || !isDataFresh || !latestReport) return;
+    if (todayIso > latestReport.fecha_final_corte && todayIso <= addDaysIso(latestReport.fecha_final_corte, 7)) {
+      autoCreatedRef.current = true;
+      handleCreateNextWeek({ silent: true });
+    }
+  }, [isDataFresh, latestReport, todayIso, handleCreateNextWeek]);
 
   // ---------- Datos derivados ----------
-  const dayPhotos = fotos.filter(f => f.date === activeDateStr);
-  const visiblePhotos = showWeekPhotos ? fotos : dayPhotos;
+  // La lista completa del frente se conserva; aquí solo se muestran las fotos de esta semana
+  const weekNumber = currentReport ? Number(currentReport.numero_semana) : null;
+  const weekFotos = fotos.filter(p => p.semana == null || Number(p.semana) === weekNumber);
+  const dayPhotos = weekFotos.filter(f => f.date === activeDateStr);
+  const visiblePhotos = showWeekPhotos ? weekFotos : dayPhotos;
   const visibleUploads = uploads.filter(u =>
     String(u.reportId) === String(currentReport?.id_informe) &&
     u.frenteId === selectedFrenteId &&
@@ -440,7 +537,10 @@ export default function InspectorPortal({
     .filter(n => n.date !== activeDateStr && n.note?.trim())
     .sort((a, b) => (a.date < b.date ? 1 : -1));
 
-  const doneToday = frentes.filter(f => hasActivityOn(f, activeDateStr)).length;
+  const doneToday = useMemo(
+    () => frentes.filter(f => hasActivityOn(f, activeDateStr)).length,
+    [frentes, activeDateStr]
+  );
   const isTodayAfterLatest = latestReport && todayIso > latestReport.fecha_final_corte;
   const isViewingOldWeek = currentReport && latestReport && currentReport.id_informe !== latestReport.id_informe;
 
@@ -505,7 +605,7 @@ export default function InspectorPortal({
               <ChevronDown size={16} className="absolute right-0 pointer-events-none text-blue-200" />
             </label>
           </div>
-          <SaveStatusPill saveState={saveState} activeUploads={activeUploads} failedUploads={failedUploads} />
+          <SaveStatusPill saveState={saveState} activeUploads={activeUploads} failedUploads={failedUploads} pendingSync={pendingSyncCount} />
         </div>
 
         {/* Frente actual: toca para cambiar */}
@@ -559,7 +659,7 @@ export default function InspectorPortal({
             </p>
             <button
               type="button"
-              onClick={handleCreateNextWeek}
+              onClick={() => handleCreateNextWeek()}
               disabled={isCreatingWeek}
               className="shrink-0 inline-flex items-center gap-1 bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold px-3 py-2 rounded-lg disabled:opacity-60"
             >
@@ -575,7 +675,7 @@ export default function InspectorPortal({
             {weekDates.map(({ date, iso }, idx) => {
               const isActive = idx === activeDayIdx;
               const isToday = iso === todayIso;
-              const hasPhotos = fotos.some(f => f.date === iso);
+              const hasPhotos = weekFotos.some(f => f.date === iso);
               const hasNote = bitacoraNotes.some(n => n.date === iso && n.note?.trim());
               return (
                 <button
@@ -610,7 +710,7 @@ export default function InspectorPortal({
               onClick={() => setShowWeekPhotos(v => !v)}
               className="text-sm font-semibold text-primary"
             >
-              {showWeekPhotos ? 'Solo este día' : `Ver semana (${fotos.length})`}
+              {showWeekPhotos ? 'Solo este día' : `Ver semana (${weekFotos.length})`}
             </button>
           </div>
 
@@ -948,7 +1048,7 @@ export default function InspectorPortal({
   );
 }
 
-function SaveStatusPill({ saveState, activeUploads, failedUploads }) {
+function SaveStatusPill({ saveState, activeUploads, failedUploads, pendingSync }) {
   let icon = <CheckCircle2 size={14} />;
   let text = 'Al día';
   let tone = 'bg-white/15 text-white';
@@ -965,7 +1065,7 @@ function SaveStatusPill({ saveState, activeUploads, failedUploads }) {
   } else if (saveState === 'dirty') {
     icon = <span className="w-2 h-2 rounded-full bg-amber-300" />;
     text = 'Sin guardar';
-  } else if (saveState === 'error') {
+  } else if (saveState === 'error' || pendingSync > 0) {
     icon = <CloudOff size={14} />;
     text = 'Sin conexión';
     tone = 'bg-red-500 text-white';
