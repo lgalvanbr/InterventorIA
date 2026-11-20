@@ -278,13 +278,28 @@ const getSeededProjects = () => {
   ];
 };
 
-const saveWeeklyReportsToStorage = (reports) => {
+// Copia local para abrir rápido y sin conexión. Se escribe agrupada (1,5 MB de JSON por
+// escritura): antes se escribía en cada tecla del autoguardado y trababa los celulares.
+let pendingLocalReports = null;
+let localWriteTimer = null;
+const flushWeeklyReportsToStorage = () => {
+  clearTimeout(localWriteTimer);
+  if (!pendingLocalReports) return;
   try {
-    localStorage.setItem('geo_interventoria_weekly_reports', JSON.stringify(reports));
+    localStorage.setItem('geo_interventoria_weekly_reports', JSON.stringify(pendingLocalReports));
   } catch (err) {
-    console.warn("localStorage sync warning:", err);
+    console.warn("No se pudo guardar la copia local de informes:", err);
   }
+  pendingLocalReports = null;
 };
+const saveWeeklyReportsToStorage = (reports) => {
+  pendingLocalReports = reports;
+  clearTimeout(localWriteTimer);
+  localWriteTimer = setTimeout(flushWeeklyReportsToStorage, 2000);
+};
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', flushWeeklyReportsToStorage);
+}
 
 export default function App() {
   const [projects, setProjects] = useState([]);
@@ -295,7 +310,11 @@ export default function App() {
   // Copia síncrona del estado: evita que guardados consecutivos partan de una versión vieja
   const weeklyReportsRef = useRef([]);
   const saveQueueRef = useRef(Promise.resolve());
+  const failedChangesRef = useRef([]); // cambios que no llegaron a la nube; se reenvían
+  const pendingWeeksRef = useRef(new Map()); // semana -> guardados en curso
   const [syncError, setSyncError] = useState('');
+  const [failedCount, setFailedCount] = useState(0);
+  const [isDataFresh, setIsDataFresh] = useState(false); // true cuando ya llegaron los datos de la nube
   const setWeeklyReports = useCallback((next) => {
     const value = typeof next === 'function' ? next(weeklyReportsRef.current) : next;
     weeklyReportsRef.current = value;
@@ -440,6 +459,7 @@ export default function App() {
       })
       .then(data => {
         setSyncError('');
+        setIsDataFresh(true);
         if (Array.isArray(data) && data.length > 0) {
           setWeeklyReports(data);
           saveWeeklyReportsToStorage(data);
@@ -515,49 +535,92 @@ export default function App() {
     }
   };
 
-  // Guarda solo lo que cambió (semanas nuevas / frentes editados). El servidor lo fusiona con
-  // la última versión en Supabase, así un dispositivo desactualizado no borra semanas de otros.
+  // Envía a la nube operaciones (semanas nuevas, campos y fotos/notas por id). El servidor las
+  // aplica sobre la última versión de cada semana, así no se pisan los cambios de otros celulares.
+  // Si falla, los cambios quedan en cola y se reenvían con el siguiente guardado o al volver la red.
   // Devuelve una promesa que falla si la nube no confirmó el guardado.
+  const sendChanges = useCallback((changes) => {
+    const weeks = [...new Set(changes.map(c => Number(c.semana)))];
+    weeks.forEach(w => pendingWeeksRef.current.set(w, (pendingWeeksRef.current.get(w) || 0) + 1));
+
+    const run = saveQueueRef.current.then(async () => {
+      const retried = failedChangesRef.current;
+      failedChangesRef.current = [];
+      const toSend = [...retried, ...changes];
+      try {
+        const res = await fetch('/api/weekly-reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ changes: toSend }),
+          signal: AbortSignal.timeout(45000)
+        });
+        const result = await res.json().catch(() => ({}));
+        if (!res.ok || !result.persisted) {
+          throw new Error(result.error || `HTTP ${res.status}`);
+        }
+        setSyncError('');
+        setFailedCount(0);
+        return result;
+      } catch (err) {
+        failedChangesRef.current = [...toSend, ...failedChangesRef.current];
+        setFailedCount(failedChangesRef.current.length);
+        throw err;
+      }
+    }).then(result => {
+      weeks.forEach(w => pendingWeeksRef.current.set(w, pendingWeeksRef.current.get(w) - 1));
+      const saved = (result.reports || []).filter(r => !(pendingWeeksRef.current.get(Number(r.numero_semana)) > 0));
+      if (saved.length > 0) {
+        // Versión confirmada por el servidor (incluye lo que otros guardaron), salvo semanas
+        // con otro guardado en camino: esa respuesta llegará después
+        setWeeklyReports(prev => {
+          const byWeek = new Map(saved.map(r => [Number(r.numero_semana), r]));
+          const next = prev.map(r => {
+            const fresh = byWeek.get(Number(r.numero_semana));
+            if (fresh) byWeek.delete(Number(r.numero_semana));
+            return fresh || r;
+          });
+          const merged = [...byWeek.values(), ...next];
+          saveWeeklyReportsToStorage(merged);
+          return merged;
+        });
+      }
+      // Semana ya creada por otro dispositivo: se usa la existente (viene en result.reports)
+      return result;
+    }, err => {
+      weeks.forEach(w => pendingWeeksRef.current.set(w, pendingWeeksRef.current.get(w) - 1));
+      throw err;
+    });
+
+    saveQueueRef.current = run.catch(() => {});
+    run.catch(err => {
+      console.error("Error guardando informes semanales:", err);
+      setSyncError(`Sin conexión con la nube (${err.message}). Los cambios quedan en este dispositivo y se enviarán al reconectar.`);
+    });
+    return run;
+  }, [setWeeklyReports]);
+
   function handleUpdateWeeklyReports(updatedReports) {
     const changes = diffReports(weeklyReportsRef.current, updatedReports);
     setWeeklyReports(updatedReports);
     saveWeeklyReportsToStorage(updatedReports);
-    if (changes.length === 0) return Promise.resolve();
-
-    // Cola: un guardado espera al anterior para no pisarse en el servidor
-    const run = saveQueueRef.current.then(async () => {
-      const res = await fetch('/api/weekly-reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ changes })
-      });
-      const result = await res.json().catch(() => ({}));
-      if (!res.ok || !result.persisted) {
-        throw new Error(result.error || `HTTP ${res.status}`);
-      }
-      setSyncError('');
-      const saved = result.reports || [];
-      if (saved.length > 0) {
-        // Reemplaza cada semana por la versión confirmada por el servidor
-        setWeeklyReports(prev => {
-          const savedWeeks = new Set(saved.map(r => Number(r.numero_semana)));
-          const next = [...saved, ...prev.filter(r => !savedWeeks.has(Number(r.numero_semana)))];
-          saveWeeklyReportsToStorage(next);
-          return next;
-        });
-      }
-      if (result.conflicts?.some(c => c.reason === 'exists')) {
-        alert('Esa semana ya había sido creada desde otro dispositivo. Se cargó la versión existente.');
-      }
-      return result;
-    });
-    saveQueueRef.current = run.catch(() => {});
-    run.catch(err => {
-      console.error("Error guardando informes semanales:", err);
-      setSyncError(`No se pudo guardar en la nube: ${err.message}. Revisa la conexión y vuelve a intentarlo.`);
-    });
-    return run;
+    if (changes.length === 0) {
+      // Nada nuevo, pero si hay cambios en cola sin enviar, el guardado aún no está completo
+      return failedChangesRef.current.length > 0 ? sendChanges([]) : Promise.resolve();
+    }
+    return sendChanges(changes);
   }
+
+  const retryFailedChanges = useCallback(() => {
+    if (failedChangesRef.current.length === 0) return Promise.resolve();
+    return sendChanges([]).catch(() => {});
+  }, [sendChanges]);
+
+  // Reintento automático al recuperar la conexión
+  useEffect(() => {
+    const onOnline = () => { retryFailedChanges(); };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [retryFailedChanges]);
 
   const handleSaveFrenteData = (reportId, frenteId, updatedData) => {
     const updatedReports = weeklyReportsRef.current.map(r => {
@@ -734,6 +797,11 @@ export default function App() {
           <div role="alert" className="sticky top-0 z-50 flex items-start gap-2 bg-red-50 border-b border-red-200 px-4 py-2.5 text-xs font-semibold text-red-700">
             <span className="material-symbols-outlined text-base">cloud_off</span>
             <span className="flex-1">{syncError}</span>
+            {failedCount > 0 && (
+              <button onClick={retryFailedChanges} className="bg-red-600 text-white rounded px-2 py-0.5 font-bold border-none cursor-pointer">
+                Reintentar
+              </button>
+            )}
             <button onClick={() => setSyncError('')} className="bg-transparent border-none text-red-700 cursor-pointer font-bold" aria-label="Cerrar aviso">×</button>
           </div>
         )}
@@ -890,7 +958,7 @@ export default function App() {
             }}
             onSaveReport={(updatedReport) => {
               const updatedReports = weeklyReportsRef.current.map(r => String(r.id_informe) === String(updatedReport.id_informe) ? updatedReport : r);
-              handleUpdateWeeklyReports(updatedReports);
+              return handleUpdateWeeklyReports(updatedReports);
             }}
           />
         )}
@@ -908,6 +976,8 @@ export default function App() {
             weeklyReports={weeklyReports}
             onSaveFrenteData={handleSaveFrenteData}
             onUpdateReports={handleUpdateWeeklyReports}
+            isDataFresh={isDataFresh}
+            pendingSyncCount={failedCount}
           />
         )}
 

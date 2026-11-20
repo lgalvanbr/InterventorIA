@@ -1,26 +1,40 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import fs from 'fs';
-import path from 'path';
-import { applyChanges, legacyArrayToChanges } from './src/data/reportsMerge.js';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-function getBody(req) {
-  return new Promise((resolve) => {
-    let chunks = [];
-    req.on('data', (chunk) => chunks.push(chunk));
-    req.on('end', () => {
-      const data = Buffer.concat(chunks).toString();
-      try {
-        resolve(JSON.parse(data));
-      } catch (e) {
-        resolve(data);
-      }
-    });
-  });
+// En desarrollo, /api/* lo atiende el mismo handler que en Vercel (api/index.js).
+// Sin SUPABASE_KEY usa el archivo local src/data/saved_weekly_reports.json.
+function vercelApiInDev() {
+  return {
+    name: 'vercel-api-dev',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url.startsWith('/api/')) return next();
+        try {
+          const { default: handler } = await server.ssrLoadModule('/api/index.js');
+          const vercelRes = Object.assign(res, {
+            status(code) { res.statusCode = code; return vercelRes; },
+            json(body) {
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify(body));
+            },
+            send(body) {
+              res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body));
+            },
+            redirect(code, url) {
+              res.statusCode = code;
+              res.setHeader('Location', url);
+              res.end();
+            }
+          });
+          await handler(req, vercelRes);
+        } catch (err) {
+          console.error('Error en /api (dev):', err);
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      });
+    }
+  };
 }
 
 // https://vite.dev/config/
@@ -50,91 +64,5 @@ export default defineConfig({
       }
     }
   },
-  plugins: [
-    react(),
-    {
-      name: 'local-db-plugin',
-      configureServer(server) {
-        server.middlewares.use(async (req, res, next) => {
-          // Endpoint: GET /api/weekly-reports
-          if (req.url === '/api/weekly-reports' && req.method === 'GET') {
-            const filePath = path.join(__dirname, 'src/data/saved_weekly_reports.json');
-            if (fs.existsSync(filePath)) {
-              try {
-                const data = fs.readFileSync(filePath, 'utf8');
-                res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(data);
-              } catch (e) {
-                res.writeHead(500, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: 'Failed to read file' }));
-              }
-            } else {
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify([]));
-            }
-            return;
-          }
-
-          // Endpoint: POST /api/weekly-reports
-          if (req.url === '/api/weekly-reports' && req.method === 'POST') {
-            try {
-              const body = await getBody(req);
-              const filePath = path.join(__dirname, 'src/data/saved_weekly_reports.json');
-              const stored = fs.existsSync(filePath) ? JSON.parse(fs.readFileSync(filePath, 'utf8')) : [];
-              const changes = Array.isArray(body) ? legacyArrayToChanges(stored, body) : (body?.changes || []);
-              const { reports, affected, conflicts } = applyChanges(stored, changes);
-              fs.mkdirSync(path.dirname(filePath), { recursive: true });
-              fs.writeFileSync(filePath, JSON.stringify(reports, null, 2), 'utf8');
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ success: true, persisted: true, reports: affected, conflicts }));
-            } catch (e) {
-              res.writeHead(500, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: 'Failed to write file' }));
-            }
-            return;
-          }
-
-          // Endpoint: POST /api/upload-photo
-          if (req.url === '/api/upload-photo' && req.method === 'POST') {
-            try {
-              const body = await getBody(req);
-              const { semana, frenteId, fileName, base64 } = body;
-
-              if (!semana || !frenteId || !fileName || !base64) {
-                res.writeHead(400, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: 'Missing parameters' }));
-                return;
-              }
-
-              const matches = base64.match(/^data:image\/([A-Za-z-+\/]+);base64,(.+)$/);
-              if (!matches || matches.length !== 3) {
-                res.writeHead(400, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: 'Invalid base64 image data' }));
-                return;
-              }
-
-              const buffer = Buffer.from(matches[2], 'base64');
-              const relativeDir = `public/uploads/semana_${semana}/frente_${frenteId}`;
-              const absoluteDir = path.join(__dirname, relativeDir);
-
-              fs.mkdirSync(absoluteDir, { recursive: true });
-              fs.writeFileSync(path.join(absoluteDir, fileName), buffer);
-
-              // Public URL served statically by Vite
-              const publicUrl = `/uploads/semana_${semana}/frente_${frenteId}/${fileName}`;
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ url: publicUrl }));
-            } catch (err) {
-              console.error("Error saving uploaded image to disk:", err);
-              res.writeHead(500, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: 'Failed to write file to disk' }));
-            }
-            return;
-          }
-
-          next();
-        });
-      }
-    }
-  ],
+  plugins: [react(), vercelApiInDev()],
 });

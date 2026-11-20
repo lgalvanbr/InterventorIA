@@ -3,6 +3,8 @@
  * Optimiza imágenes tomadas en campo en el navegador antes de enviarlas al servidor/Supabase Storage.
  */
 
+import { todayLocalIso } from './dates';
+
 /**
  * Comprime y redimensiona un archivo de imagen en el cliente.
  * Soporta corrección automática de orientación EXIF para fotos tomadas con dispositivos móviles.
@@ -296,7 +298,7 @@ function calculateAspectDimensions(srcWidth, srcHeight, maxDimension) {
  * FECHA_YYYY-MM-DD_SEMXX_FRENTE_ID_TIMESTAMP_RANDOM.ext
  */
 export function generateStandardPhotoFileName({ frenteId, semana, dateStr, originalName, prefix = 'FECHA' }) {
-  const cleanDate = dateStr || new Date().toISOString().split('T')[0];
+  const cleanDate = dateStr || todayLocalIso();
   const cleanSem = semana !== undefined && semana !== null ? String(semana) : 'XX';
   const cleanFrente = String(frenteId || 'frente').replace(/[^a-zA-Z0-9_]/g, '');
   const timestamp = Date.now().toString().slice(-6);

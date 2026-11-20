@@ -82,22 +82,23 @@ async function runFullVerificationSuite() {
   let cloudReports = [];
   try {
     console.log('Test 4: Probando conexión en vivo con la Base de Datos de Supabase PostgreSQL...');
-    const res = await fetch(`${baseUrl}/rest/v1/weekly_reports?id=eq.main_reports&select=data`, {
-      headers: {
-        'apikey': key,
-        'Authorization': `Bearer ${key}`
-      }
-    });
-
+    const headers = { 'apikey': key, 'Authorization': `Bearer ${key}` };
+    // Formato actual: una fila por semana (id = semana_N). Respaldo: fila única main_reports.
+    const res = await fetch(`${baseUrl}/rest/v1/weekly_reports?id=like.semana_*&select=data`, { headers });
     if (!res.ok) {
       throw new Error(`Error de conexión HTTP Supabase DB: Status ${res.status}`);
     }
+    cloudReports = (await res.json()).map(r => r.data);
 
-    const dbRows = await res.json();
-    if (!dbRows || dbRows.length === 0 || !dbRows[0].data) {
-      throw new Error('La fila main_reports en Supabase DB está vacía o corrupta.');
+    if (cloudReports.length === 0) {
+      const legacy = await fetch(`${baseUrl}/rest/v1/weekly_reports?id=eq.main_reports&select=data`, { headers });
+      const dbRows = legacy.ok ? await legacy.json() : [];
+      cloudReports = dbRows?.[0]?.data || [];
+      if (cloudReports.length === 0) {
+        throw new Error('No hay semanas en Supabase (ni filas semana_N ni main_reports).');
+      }
+      console.log('  ℹ️  Aún en formato anterior (main_reports); se migra en la primera carga de /api/weekly-reports.');
     }
-    cloudReports = dbRows[0].data;
     console.log(`  ✅ PASÓ - Supabase DB responde Status 200 OK con ${cloudReports.length} informes en la nube.\n`);
     passedTests++;
   } catch (e) {

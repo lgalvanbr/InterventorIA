@@ -21,6 +21,7 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
   const [editedEpProg, setEditedEpProg] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
+  const [saveErrorMsg, setSaveErrorMsg] = useState('');
   const [monthlyCopyType, setMonthlyCopyType] = useState('full'); // 'full', 'excel', 'ai', 'bitacora'
   const [copiedSuccess, setCopiedSuccess] = useState(false);
   
@@ -123,10 +124,11 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
   };
 
   // Save current open week as a draft
-  const handleSaveDraft = () => {
+  const handleSaveDraft = async () => {
     if (!activeReport) return;
 
     setIsSaving(true);
+    setSaveErrorMsg('');
 
     // Build updated report structure and recalculate execution indicators
     const currentReport = {
@@ -144,28 +146,35 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
       String(r.id_informe) === String(activeReport.id_informe) ? recalculatedReport : r
     );
 
-    onUpdateReports(updatedReports);
-    
-    setTimeout(() => {
-      setIsSaving(false);
-      setSaveSuccessMsg('Avances guardados correctamente.');
+    // Solo se confirma cuando la nube respondió
+    try {
+      await onUpdateReports(updatedReports);
+      setSaveSuccessMsg('Avances guardados en la nube.');
       setTimeout(() => setSaveSuccessMsg(''), 3000);
-    }, 500);
+    } catch {
+      setSaveErrorMsg('No se pudo guardar en la nube. Los cambios quedan en este equipo y se reenviarán al reconectar.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Create next weekly report (clone from latest report)
-  const handleCreateNextWeek = () => {
+  const handleCreateNextWeek = async () => {
     const sorted = [...weeklyReports].sort((a, b) => b.numero_semana - a.numero_semana);
     const latestReport = sorted[0];
 
     const nextWeekDraft = cloneWeeklyReport(latestReport);
     const finalDraft = calculateConsolidatedMetrics(nextWeekDraft.frentes, nextWeekDraft);
 
-    const updatedReports = [finalDraft, ...weeklyReports];
-    onUpdateReports(updatedReports);
     setActiveReportId(finalDraft.id_informe);
-    setSaveSuccessMsg(`Semana ${finalDraft.numero_semana} creada con éxito.`);
-    setTimeout(() => setSaveSuccessMsg(''), 3000);
+    setSaveErrorMsg('');
+    try {
+      await onUpdateReports([finalDraft, ...weeklyReports]);
+      setSaveSuccessMsg(`Semana ${finalDraft.numero_semana} creada.`);
+      setTimeout(() => setSaveSuccessMsg(''), 3000);
+    } catch {
+      setSaveErrorMsg('La semana se creó en este equipo pero no se pudo guardar en la nube; se reintentará al reconectar.');
+    }
   };
 
 
@@ -312,6 +321,11 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
       </section>
 
       {/* Success Notification Bar */}
+      {saveErrorMsg && (
+        <div role="alert" className="bg-red-50 border border-red-200 text-red-800 text-xs font-bold px-4 py-3 rounded-lg mb-6">
+          {saveErrorMsg}
+        </div>
+      )}
       {saveSuccessMsg && (
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
           <CheckCircle2 size={16} className="text-emerald-600" />

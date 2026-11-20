@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { curvaSData } from '../data/reportsCurvaS';
-import { FileText, TrendingUp, HelpCircle, Calendar, Sparkles } from 'lucide-react';
+import { FileText, TrendingUp, HelpCircle, Calendar, Sparkles, AlertTriangle } from 'lucide-react';
 import { getAvailableMonths, generateMonthlyBitacoraText, getReportMonthLabel } from '../data/reportsWeekly';
 import MonthlyReportGenerator from './MonthlyReportGenerator';
 
@@ -275,6 +275,15 @@ export default function ReportsView({ projects = [], weeklyReports = [] }) {
                 </div>
               )}
 
+              {/* Aviso: el acta usa ítems de ejemplo (no hay presupuesto por ítems cargado) */}
+              <div role="note" className="mb-5 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-900 print:hidden">
+                <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-600" />
+                <span>
+                  <strong>Simulación:</strong> los ítems, cantidades y precios de esta acta son de ejemplo y se calculan a partir del % de avance
+                  {realExecutedBudget > 0 ? '' : ' (también el valor ejecutado)'}. No corresponden al presupuesto contractual; no usar como acta oficial.
+                </span>
+              </div>
+
               {/* Document Header */}
               <div className="text-center border-b border-slate-200 pb-6 mb-6">
                 <h3 className="font-bold text-slate-800 text-sm uppercase tracking-widest mb-1">Acta de Recibo Parcial de Obra</h3>
@@ -424,8 +433,9 @@ export default function ReportsView({ projects = [], weeklyReports = [] }) {
             <div className="bg-white border border-slate-200 rounded-lg p-6 animate-fade-in">
               <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider mb-4 flex items-center gap-1.5">
                 <TrendingUp size={16} className="text-primary" />
-                Resumen de Avance Real
+                Resumen de Avance (curva estimada)
               </h4>
+              <p className="text-[11px] text-slate-500 -mt-2 mb-3">Puntos intermedios aproximados a partir del avance actual.</p>
               
               {/* SVG Curve Chart */}
               <div className="bg-slate-50 rounded border border-slate-100 p-4 mb-4 flex justify-center">
