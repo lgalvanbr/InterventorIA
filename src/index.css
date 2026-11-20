@@ -354,3 +354,139 @@ body {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* ==========================================================================
+   Landing: frentes como tramos de vía (asfalto + pintura de señalización)
+   ========================================================================== */
+.landing-hero {
+  --asfalto: #2b3138;
+  --asfalto-claro: #3a424b;
+  --linea: #e9edf1;
+  --senal: #f2b705;
+  --gris-tramo: #7d8790;
+  background: var(--asfalto);
+  color: #fff;
+  border-radius: 14px;
+  padding: 28px 20px 20px;
+  margin-bottom: 20px;
+}
+@media (min-width: 640px) {
+  .landing-hero { padding: 36px 36px 28px; }
+}
+.landing-hero-head {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+@media (min-width: 900px) {
+  .landing-hero-head { flex-direction: row; justify-content: space-between; align-items: flex-end; }
+}
+.landing-title {
+  font-family: 'Archivo', 'Inter', sans-serif;
+  font-stretch: 78%;
+  font-weight: 700;
+  font-size: clamp(2rem, 5vw, 3.25rem);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  margin-top: 6px;
+}
+.landing-figures {
+  display: flex;
+  gap: 28px;
+}
+.landing-figures div { display: flex; flex-direction: column-reverse; }
+.landing-figures dt { font-size: 0.8rem; color: #b7bfc7; max-width: 11rem; line-height: 1.3; }
+.landing-figures dd {
+  font-family: 'Archivo', 'Inter', sans-serif;
+  font-stretch: 78%;
+  font-weight: 700;
+  font-size: clamp(2.25rem, 5vw, 3rem);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.landing-figures dd span { font-size: 0.5em; color: #b7bfc7; margin-left: 2px; }
+
+.landing-lanes {
+  display: grid;
+  gap: 22px;
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px dashed rgba(233, 237, 241, 0.25); /* línea de carril */
+}
+.landing-lane-title {
+  font-family: 'Archivo', 'Inter', sans-serif;
+  font-stretch: 85%;
+  font-weight: 600;
+  font-size: 1rem;
+}
+.landing-bars {
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+}
+.landing-bar {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.landing-bar-track {
+  position: relative;
+  height: 72px;
+  background: var(--asfalto-claro);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.landing-bar-fill {
+  position: absolute;
+  inset: auto 0 0 0;
+  background: var(--gris-tramo);
+  transition: height 700ms cubic-bezier(.2,.7,.2,1);
+}
+.landing-bar-fill.is-reported { background: var(--linea); }
+.landing-bar-mark { height: 4px; border-radius: 1px; }
+.landing-bar-mark.is-missing { background: var(--senal); }
+
+.landing-hero-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 20px;
+}
+@media (min-width: 900px) {
+  .landing-hero-foot { flex-direction: row; justify-content: space-between; align-items: center; }
+}
+.landing-legend { font-size: 0.8rem; color: #b7bfc7; line-height: 1.6; }
+.legend-bar, .legend-mark { display: inline-block; vertical-align: middle; margin: 0 6px 0 0; }
+.legend-bar { width: 6px; height: 14px; background: var(--linea); border-radius: 1px; }
+.legend-mark { width: 12px; height: 4px; background: var(--senal); margin-left: 10px; }
+
+.landing-toggle {
+  display: inline-flex;
+  background: rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 3px;
+}
+.landing-toggle button, .landing-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 8px;
+  color: #e9edf1;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+}
+.landing-toggle button[aria-pressed="true"] { background: #fff; color: var(--asfalto); }
+.landing-secondary { border: 1px solid rgba(233,237,241,0.3); }
+.landing-secondary:hover, .landing-toggle button:hover { background: rgba(255,255,255,0.12); }
+.landing-toggle button[aria-pressed="true"]:hover { background: #fff; }
+.landing-hero button:focus-visible { outline: 2px solid var(--senal); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-bar-fill { transition: none; }
+}

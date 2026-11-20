@@ -814,10 +814,10 @@ export default function App() {
               </div>
               <div>
                 <span className="font-headline-md text-sm sm:text-base font-extrabold text-primary tracking-tight block leading-tight">
-                  INCOLTA SAS • Usaquén
+                  INCOLTA S.A.S.
                 </span>
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
-                  Tablero de Control de Frentes (43 Frentes)
+                <span className="text-xs text-slate-500 block">
+                  Tablero de frentes de obra
                 </span>
               </div>
             </div>
