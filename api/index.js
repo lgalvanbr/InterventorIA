@@ -10,6 +10,9 @@ import { createReportsStore } from './_reportsStore.js';
 
 // Supabase (una fila por semana) en producción; archivo local si no hay credenciales
 const reportsStore = createReportsStore({ supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_KEY });
+// Copia en memoria de fotos/PDF subidos (respaldo para GET /uploads/* en Vercel). Lo usan
+// /api/upload-photo y /api/upload-design: sin esta declaración ambos fallan con HTTP 500.
+const memoryUploadedFiles = {};
 const sortWeeks = (reports) => [...reports].sort((a, b) => Number(b.numero_semana) - Number(a.numero_semana));
 
 async function uploadPhotoToSupabase(semana, frenteId, fileName, base64Data, bucketName = 'frentes-fotos') {
