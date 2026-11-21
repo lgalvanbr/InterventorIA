@@ -48,6 +48,47 @@ export function initializeWeeklyReports(allFrentes) {
   return [reportSemana20];
 }
 
+// Primera semana de un proyecto nuevo: la que contiene hoy según su calendario (sábado a viernes
+// por defecto), con los frentes en blanco. Sin datos de ejemplo.
+export function initialWeekForProject(allFrentes, calendario = {}, todayIso = null) {
+  const toIso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const start = new Date(`${calendario.fechaInicioPrimeraSemana || toIso(new Date())}T12:00:00`);
+  const today = new Date(`${todayIso || toIso(new Date())}T12:00:00`);
+  const weeksElapsed = Math.max(0, Math.floor((today - start) / (7 * 24 * 60 * 60 * 1000)));
+  const weekStart = new Date(start);
+  weekStart.setDate(start.getDate() + weeksElapsed * 7);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+
+  const frentes = allFrentes.map(f => ({
+    id: f.id,
+    frente: f.frente,
+    civ: f.civ,
+    eje: f.eje,
+    desde: f.desde,
+    hasta: f.hasta,
+    projectName: f.projectName,
+    porcentaje_avance_semana: f.progress || 0,
+    ejecucion_presupuestal_semana: 0,
+    actividades_ejecutadas_hitos: '',
+    pmt_estado: '',
+    fotos: [],
+    photos: [],
+    bitacora_notas: [],
+    bitacora_notes: []
+  }));
+
+  return calculateConsolidatedMetrics(frentes, {
+    id_informe: Date.now(),
+    numero_semana: (Number(calendario.numeroPrimeraSemana) || 1) + weeksElapsed,
+    fecha_inicial_corte: toIso(weekStart),
+    fecha_final_corte: toIso(weekEnd),
+    estado_informe: 'abierto',
+    malla_vial_programado: 0,
+    espacio_publico_programado: 0
+  });
+}
+
 export function calculateConsolidatedMetrics(frentesList, currentReport) {
   const mvFrentes = frentesList.filter(f => f.id.startsWith('f_mv'));
   const epFrentes = frentesList.filter(f => f.id.startsWith('f_ep'));
@@ -203,9 +244,11 @@ export function getMonthlyConsolidatedData(weeklyReports = [], projects = [], ta
       const isMv = wf.id.startsWith('f_mv');
       const isEp = wf.id.startsWith('f_ep');
 
-      // Filtro de contrato
+      // Filtro de contrato: 'all', el prefijo del contrato (f_mv, f_ep, f_an...) o los nombres antiguos
       if (contractFilter === 'malla_vial' && !isMv) return;
       if (contractFilter === 'espacio_publico' && !isEp) return;
+      if (contractFilter && !['all', 'malla_vial', 'espacio_publico'].includes(contractFilter) &&
+          !String(wf.id).startsWith(`${contractFilter}_`)) return;
 
       if (!frentesAggMap.has(wf.id)) {
         const design = getDisenoForCiv(wf.civ);

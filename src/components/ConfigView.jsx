@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Save, CheckCircle } from 'lucide-react';
+import { storageKey } from '../data/projectSession';
 
 export default function ConfigView({ projects = [] }) {
   const [dbHost, setDbHost] = useState('192.168.10.45');
@@ -20,7 +21,7 @@ export default function ConfigView({ projects = [] }) {
   const [frentesSearch, setFrentesSearch] = useState('');
   const [frenteColors, setFrenteColors] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('geo_interventoria_frentes_colors') || '{}');
+      return JSON.parse(localStorage.getItem(storageKey('geo_interventoria_frentes_colors')) || '{}');
     } catch (e) {
       return {};
     }
@@ -64,7 +65,7 @@ export default function ConfigView({ projects = [] }) {
   const handleSelectColor = (frenteId, color) => {
     const newColors = { ...frenteColors, [frenteId]: color };
     setFrenteColors(newColors);
-    localStorage.setItem('geo_interventoria_frentes_colors', JSON.stringify(newColors));
+    localStorage.setItem(storageKey('geo_interventoria_frentes_colors'), JSON.stringify(newColors));
     
     // Extract front number for message
     const fr = allFrentes.find(item => item.id === frenteId);
@@ -75,7 +76,7 @@ export default function ConfigView({ projects = [] }) {
   const handleResetColors = () => {
     if (window.confirm('¿Estás seguro de que deseas restablecer los colores de todos los frentes a los valores por defecto?')) {
       setFrenteColors({});
-      localStorage.removeItem('geo_interventoria_frentes_colors');
+      localStorage.removeItem(storageKey('geo_interventoria_frentes_colors'));
       setColorSavedMsg('Colores restablecidos a los valores por defecto.');
       setTimeout(() => setColorSavedMsg(''), 2000);
     }

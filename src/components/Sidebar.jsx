@@ -1,9 +1,62 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useProject } from '../context/ProjectContext';
+import { shareUrl } from '../data/projectSession';
+import { brandInitials } from '../utils/brand';
+import { PoweredByInterventorIA } from './InterventorIAMark';
 
-export default function Sidebar({ 
-  currentView, 
-  onViewChange, 
-  activeProjectId,
+// Navegación agrupada por tarea. Las vistas son las mismas de antes (mismos ids).
+const SECTIONS = [
+  {
+    title: 'Seguimiento',
+    items: [
+      { id: 'dashboard', label: 'Tablero de frentes', icon: 'dashboard' },
+      { id: 'project-detail', label: 'Mapa y frentes', icon: 'map' },
+      { id: 'frentes-control', label: 'Control de frentes', icon: 'layers' },
+      { id: 'weekly-reports', label: 'Informes semanales', icon: 'date_range' }
+    ]
+  },
+  {
+    title: 'Informes',
+    internal: true,
+    items: [
+      { id: 'reports', label: 'Informes mensuales y actas', icon: 'description' }
+    ]
+  },
+  {
+    title: 'Proyecto',
+    items: [
+      { id: 'project-info', label: 'Ficha del proyecto', icon: 'info' },
+      { id: 'engineers', label: 'Equipo de ingenieros', icon: 'badge', internal: true },
+      { id: 'config', label: 'Configuración', icon: 'settings', internal: true }
+    ]
+  }
+];
+
+const SHARE_LINKS = [
+  { mode: 'inspector', label: 'Portal de inspectores', hint: 'Para reportar fotos y bitácora desde el celular' },
+  { mode: 'landing', label: 'Tablero público', hint: 'Solo lectura, sin menú' },
+  { mode: 'map', label: 'Mapa de obra', hint: 'Todos los frentes georreferenciados' },
+  { mode: 'contractor', label: 'Acceso del contratista', hint: 'Consulta de mapas, planos e informes' }
+];
+
+function ProjectBadge({ marca, size = 36 }) {
+  if (marca?.logoUrl) {
+    return <img src={marca.logoUrl} alt="" className="rounded-lg object-contain bg-white border border-slate-200 shrink-0" style={{ width: size, height: size }} />;
+  }
+  return (
+    <span
+      className="rounded-lg bg-primary text-white flex items-center justify-center font-bold shrink-0"
+      style={{ width: size, height: size, fontFamily: "'Archivo', sans-serif", fontSize: size * 0.38 }}
+      aria-hidden="true"
+    >
+      {brandInitials(marca?.nombre)}
+    </span>
+  );
+}
+
+export default function Sidebar({
+  currentView,
+  onViewChange,
   isExpanded,
   onMouseEnter,
   onMouseLeave,
@@ -11,170 +64,157 @@ export default function Sidebar({
   onCloseMobile,
   isContractorMode
 }) {
-  const baseMenuItems = [
-    { id: 'dashboard', label: 'Proyectos de Obra', icon: 'assignment' },
-    { id: 'project-detail', label: 'Mapa y Frentes', icon: 'map' },
-    { id: 'frentes-control', label: 'Control de Frentes', icon: 'layers' },
-    { id: 'project-info', label: 'Ficha de Proyecto', icon: 'info' },
-    { id: 'weekly-reports', label: 'Informes Semanales', icon: 'history' }
-  ];
+  const project = useProject();
+  const [shareOpen, setShareOpen] = useState(false);
+  const [copied, setCopied] = useState('');
+  const expanded = isExpanded || isMobileOpen;
 
-  const internalMenuItems = [
-    { id: 'reports', label: 'Informes Mensuales y Actas', icon: 'description' },
-    { id: 'contractor-hub', label: 'Compartir Hub Contratista', icon: 'share', isAction: true },
-    { id: 'share-landing', label: 'Compartir Landing Frentes', icon: 'public', isAction: true },
-    { id: 'share-map', label: 'Compartir Mapa de Obra', icon: 'map', isAction: true },
-    { id: 'inspector-portal', label: 'Portal Inspectores', icon: 'share_location', isAction: true },
-    { id: 'engineers', label: 'Perfiles de Ingenieros', icon: 'badge' },
-    { id: 'config', label: 'Configuración', icon: 'settings' }
-  ];
+  const go = (id) => {
+    onViewChange(id);
+    if (onCloseMobile) onCloseMobile();
+  };
 
-  const menuItems = isContractorMode 
-    ? baseMenuItems 
-    : [
-        ...baseMenuItems.slice(0, 4), // Proyectos, Mapa, Control, Ficha
-        internalMenuItems[0],          // Actas y Reportes
-        baseMenuItems[4],             // Informes Semanales
-        ...internalMenuItems.slice(1)  // Compartir, Inspectores, Ingenieros, Config
-      ];
-
-  const handleItemClick = (item) => {
-    if (item.isAction) {
-      if (item.id === 'inspector-portal') {
-        const portalUrl = `${window.location.origin}/?mode=inspector`;
-        navigator.clipboard.writeText(portalUrl)
-          .then(() => alert(`¡Enlace copiado al portapapeles!\n\nComparte este link por WhatsApp o correo con los inspectores de obra para que reporten fotos y notas:\n\n${portalUrl}`))
-          .catch(() => alert(`Por favor, copia y comparte este enlace:\n\n${portalUrl}`));
-      } else if (item.id === 'contractor-hub') {
-        const portalUrl = `${window.location.origin}/?mode=contractor`;
-        navigator.clipboard.writeText(portalUrl)
-          .then(() => alert(`¡Enlace del Hub del Contratista copiado!\n\nComparte este enlace con el contratista de obra para que consulte los mapas, planos y reportes semanales en modo de lectura:\n\n${portalUrl}`))
-          .catch(() => alert(`Por favor, copia y comparte este enlace:\n\n${portalUrl}`));
-      } else if (item.id === 'share-landing') {
-        const landingUrl = `${window.location.origin}/?mode=landing`;
-        navigator.clipboard.writeText(landingUrl)
-          .then(() => alert(`¡Enlace de Landing copiado al portapapeles!\n\nComparte este enlace con tus compañeros para que consulten el tablero de frentes de Usaquén sin distracciones:\n\n${landingUrl}`))
-          .catch(() => alert(`Por favor, copia y comparte este enlace:\n\n${landingUrl}`));
-      } else if (item.id === 'share-map') {
-        const mapUrl = `${window.location.origin}/?mode=map`;
-        navigator.clipboard.writeText(mapUrl)
-          .then(() => alert(`¡Enlace del Mapa Georreferenciado copiado al portapapeles!\n\nComparte este enlace para que exploren directamente todos los 43 frentes georreferenciados:\n\n${mapUrl}`))
-          .catch(() => alert(`Por favor, copia y comparte este enlace:\n\n${mapUrl}`));
-      }
-    } else {
-      onViewChange(item.id);
-    }
-    if (onCloseMobile) {
-      onCloseMobile();
+  const copy = async (mode) => {
+    const url = shareUrl(mode);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(mode);
+      setTimeout(() => setCopied(''), 2000);
+    } catch {
+      window.prompt('Copia este enlace:', url);
     }
   };
 
+  const sections = SECTIONS
+    .filter(s => !(isContractorMode && s.internal))
+    .map(s => ({ ...s, items: s.items.filter(i => !(isContractorMode && i.internal)) }))
+    .filter(s => s.items.length > 0);
+
   return (
     <>
-      {/* Mobile Backdrop Overlay */}
       {isMobileOpen && (
-        <div 
-          onClick={onCloseMobile}
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 md:hidden transition-opacity duration-300"
-        />
+        <div onClick={onCloseMobile} className="fixed inset-0 bg-slate-900/40 z-40 md:hidden" />
       )}
 
-      <aside 
-        className={`flex flex-col h-screen fixed left-0 top-0 bg-white border-r border-slate-200 z-50 transition-all duration-300 shadow-sm md:translate-x-0 ${
-          isMobileOpen ? 'translate-x-0 w-64' : '-translate-x-full w-64 md:w-auto'
-        } ${
-          isExpanded ? 'md:w-64' : 'md:w-16'
-        }`}
+      <aside
+        className={`flex flex-col h-screen fixed left-0 top-0 bg-white border-r border-slate-200 z-50 transition-[width,transform] duration-200 md:translate-x-0 ${
+          isMobileOpen ? 'translate-x-0 w-72' : '-translate-x-full w-72 md:w-auto'
+        } ${isExpanded ? 'md:w-72' : 'md:w-16'}`}
         onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
+        onMouseLeave={() => { setShareOpen(false); onMouseLeave?.(); }}
+        aria-label="Navegación principal"
       >
-      {/* Brand Header */}
-      <div className={`border-b border-slate-100 bg-[#f7f9fb]/50 flex items-center gap-3 overflow-hidden ${
-        isExpanded ? 'p-6' : 'p-4 justify-center'
-      }`}>
-        <span className="material-symbols-outlined text-primary text-2xl shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>
-          construction
-        </span>
-        {isExpanded && (
-          <div className="animate-fade-in">
-            <h1 className="font-headline-md text-base font-extrabold text-primary tracking-tight leading-none">
-              INCOLTA SAS
-            </h1>
-            <p className="text-slate-500 text-[9px] font-bold uppercase tracking-wider mt-1">
-              {isContractorMode ? 'Hub del Contratista' : 'Portal de Interventoría'}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Navigation Menu */}
-      <nav className={`flex-1 py-6 space-y-1.5 ${isExpanded ? 'px-4' : 'px-2'}`}>
-        {menuItems.map((item) => {
-          const isActive = currentView === item.id;
-          
-          // Disable "Mapa y Frentes" if no project is active/selected
-          const isDisabled = item.disabledWithoutProject && !activeProjectId;
-          
-          return (
-            <button
-              key={item.id}
-              onClick={() => !isDisabled && handleItemClick(item)}
-              disabled={isDisabled}
-              className={`w-full flex items-center rounded-md transition-all duration-200 text-left overflow-hidden ${
-                isExpanded ? 'px-4 py-3 gap-3' : 'p-3 justify-center'
-              } ${
-                isActive
-                  ? 'bg-[#00236f]/8 text-primary font-bold border-r-4 border-primary shadow-2xs scale-102'
-                  : isDisabled
-                    ? 'text-slate-300 cursor-not-allowed opacity-50'
-                    : 'text-slate-650 hover:bg-slate-50 hover:text-slate-900 hover:translate-x-1'
-              }`}
-              title={!isExpanded ? item.label : (isDisabled ? 'Selecciona primero un proyecto de la lista' : '')}
-            >
-              <span className={`material-symbols-outlined text-[22px] shrink-0 ${isActive ? 'text-primary' : 'text-slate-400'}`}>
-                {item.icon}
-              </span>
-              {isExpanded && (
-                <span className="text-sm font-medium whitespace-nowrap">
-                  {item.label}
-                </span>
+        {/* Proyecto activo (marca blanca) */}
+        <div className={`border-b border-slate-100 flex items-center gap-3 ${expanded ? 'px-4 py-4' : 'p-3 justify-center'}`}>
+          <ProjectBadge marca={project?.marca} />
+          {expanded && (
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-slate-900 truncate leading-tight">{project?.marca?.nombre}</p>
+              <p className="text-xs text-slate-500 truncate">{project?.nombre}</p>
+              {!isContractorMode && (
+                <a href="/?mode=proyectos" className="text-xs font-semibold text-primary no-underline hover:underline">
+                  Cambiar proyecto
+                </a>
               )}
-              {isExpanded && isDisabled && (
-                <span className="material-symbols-outlined text-xs text-slate-300 ml-auto">
-                  lock
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </nav>
-
-      {/* User profile footer */}
-      <div className={`border-t border-slate-200 bg-slate-50/50 flex items-center overflow-hidden ${
-        isExpanded ? 'p-4 gap-3' : 'p-3 justify-center'
-      }`}>
-        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm shadow-sm shrink-0 ${
-          isContractorMode ? 'bg-amber-600 text-white' : 'bg-primary text-white'
-        }`}>
-          {isContractorMode ? 'CO' : 'LG'}
+            </div>
+          )}
         </div>
-        {isExpanded && (
-          <div className="animate-fade-in min-w-0 flex-1">
-            <p className="text-sm font-bold text-slate-800 truncate leading-tight flex items-center gap-1.5">
-              {isContractorMode ? 'Contratista de Obra' : 'Ing. Luis Carlos Galvan'}
-              {isContractorMode && (
-                <span className="material-symbols-outlined text-[12px] text-amber-600 font-bold" title="Acceso de Consulta (Solo Lectura)">
-                  lock
-                </span>
+
+        <nav className={`flex-1 overflow-y-auto py-3 ${expanded ? 'px-3' : 'px-2'}`}>
+          {sections.map(section => (
+            <div key={section.title} className="mb-3">
+              {expanded ? (
+                <p className="px-3 pt-2 pb-1 text-xs font-semibold text-slate-400">{section.title}</p>
+              ) : (
+                <div className="mx-3 my-2 border-t border-slate-100" />
               )}
-            </p>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mt-0.5 truncate">
-              {isContractorMode ? 'Consorcio Vial' : 'Director de Interventoría'}
-            </p>
-          </div>
-        )}
-      </div>
-    </aside>
+              {section.items.map(item => {
+                const isActive = currentView === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => go(item.id)}
+                    aria-current={isActive ? 'page' : undefined}
+                    title={expanded ? undefined : item.label}
+                    className={`w-full flex items-center rounded-lg text-left transition-colors ${
+                      expanded ? 'px-3 py-2.5 gap-3' : 'p-3 justify-center'
+                    } ${isActive ? 'bg-primary/10 text-primary font-semibold' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}`}
+                  >
+                    <span className={`material-symbols-outlined text-[21px] shrink-0 ${isActive ? 'text-primary' : 'text-slate-400'}`}>
+                      {item.icon}
+                    </span>
+                    {expanded && <span className="text-sm whitespace-nowrap">{item.label}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+
+          {!isContractorMode && (
+            <div className="mb-3">
+              {expanded ? (
+                <p className="px-3 pt-2 pb-1 text-xs font-semibold text-slate-400">Compartir</p>
+              ) : (
+                <div className="mx-3 my-2 border-t border-slate-100" />
+              )}
+              <button
+                type="button"
+                onClick={() => setShareOpen(v => !v)}
+                aria-expanded={shareOpen}
+                title={expanded ? undefined : 'Compartir enlaces'}
+                className={`w-full flex items-center rounded-lg text-left text-slate-600 hover:bg-slate-50 hover:text-slate-900 ${
+                  expanded ? 'px-3 py-2.5 gap-3' : 'p-3 justify-center'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[21px] shrink-0 text-slate-400">share</span>
+                {expanded && (
+                  <>
+                    <span className="text-sm flex-1">Enlaces para compartir</span>
+                    <span className={`material-symbols-outlined text-[18px] text-slate-400 transition-transform ${shareOpen ? 'rotate-180' : ''}`}>expand_more</span>
+                  </>
+                )}
+              </button>
+              {expanded && shareOpen && (
+                <ul className="mt-1 ml-3 pl-3 border-l border-slate-100 flex flex-col gap-1">
+                  {SHARE_LINKS.map(link => (
+                    <li key={link.mode}>
+                      <button
+                        type="button"
+                        onClick={() => copy(link.mode)}
+                        className="w-full text-left rounded-lg px-3 py-2 hover:bg-slate-50"
+                      >
+                        <span className="flex items-center justify-between gap-2">
+                          <span className="text-sm text-slate-700">{link.label}</span>
+                          <span className={`text-xs font-semibold ${copied === link.mode ? 'text-emerald-600' : 'text-primary'}`}>
+                            {copied === link.mode ? 'Copiado' : 'Copiar'}
+                          </span>
+                        </span>
+                        <span className="block text-xs text-slate-400">{link.hint}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </nav>
+
+        <div className={`border-t border-slate-100 ${expanded ? 'px-4 py-3' : 'p-3 flex justify-center'}`}>
+          {expanded ? (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-slate-500 truncate">
+                {isContractorMode ? 'Consulta del contratista' : 'Equipo de interventoría'}
+              </span>
+              <PoweredByInterventorIA />
+            </div>
+          ) : (
+            <a href="/?mode=proyectos" title="con InterventorIA" className="no-underline">
+              <span className="material-symbols-outlined text-[20px] text-slate-400">apps</span>
+            </a>
+          )}
+        </div>
+      </aside>
     </>
   );
 }

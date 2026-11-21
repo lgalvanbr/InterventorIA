@@ -25,3 +25,7 @@ dist-ssr
 
 # Extracciones de WhatsApp (datos personales del grupo, no subir)
 importaciones/
+
+# Datos locales de desarrollo de proyectos adicionales
+src/data/proyectos.local.json
+src/data/saved_weekly_reports.*.json

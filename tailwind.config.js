@@ -13,9 +13,9 @@ export default {
   theme: {
     extend: {
       colors: {
-        "primary": "#00236f",
+        "primary": "rgb(var(--brand-rgb, 0 35 111) / <alpha-value>)",
         "on-primary": "#ffffff",
-        "primary-container": "#1e3a8a",
+        "primary-container": "rgb(var(--brand-strong-rgb, 30 58 138) / <alpha-value>)",
         "on-primary-container": "#90a8ff",
         "secondary": "#515f74",
         "on-secondary": "#ffffff",

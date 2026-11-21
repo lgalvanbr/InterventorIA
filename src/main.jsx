@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import '@fontsource-variable/material-symbols-outlined'
-import App from './App.jsx'
+import ProjectGate from './ProjectGate.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 
 if (window.self !== window.top) {
@@ -12,7 +12,7 @@ if (window.self !== window.top) {
   createRoot(document.getElementById('root')).render(
     <StrictMode>
       <ErrorBoundary>
-        <App />
+        <ProjectGate />
       </ErrorBoundary>
     </StrictMode>,
   )

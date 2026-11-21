@@ -33,6 +33,23 @@ Antes de publicar: `npm run build` y `npm test`.
 
 ---
 
+## Proyectos (InterventorIA)
+
+InterventorIA maneja varios proyectos; cada uno tiene su marca (nombre, logo y color de la interventoría), contratos, frentes, semanas, fotos e inspectores por separado.
+
+| Qué | Dónde |
+|-----|-------|
+| Elegir proyecto | `/?mode=proyectos` |
+| Crear un proyecto con el asistente | `/?mode=nuevo-proyecto` |
+| Abrir un proyecto | `/?p=<id>` (sin `p` se abre Usaquén, para no romper los enlaces existentes) |
+| Portal de inspectores de un proyecto | `/?p=<id>&mode=inspector` |
+
+- **Configuración:** `src/data/projectConfig.js` (modelo) y `src/data/proyectos/usaquen.js` (proyecto Usaquén). Los demás proyectos se guardan en Supabase, fila `proyecto__<id>`.
+- **Semanas:** Usaquén usa `semana_<N>`; los demás proyectos `<id>__semana_<N>`. Las fotos de otros proyectos van a `proyectos/<id>/` en Storage.
+- **Asistente de carga:** lee Excel (.xlsx), CSV, texto y PDF, y arma un borrador con Claude (modelo `claude-opus-5-5`) para revisar antes de crear. Requiere la variable `ANTHROPIC_API_KEY` en Vercel. También se puede importar o descargar un proyecto como archivo `.json`.
+
+---
+
 ## 🚀 Requisitos Previos
 
 Antes de ejecutar el proyecto, asegúrate de tener instalado en tu sistema:

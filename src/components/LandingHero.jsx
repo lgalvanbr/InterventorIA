@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Layers, MapPin, FileText } from 'lucide-react';
 import { frenteReportDays } from '../data/reportCoverage';
+import { useProject } from '../context/ProjectContext';
 
 // Encabezado del tablero: los frentes dibujados como tramos (CIV) de vía.
 // Altura de cada barra = avance físico; marca amarilla = sin reporte en la semana.
@@ -57,6 +58,7 @@ export default function LandingHero({
   onViewModeChange,
   onCopyMonth
 }) {
+  const project = useProject();
   const [grown, setGrown] = useState(false);
   useEffect(() => {
     const id = requestAnimationFrame(() => setGrown(true));
@@ -72,8 +74,13 @@ export default function LandingHero({
     return ids;
   }, [weekReport]);
 
-  const malla = frentes.filter(f => f.id?.startsWith('f_mv'));
-  const espacio = frentes.filter(f => !f.id?.startsWith('f_mv'));
+  // Un carril por contrato del proyecto
+  const lanes = (project?.contratos || []).map(c => ({
+    key: c.id,
+    title: c.nombreCorto || c.nombre,
+    frentes: frentes.filter(f => String(f.id).startsWith(`${c.prefijo}_`))
+  })).filter(l => l.frentes.length > 0);
+  const contratante = project?.contratante ? `, contratos ${project.contratante}` : '';
   const reportedCount = frentes.filter(f => reportedIds.has(f.id)).length;
 
   return (
@@ -81,11 +88,11 @@ export default function LandingHero({
       <div className="landing-hero-head">
         <div className="max-w-xl">
           <p className="text-sm text-slate-300">
-            {isContractorMode ? 'Portal del contratista' : 'Interventoría'} de INCOLTA S.A.S.
+            {isContractorMode ? `Portal del contratista, ${project?.marca?.nombre}` : project?.marca?.nombre}
           </p>
-          <h1 id="landing-title" className="landing-title">Frentes de obra en Usaquén</h1>
+          <h1 id="landing-title" className="landing-title">{project?.nombre}</h1>
           <p className="text-sm sm:text-base text-slate-300 mt-2 leading-relaxed">
-            Malla vial y espacio público, contratos IDU.
+            {lanes.map(l => l.title).join(' y ')}{contratante}.
             {weekReport && ` Semana ${weekReport.numero_semana}, del ${shortDate(weekReport.fecha_inicial_corte)} al ${shortDate(weekReport.fecha_final_corte)}.`}
           </p>
         </div>
@@ -103,8 +110,9 @@ export default function LandingHero({
       </div>
 
       <div className="landing-lanes">
-        <Lane title="Malla vial" frentes={malla} reportedIds={reportedIds} grown={grown} />
-        <Lane title="Espacio público" frentes={espacio} reportedIds={reportedIds} grown={grown} />
+        {lanes.map(l => (
+          <Lane key={l.key} title={l.title} frentes={l.frentes} reportedIds={reportedIds} grown={grown} />
+        ))}
       </div>
 
       <div className="landing-hero-foot">

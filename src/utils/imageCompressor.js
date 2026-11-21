@@ -4,6 +4,10 @@
  */
 
 import { todayLocalIso } from './dates';
+import { CURRENT_PROJECT_ID, isDefaultProject } from '../data/projectSession';
+
+// Carpeta del proyecto en Storage (Usaquén usa la raíz, como siempre)
+const projectFolder = isDefaultProject ? '' : `proyectos/${CURRENT_PROJECT_ID}/`;
 
 /**
  * Comprime y redimensiona un archivo de imagen en el cliente.
@@ -207,7 +211,7 @@ function blobToDataUrl(blob) {
  */
 export async function uploadPhotoBlob({ blob, semana, frenteId, fileName, supabaseConfig = null, bucket = 'frentes-fotos' }) {
   const bucketName = supabaseConfig?.supabaseBucket || bucket;
-  const filePath = `semana_${semana || 'general'}/frente_${frenteId || 'frente'}/${fileName}`;
+  const filePath = `${projectFolder}semana_${semana || 'general'}/frente_${frenteId || 'frente'}/${fileName}`;
 
   if (supabaseConfig?.supabaseUrl && supabaseConfig?.supabaseKey) {
     try {
@@ -333,7 +337,7 @@ export async function uploadPhotoResiliently({
     try {
       const cleanSem = semana || 'general';
       const cleanFrente = frenteId || 'frente';
-      const filePath = `semana_${cleanSem}/frente_${cleanFrente}/${fileName}`;
+      const filePath = `${projectFolder}semana_${cleanSem}/frente_${cleanFrente}/${fileName}`;
       const url = `${supabaseConfig.supabaseUrl}/storage/v1/object/${supabaseConfig.supabaseBucket || bucket}/${filePath}`;
 
       let base64Clean = base64;

@@ -1,3 +1,4 @@
+import { storageKey } from './projectSession.js';
 // Catálogo Técnico de Diseños y Capas de Pavimento Aprobados por Interventoría
 // Basado en los informes oficiales de INCOLTA S.A.S. para la Malla Vial y Espacio Público de Usaquén
 
@@ -280,7 +281,7 @@ export const FRENTES_DISENOS = {
 // Helper for default/fallback design (e.g. Espacio Público CIVs)
 export function getDisenoForCiv(civId) {
   if (typeof window !== 'undefined') {
-    const overrides = JSON.parse(localStorage.getItem('geo_interventoria_design_overrides') || '{}');
+    const overrides = JSON.parse(localStorage.getItem(storageKey('geo_interventoria_design_overrides')) || '{}');
     if (overrides[civId]) {
       return overrides[civId];
     }
