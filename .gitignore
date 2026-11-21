@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Extracciones de WhatsApp (datos personales del grupo, no subir)
+importaciones/
