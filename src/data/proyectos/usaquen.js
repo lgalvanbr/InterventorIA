@@ -85,6 +85,12 @@ export const USAQUEN_CONFIG = {
     logoUrl: '',
     color: '#00236f'
   },
+  correspondencia: {
+    // Días hábiles para responder un oficio recibido y pistas para clasificar remitentes
+    plazoDiasHabiles: 5,
+    dominiosEntidad: ['idu.gov.co'],
+    dominiosContratista: []
+  },
   interventoria: {
     consorcio: 'Consorcio Interventoría Usaquén',
     contrato: 'IDU-19-620-18'

@@ -40,6 +40,7 @@ const FrentesControl = lazyWithRetry(() => import('./components/FrentesControl')
 const WeeklyReports = lazyWithRetry(() => import('./components/WeeklyReports'));
 const WeeklyReportPanel = lazyWithRetry(() => import('./components/WeeklyReportPanel'));
 const EngineersView = lazyWithRetry(() => import('./components/EngineersView'));
+const CorrespondenciaView = lazyWithRetry(() => import('./components/CorrespondenciaView'));
 const InspectorPortal = lazyWithRetry(() => import('./components/InspectorPortal'));
 const MapView = lazyWithRetry(() => import('./components/MapView'));
 const ProjectInfo = lazyWithRetry(() => import('./components/ProjectInfo'));
@@ -754,6 +755,10 @@ export default function App() {
 
         {view === 'config' && (
           <ConfigView projects={projects} />
+        )}
+
+        {view === 'correspondencia' && (
+          <CorrespondenciaView projects={projects} isContractorMode={isContractorMode} />
         )}
 
         {view === 'engineers' && (

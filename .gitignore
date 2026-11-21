@@ -29,3 +29,4 @@ importaciones/
 # Datos locales de desarrollo de proyectos adicionales
 src/data/proyectos.local.json
 src/data/saved_weekly_reports.*.json
+src/data/correspondencia.*.json

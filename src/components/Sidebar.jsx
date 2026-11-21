@@ -12,7 +12,8 @@ const SECTIONS = [
       { id: 'dashboard', label: 'Tablero de frentes', icon: 'dashboard' },
       { id: 'project-detail', label: 'Mapa y frentes', icon: 'map' },
       { id: 'frentes-control', label: 'Control de frentes', icon: 'layers' },
-      { id: 'weekly-reports', label: 'Informes semanales', icon: 'date_range' }
+      { id: 'weekly-reports', label: 'Informes semanales', icon: 'date_range' },
+      { id: 'correspondencia', label: 'Correspondencia', icon: 'mail', internal: true }
     ]
   },
   {

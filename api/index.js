@@ -9,6 +9,8 @@ import { diffReports, legacyArrayToChanges } from '../src/data/reportsMerge.js';
 import { createReportsStore } from './_reportsStore.js';
 import { createProjectsStore, summarizeProject, validateProjectConfig } from './_projectsStore.js';
 import { draftProjectFromDocuments, isAssistantConfigured } from './_projectAssistant.js';
+import { createCorrespondenciaStore } from './_correspondenciaStore.js';
+import { normalizeItem, mapRecordKeys } from '../src/data/correspondencia.js';
 
 // Supabase (una fila por semana) en producción; archivo local si no hay credenciales
 const reportsStore = createReportsStore({ supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_KEY });
@@ -541,6 +543,93 @@ export default async function handler(req, res) {
       res.status(200).json({ success: true, proyecto: summarizeProject(saved) });
     } catch (err) {
       res.status(err.status === 409 ? 409 : 502).json({ error: err.message });
+    }
+    return;
+  }
+
+  // ---------- Correspondencia (oficios y correos) ----------
+  if (pathname === '/api/correspondencia' || pathname === '/api/correspondencia/ingesta') {
+    res.setHeader('Cache-Control', 'no-store');
+    if (!PROJECT_ID.test(projectId)) {
+      res.status(400).json({ error: 'Proyecto inválido.' });
+      return;
+    }
+    let config;
+    try {
+      config = await projectsStore.get(projectId);
+    } catch (err) {
+      res.status(503).json({ error: 'No se pudo verificar el proyecto.', detail: err.message });
+      return;
+    }
+    if (!config) {
+      res.status(404).json({ error: 'Proyecto no encontrado.' });
+      return;
+    }
+    const store = createCorrespondenciaStore({ supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_KEY, projectId });
+
+    // GET: todos los registros del proyecto
+    if (pathname === '/api/correspondencia' && req.method === 'GET') {
+      try {
+        res.status(200).json(await store.get());
+      } catch (err) {
+        res.status(503).json({ error: 'No se pudo leer la correspondencia.', detail: err.message });
+      }
+      return;
+    }
+
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Método no permitido.' });
+      return;
+    }
+    const body = await getBody(req);
+    const raw = Array.isArray(body?.items) ? body.items.filter(i => i && typeof i === 'object') : [];
+    if (raw.length === 0) {
+      res.status(400).json({ error: 'Se espera { items: [...] } con al menos un registro.' });
+      return;
+    }
+    if (raw.length > 2000) {
+      res.status(413).json({ error: 'Envía como máximo 2.000 registros por petición.' });
+      return;
+    }
+
+    const isIngest = pathname === '/api/correspondencia/ingesta';
+    // Clave opcional para la integración (variable INTEGRACION_TOKEN en el servidor)
+    if (isIngest && process.env.INTEGRACION_TOKEN) {
+      const token = req.headers['x-integracion-token'] || body.token;
+      if (token !== process.env.INTEGRACION_TOKEN) {
+        res.status(401).json({ error: 'Clave de integración incorrecta.' });
+        return;
+      }
+    }
+
+    const corr = config.correspondencia || {};
+    const hints = {
+      entidad: [config.contratante, ...(corr.dominiosEntidad || [])].filter(Boolean),
+      contratista: [...(config.contratos || []).map(c => c.contratista), ...(corr.dominiosContratista || [])].filter(Boolean)
+    };
+    // Fuente externa (Apps Script) o importación de Excel desde la app: se reconocen los
+    // encabezados de la hoja y se combinan sin pisar lo gestionado en la app
+    const fromSource = isIngest || body.fuente === 'excel';
+    const origen = isIngest ? String(body.fuente || 'integracion').slice(0, 40) : (fromSource ? 'excel' : 'app');
+    const items = raw
+      .map(i => (fromSource ? normalizeItem(mapRecordKeys(i), { origen, hints }) : (i.id ? i : normalizeItem(i, { origen, hints }))))
+      .filter(i => i.id && (i.fecha || i.asunto));
+
+    try {
+      const result = await store.upsert(items, {
+        origen: fromSource ? origen : 'app',
+        sincronizacion: fromSource ? { fecha: new Date().toISOString(), fuente: origen, recibidos: items.length } : undefined
+      });
+      res.status(200).json({
+        success: true,
+        nuevos: result.added,
+        actualizados: result.updated,
+        total: result.doc.items.length,
+        ...(isIngest ? {} : { items: result.doc.items, sincronizacion: result.doc.sincronizacion })
+      });
+    } catch (err) {
+      console.error('Correspondencia:', err);
+      res.status(502).json({ error: err.message });
     }
     return;
   }
