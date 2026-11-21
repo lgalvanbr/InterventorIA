@@ -13,6 +13,8 @@ const SOURCE_FIELDS = ['radicado', 'tipo', 'canal', 'fecha', 'remitente', 'desti
 export const APP_FIELDS = ['estado', 'requiereRespuesta', 'fechaLimite', 'respuesta', 'frentes', 'notas', 'parte'];
 
 const clean = (v) => (v == null ? '' : String(v).trim());
+// Solo enlaces web (evita javascript: u otros esquemas en datos que vienen de correos)
+export const safeUrl = (v) => (/^https?:\/\//i.test(clean(v)) ? clean(v) : '');
 
 // Fecha a AAAA-MM-DD (acepta Date, ISO, "dd/mm/aaaa" y números de serie de Excel)
 export function toIsoDate(value) {
@@ -71,7 +73,7 @@ export function normalizeItem(raw, { origen = 'app', hints } = {}) {
     parte,
     asunto: clean(raw.asunto),
     resumen: clean(raw.resumen).slice(0, 2000),
-    enlace: clean(raw.enlace),
+    enlace: safeUrl(raw.enlace),
     adjuntos: Array.isArray(raw.adjuntos) ? raw.adjuntos.map(clean).filter(Boolean) : clean(raw.adjuntos).split(/[\s,;]+/).filter(u => /^https?:\/\//.test(u)),
     hilo: clean(raw.hilo || raw.threadId),
     enRespuestaA: clean(raw.enRespuestaA),
@@ -115,6 +117,7 @@ export function mergeCorrespondencia(existing = [], incoming = [], { origen = 'a
         }
       }
       next.editadoEnApp = [...edited];
+      next.enlace = safeUrl(next.enlace);
     } else {
       const edited = new Set(prev.editadoEnApp || []);
       SOURCE_FIELDS.forEach(k => {

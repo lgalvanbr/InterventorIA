@@ -6,7 +6,8 @@ import { todayLocalIso } from '../utils/dates';
 import {
   withComputedStatus,
   rowsToRecords,
-  DEFAULT_PLAZO_DIAS_HABILES
+  DEFAULT_PLAZO_DIAS_HABILES,
+  safeUrl
 } from '../data/correspondencia';
 
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -346,8 +347,8 @@ function DetailPanel({ item, frentes, readOnly, onClose, onSave }) {
           <dt className="text-slate-500">Origen</dt><dd>{item.origen === 'apps-script' ? 'Hoja de Google' : item.origen === 'excel' ? 'Importación de Excel' : 'Registrado en la app'}</dd>
         </dl>
         {item.resumen && <p className="rounded-lg bg-slate-50 p-3 text-slate-700 whitespace-pre-wrap">{item.resumen}</p>}
-        {item.enlace && (
-          <a href={item.enlace} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary font-semibold">
+        {safeUrl(item.enlace) && (
+          <a href={safeUrl(item.enlace)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary font-semibold">
             <ExternalLink size={14} /> Abrir el correo original
           </a>
         )}
