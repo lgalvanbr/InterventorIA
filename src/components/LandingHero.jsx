@@ -49,9 +49,12 @@ function Lane({ title, frentes, reportedIds, grown }) {
                   className="landing-bar-fill"
                   style={{ height: grown ? `${Math.max(progress, 3)}%` : '0%', background: progressColor(progress) }}
                 />
+                <span className="landing-bar-num" aria-hidden="true">{f.frente}</span>
                 <span
-                  className={`landing-bar-label ${progress >= 82 ? 'is-inside' : ''}`}
-                  style={{ bottom: progress >= 82 ? 'auto' : `calc(${Math.max(progress, 3)}% + 3px)` }}
+                  className={`landing-bar-label ${progress > 70 ? 'is-inside' : ''}`}
+                  style={progress > 70
+                    ? { top: `max(calc(${100 - progress}% + 4px), var(--bar-num-space))` }
+                    : { bottom: `calc(${Math.max(progress, 3)}% + 3px)` }}
                 >
                   {Math.round(progress)}
                 </span>
