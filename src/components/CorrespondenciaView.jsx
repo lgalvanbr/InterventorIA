@@ -564,6 +564,12 @@ function ConnectModal({ onClose, projectName }) {
   );
 }
 
+// Celdas que Excel interpretaría como fórmula (asuntos de correos de terceros): se anteponen con '
+const safeCell = (v) => {
+  const text = String(v ?? '').replace(/[\t\n\r]+/g, ' ');
+  return /^[=+\-@]/.test(text) ? `'${text}` : text;
+};
+
 // Informe con el formato de INCOLTA: recibidos y enviados por separado, listo para Word/Excel
 const ddmmyyyy = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
 function reportRow(i) {
@@ -593,10 +599,10 @@ function ReportModal({ items, onClose }) {
     .filter(i => i.tipo === tab && i.fecha >= desde && i.fecha <= hasta)
     .sort((a, b) => `${a.fecha}${a.hora || ''}`.localeCompare(`${b.fecha}${b.hora || ''}`))
     .map(reportRow);
-  const tsv = [header, ...rows].map(r => r.map(v => String(v ?? '').replace(/[\t\n\r]+/g, ' ')).join('\t')).join('\n');
+  const tsv = [header, ...rows].map(r => r.map(safeCell).join('\t')).join('\n');
 
   const download = () => {
-    const csv = [header, ...rows].map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
+    const csv = [header, ...rows].map(r => r.map(v => `"${safeCell(v).replace(/"/g, '""')}"`).join(';')).join('\r\n');
     const blob = new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
