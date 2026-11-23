@@ -3,10 +3,44 @@ import { Check, Copy, Save, RotateCcw, Sparkles } from 'lucide-react';
 import { useProject } from '../context/ProjectContext';
 import { contractForFrente } from '../data/projectConfig';
 import { apiPath } from '../data/projectSession';
+import { frentePhotoList } from '../data/reportsMerge';
 import { weekActivities, consolidateActivities, linesToText, groupBlocks, blocksToExcel, blocksToText } from '../data/actividades';
 
 const FINISHED_TEXT = '-Este frente ya finalizó.';
 const excelCell = (text) => `"${text.replace(/"/g, '""')}"`;
+const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const shortDate = (iso) => {
+  const [, m, d] = String(iso).split('-').map(Number);
+  return m ? `${d} ${MONTHS[m - 1]}` : iso;
+};
+
+// Fotos del último día con reporte del frente en la semana
+function lastReportPhotos(frente) {
+  const photos = frentePhotoList(frente).filter(p => p?.url);
+  const last = photos.reduce((max, p) => (String(p.date || '') > max ? String(p.date || '') : max), '');
+  return { date: last, photos: photos.filter(p => String(p.date || '') === last) };
+}
+
+function LastPhotos({ frente }) {
+  const { date, photos } = lastReportPhotos(frente);
+  if (!photos.length) return null;
+  return (
+    <div className="mt-2">
+      <p className="text-[11px] font-semibold text-slate-500 mb-1">
+        Fotos del último reporte{date ? ` (${shortDate(date)})` : ''} · {photos.length}
+      </p>
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {photos.map(p => (
+          <a key={p.id || p.url} href={p.url} target="_blank" rel="noopener noreferrer"
+            title="Abrir la foto en tamaño completo" className="shrink-0">
+            <img src={p.url} alt={p.caption || `Foto del frente ${frente.frente}`} loading="lazy"
+              className="w-24 h-24 object-cover rounded border border-slate-200 hover:border-primary" />
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // "(Espacio público) PK ID 7021" para los contratos que no son el primero
 function frenteSuffix(project, frenteId) {
@@ -199,6 +233,7 @@ export default function ActividadesSemana({ report, weeklyReports, onUpdateRepor
                 aria-label={`Área técnica del frente ${r.f.frente}`}
                 className="w-full text-xs font-mono leading-relaxed border border-slate-200 rounded p-2 focus:outline-none focus:border-primary"
               />
+              <LastPhotos frente={r.f} />
               {r.all.length > 0 && (
                 <details className="mt-1.5">
                   <summary className="text-[11px] text-slate-500 cursor-pointer select-none">
