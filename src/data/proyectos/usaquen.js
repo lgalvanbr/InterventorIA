@@ -88,8 +88,11 @@ export const USAQUEN_CONFIG = {
   correspondencia: {
     // Días hábiles para responder un oficio recibido y pistas para clasificar remitentes
     plazoDiasHabiles: 5,
+    // Lo recibido antes de esta fecha se considera histórico (tramitado)
+    inicioSeguimiento: '2026-11-01',
     dominiosEntidad: ['idu.gov.co'],
-    dominiosContratista: []
+    // Cuentas del consorcio contratista (gestión social, correspondencia, SST, ambiental)
+    dominiosContratista: ['gsusaquenvias@gmail.com', 'consorciocon423@gmail.com', 'sstconusaquen@gmail.com', 'ambiental423.2025@gmail.com']
   },
   interventoria: {
     consorcio: 'Consorcio Interventoría Usaquén',
