@@ -543,13 +543,26 @@ function CopyBlock({ text, label }) {
   );
 }
 
+// Google ejecuta el Apps Script en sus servidores: necesita una dirección pública.
+// Desde localhost o una IP privada (Tailscale, red local) se usa la de producción.
+const PRODUCTION_ORIGIN = 'https://interventor-ia.vercel.app';
+const isPrivateHost = (host) =>
+  host === 'localhost' || /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(host) || host.endsWith('.local');
+
 function ConnectModal({ onClose, projectName }) {
-  const endpoint = `${window.location.origin}/api/correspondencia/ingesta?proyecto=${CURRENT_PROJECT_ID}`;
+  const isPrivate = isPrivateHost(window.location.hostname);
+  const origin = isPrivate ? PRODUCTION_ORIGIN : window.location.origin;
+  const endpoint = `${origin}/api/correspondencia/ingesta?proyecto=${CURRENT_PROJECT_ID}`;
   const script = appsScriptTemplate.replace('__URL_INGESTA__', endpoint);
   return (
     <Overlay onClose={onClose} label="Conectar Gmail">
       <PanelHeader title="Conectar Gmail" subtitle={`Envía cada correo (con su contenido) a la correspondencia de “${projectName}”.`} onClose={onClose} />
       <div className="flex-1 overflow-y-auto px-5 py-4 text-sm flex flex-col gap-4 text-slate-700">
+        {isPrivate && (
+          <p role="note" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900">
+            Estás en una copia local ({window.location.host}). Google no puede llegar a esta dirección, así que el código usa la de producción: <strong>{PRODUCTION_ORIGIN}</strong>.
+          </p>
+        )}
         <ol className="list-decimal pl-5 flex flex-col gap-1.5">
           <li>Abre tu proyecto de Apps Script (el que hoy arma la hoja de oficios).</li>
           <li><strong>Archivo → Nuevo → Script</strong>, llámalo <code>InterventorIA</code> y pega este código. Tu código actual no se modifica.</li>
