@@ -28,6 +28,7 @@ const SITUACION = {
   pendiente: { label: 'Por responder', cls: 'bg-blue-100 text-blue-800' },
   respondido: { label: 'Respondido', cls: 'bg-emerald-100 text-emerald-800' },
   informativo: { label: 'Informativo', cls: 'bg-slate-100 text-slate-600' },
+  historico: { label: 'Histórico', cls: 'bg-slate-100 text-slate-500' },
   enviado: { label: 'Enviado', cls: 'bg-slate-100 text-slate-600' }
 };
 const PARTES = { contratista: 'Contratista', entidad: 'Entidad', otro: 'Otro' };
@@ -37,6 +38,7 @@ const FILTROS = [
   { id: 'vencido', label: 'Vencidos', match: i => i.situacion === 'vencido' },
   { id: 'respondido', label: 'Respondidos', match: i => i.situacion === 'respondido' },
   { id: 'informativo', label: 'Informativos', match: i => i.situacion === 'informativo' },
+  { id: 'historico', label: 'Histórico', match: i => i.situacion === 'historico' },
   { id: 'enviado', label: 'Enviados', match: i => i.situacion === 'enviado' },
   { id: 'todos', label: 'Todos', match: () => true }
 ];
@@ -88,10 +90,16 @@ export default function CorrespondenciaView({ projects = [], isContractorMode })
 
   useEffect(() => { load(); }, [load]);
 
+  // Pistas para clasificar entidad / contratista (configuración del proyecto)
+  const hints = useMemo(() => ({
+    entidad: [project?.contratante, ...(project?.correspondencia?.dominiosEntidad || [])].filter(Boolean),
+    contratista: [...(project?.contratos || []).map(c => c.contratista), ...(project?.correspondencia?.dominiosContratista || [])].filter(Boolean)
+  }), [project]);
+
   const items = useMemo(
-    () => withComputedStatus(doc?.items || [], { hoy, plazoDias })
+    () => withComputedStatus(doc?.items || [], { hoy, plazoDias, hints, inicioSeguimiento: project?.correspondencia?.inicioSeguimiento || '' })
       .sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')),
-    [doc, hoy, plazoDias]
+    [doc, hoy, plazoDias, hints]
   );
 
   const counts = useMemo(() => ({
@@ -139,6 +147,7 @@ export default function CorrespondenciaView({ projects = [], isContractorMode })
           <h1 className="text-3xl font-bold text-slate-900" style={{ fontFamily: "'Archivo', sans-serif", fontStretch: '80%' }}>Correspondencia</h1>
           <p className="text-sm text-slate-500 mt-1">
             Oficios y correos con el contratista y la entidad. Plazo de respuesta: {plazoDias} días hábiles.
+            {project?.correspondencia?.inicioSeguimiento && ` Seguimiento desde el ${shortDate(project.correspondencia.inicioSeguimiento)}; lo anterior queda como histórico.`}
           </p>
           {doc?.sincronizacion && (
             <p className="text-xs text-slate-400 mt-1">
@@ -440,6 +449,11 @@ function DetailPanel({ item, frentes, readOnly, onClose, onSave }) {
         <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between gap-3">
           <span className={`text-sm ${msg.startsWith('No') ? 'text-red-700' : 'text-emerald-700'}`}>{msg}</span>
           <div className="flex gap-2">
+            {item.situacion === 'historico' && (
+              <button type="button" disabled={saving} onClick={() => submit({ estado: 'pendiente' })} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold">
+                Reabrir para seguimiento
+              </button>
+            )}
             {item.tipo === 'recibido' && !form.respuestaFecha && (
               <button type="button" disabled={saving} onClick={() => { const t = todayLocalIso(); set('respuestaFecha', t); submit({ estado: 'respondido', respuesta: { fecha: t, radicado: form.respuestaRadicado } }); }} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold">
                 Marcar respondido hoy
@@ -543,13 +557,26 @@ function CopyBlock({ text, label }) {
   );
 }
 
+// Google ejecuta el Apps Script en sus servidores: necesita una dirección pública.
+// Desde localhost o una IP privada (Tailscale, red local) se usa la de producción.
+const PRODUCTION_ORIGIN = 'https://interventor-ia.vercel.app';
+const isPrivateHost = (host) =>
+  host === 'localhost' || /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(host) || host.endsWith('.local');
+
 function ConnectModal({ onClose, projectName }) {
-  const endpoint = `${window.location.origin}/api/correspondencia/ingesta?proyecto=${CURRENT_PROJECT_ID}`;
+  const isPrivate = isPrivateHost(window.location.hostname);
+  const origin = isPrivate ? PRODUCTION_ORIGIN : window.location.origin;
+  const endpoint = `${origin}/api/correspondencia/ingesta?proyecto=${CURRENT_PROJECT_ID}`;
   const script = appsScriptTemplate.replace('__URL_INGESTA__', endpoint);
   return (
     <Overlay onClose={onClose} label="Conectar Gmail">
       <PanelHeader title="Conectar Gmail" subtitle={`Envía cada correo (con su contenido) a la correspondencia de “${projectName}”.`} onClose={onClose} />
       <div className="flex-1 overflow-y-auto px-5 py-4 text-sm flex flex-col gap-4 text-slate-700">
+        {isPrivate && (
+          <p role="note" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900">
+            Estás en una copia local ({window.location.host}). Google no puede llegar a esta dirección, así que el código usa la de producción: <strong>{PRODUCTION_ORIGIN}</strong>.
+          </p>
+        )}
         <ol className="list-decimal pl-5 flex flex-col gap-1.5">
           <li>Abre tu proyecto de Apps Script (el que hoy arma la hoja de oficios).</li>
           <li><strong>Archivo → Nuevo → Script</strong>, llámalo <code>InterventorIA</code> y pega este código. Tu código actual no se modifica.</li>
@@ -576,7 +603,7 @@ const safeCell = (v) => {
 // Informe con el formato de INCOLTA: recibidos y enviados por separado, listo para Word/Excel
 const ddmmyyyy = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
 function reportRow(i) {
-  const estado = ['respondido', 'informativo', 'enviado'].includes(i.situacion) ? 'TRAMITADO' : 'PENDIENTE';
+  const estado = ['respondido', 'informativo', 'enviado', 'historico'].includes(i.situacion) ? 'TRAMITADO' : 'PENDIENTE';
   const respuesta = i.respuesta?.fecha
     ? `Respondido${i.respuesta.radicado ? ` con ${i.respuesta.radicado}` : ''} ${ddmmyyyy(i.respuesta.fecha)}`
     : i.respuestaAuto ? autoRespuestaLabel(i.respuestaAuto, ddmmyyyy) : (i.respuestaFuente || 'Sin oficio cruzado');

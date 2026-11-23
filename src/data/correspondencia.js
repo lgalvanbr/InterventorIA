@@ -59,14 +59,21 @@ export function stableId(raw) {
 }
 
 // ---------- Clasificación (mismas reglas del Apps Script de INCOLTA) ----------
-const has = (text, words) => words.some(w => text.includes(w));
+// Palabra o frase completa ("salud" no coincide con "Saludos", "apu" no con "capucha")
+const LETTER = 'a-z0-9áéíóúüñ';
+const wordRegex = (w) => new RegExp(`(^|[^${LETTER}])${w.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=$|[^${LETTER}])`, 'i');
+const RULE_CACHE = new Map();
+const has = (text, words) => words.some(w => {
+  if (!RULE_CACHE.has(w)) RULE_CACHE.set(w, wordRegex(w));
+  return RULE_CACHE.get(w).test(text);
+});
 const COMPONENT_RULES = [
   ['Ambiental', ['ambiental', 'rcd', 'forestal', 'residuos']],
-  ['Financiero', ['cuenta de cobro', 'acta de cobro', ' apu', 'apus', 'adición contractual', 'adicion contractual', 'prórroga', 'prorroga']],
+  ['Financiero', ['cuenta de cobro', 'acta de cobro', 'apu', 'apus', 'adición contractual', 'adicion contractual', 'prórroga', 'prorroga']],
   ['SST', ['seguridad social', 'sst', 'salud', 'ingreso', 'cuadrilla', 'hoja de vida profesional sst']],
-  ['Social', ['gestion social', 'gestión social', 'vecindad', 'veeduria', 'veeduría', ' cdi', 'mano de obra', 'comunidad']]
+  ['Social', ['gestion social', 'gestión social', 'vecindad', 'veeduria', 'veeduría', 'cdi', 'mano de obra', 'comunidad']]
 ];
-const TRANSITO_WORDS = ['tránsito', 'transito', ' pmt', 'pmt ', 'movilidad', ' sdm', 'sdm '];
+const TRANSITO_WORDS = ['tránsito', 'transito', 'pmt', 'movilidad', 'sdm'];
 
 // Componente: Técnico por defecto; "/ Tránsito" si el correo trata de PMT o movilidad
 export function classifyComponente(asunto = '', cuerpo = '') {
@@ -228,7 +235,17 @@ export function businessDaysBetween(fromIso, toIso) {
  *  - informativo: no requiere respuesta (o es enviado)
  *  - vencido / por-vencer / pendiente según el plazo
  */
-export function withComputedStatus(items, { hoy, plazoDias = DEFAULT_PLAZO_DIAS_HABILES } = {}) {
+export function withComputedStatus(rawItems, { hoy, plazoDias = DEFAULT_PLAZO_DIAS_HABILES, hints, inicioSeguimiento = '' } = {}) {
+  // Componente y parte se recalculan con las reglas vigentes, salvo lo corregido a mano en la app
+  const items = rawItems.map(item => {
+    const edited = item.editadoEnApp || [];
+    const contraparte = item.tipo === 'recibido' ? item.remitente : item.destinatario;
+    return {
+      ...item,
+      componente: edited.includes('componente') ? item.componente : classifyComponente(item.asunto, item.cuerpo),
+      parte: edited.includes('parte') || !hints ? item.parte : guessParte(contraparte, hints)
+    };
+  });
   const sent = items.filter(i => i.tipo === 'enviado');
   return items.map(item => {
     const plazo = item.fechaLimite || (item.fecha ? addBusinessDays(item.fecha, plazoDias) : '');
@@ -241,6 +258,8 @@ export function withComputedStatus(items, { hoy, plazoDias = DEFAULT_PLAZO_DIAS_
     let situacion;
     if (respondido) situacion = 'respondido';
     else if (!item.requiereRespuesta || item.estado === 'informativo') situacion = 'informativo';
+    // Antes del inicio del seguimiento: histórico (tramitado), salvo que se marque pendiente a mano
+    else if (inicioSeguimiento && item.fecha && item.fecha < inicioSeguimiento && item.estado !== 'pendiente') situacion = 'historico';
     else {
       const restantes = businessDaysBetween(hoy, plazo);
       // Vencido si la fecha límite ya pasó (aunque entre medio solo haya fin de semana)
@@ -250,7 +269,7 @@ export function withComputedStatus(items, { hoy, plazoDias = DEFAULT_PLAZO_DIAS_
       ...item,
       plazo,
       situacion,
-      diasRestantes: situacion === 'respondido' || situacion === 'informativo' ? null : businessDaysBetween(hoy, plazo),
+      diasRestantes: ['respondido', 'informativo', 'historico'].includes(situacion) ? null : businessDaysBetween(hoy, plazo),
       respuestaAuto: !item.respuesta && autoRespuesta
         ? { fecha: autoRespuesta.fecha, radicado: autoRespuesta.radicado, asunto: autoRespuesta.asunto, destinatario: autoRespuesta.destinatario }
         : null
