@@ -1,3 +1,4 @@
+import WeekPicker from './WeekPicker';
 import React, { useState, useEffect } from 'react';
 import { 
   calculateConsolidatedMetrics, 
@@ -277,27 +278,11 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
           )}
 
 
-          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded px-3 py-1.5">
-            <span className="text-slate-400 text-xs font-bold font-mono">Semana:</span>
-            <select
-              value={activeReportId !== null && activeReportId !== undefined ? String(activeReportId) : ''}
-              onChange={(e) => {
-                const val = e.target.value;
-                const match = weeklyReports.find(r => String(r.id_informe) === val);
-                setActiveReportId(match ? match.id_informe : val);
-              }}
-              className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
-            >
-              {[...weeklyReports]
-                .sort((a, b) => b.numero_semana - a.numero_semana)
-                .map(r => (
-                  <option key={r.id_informe} value={String(r.id_informe)}>
-                    Semana {r.numero_semana} ({r.fecha_inicial_corte} a {r.fecha_final_corte})
-                  </option>
-                ))
-              }
-            </select>
-          </div>
+          <WeekPicker
+            weeks={weeklyReports.map(r => ({ value: r.id_informe, numero: r.numero_semana, desde: r.fecha_inicial_corte, hasta: r.fecha_final_corte }))}
+            value={activeReportId}
+            onChange={(v) => setActiveReportId(v)}
+          />
 
           {!isContractorMode && (
             <button

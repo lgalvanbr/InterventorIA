@@ -2,9 +2,19 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Layers, MapPin, FileText } from 'lucide-react';
 import { frenteReportDays } from '../data/reportCoverage';
 import { useProject } from '../context/ProjectContext';
+import WeekPicker from './WeekPicker';
 
 // Encabezado del tablero: los frentes dibujados como tramos (CIV) de vía.
-// Altura de cada barra = avance físico; marca amarilla = sin reporte en la semana.
+// Altura y color de cada barra = avance físico (con su %); marca amarilla = sin reporte en la semana.
+
+// Escala de avance (también se usa en la leyenda)
+export const PROGRESS_BANDS = [
+  { min: 75, color: '#2fa36b', label: '75 % o más' },
+  { min: 50, color: '#8cc46a', label: '50–74 %' },
+  { min: 25, color: '#f0a33a', label: '25–49 %' },
+  { min: 0, color: '#e5675b', label: 'Menos de 25 %' }
+];
+export const progressColor = (p) => (PROGRESS_BANDS.find(b => p >= b.min) || PROGRESS_BANDS[3]).color;
 
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const shortDate = (iso) => {
@@ -36,9 +46,15 @@ function Lane({ title, frentes, reportedIds, grown }) {
             >
               <span className="landing-bar-track">
                 <span
-                  className={`landing-bar-fill ${reported ? 'is-reported' : ''}`}
-                  style={{ height: grown ? `${Math.max(progress, 3)}%` : '0%' }}
+                  className="landing-bar-fill"
+                  style={{ height: grown ? `${Math.max(progress, 3)}%` : '0%', background: progressColor(progress) }}
                 />
+                <span
+                  className={`landing-bar-label ${progress >= 82 ? 'is-inside' : ''}`}
+                  style={{ bottom: progress >= 82 ? 'auto' : `calc(${Math.max(progress, 3)}% + 3px)` }}
+                >
+                  {Math.round(progress)}
+                </span>
               </span>
               <span className={`landing-bar-mark ${reported ? '' : 'is-missing'}`} />
             </div>
@@ -56,7 +72,10 @@ export default function LandingHero({
   isContractorMode,
   viewMode,
   onViewModeChange,
-  onCopyMonth
+  onCopyMonth,
+  weeks = [],
+  selectedWeek,
+  onWeekChange
 }) {
   const project = useProject();
   const [grown, setGrown] = useState(false);
@@ -100,7 +119,7 @@ export default function LandingHero({
         <dl className="landing-figures">
           <div>
             <dt>avance físico promedio</dt>
-            <dd>{avgProgress}<span>%</span></dd>
+            <dd style={{ color: progressColor(avgProgress) }}>{avgProgress}<span>%</span></dd>
           </div>
           <div>
             <dt>frentes con reporte esta semana</dt>
@@ -108,6 +127,12 @@ export default function LandingHero({
           </div>
         </dl>
       </div>
+
+      {weeks.length > 0 && onWeekChange && (
+        <div className="mt-6">
+          <WeekPicker tone="dark" weeks={weeks} value={selectedWeek} onChange={onWeekChange} />
+        </div>
+      )}
 
       <div className="landing-lanes">
         {lanes.map(l => (
@@ -117,8 +142,11 @@ export default function LandingHero({
 
       <div className="landing-hero-foot">
         <p className="landing-legend">
-          <span className="legend-bar" aria-hidden="true" /> Cada barra es un tramo (CIV); su altura es el avance físico.
-          <span className="legend-mark" aria-hidden="true" /> Sin reporte en la semana.
+          Cada barra es un tramo (CIV) con su % de avance físico:
+          {[...PROGRESS_BANDS].reverse().map(b => (
+            <span key={b.min} className="legend-band"><span className="legend-swatch" style={{ background: b.color }} aria-hidden="true" />{b.label}</span>
+          ))}
+          <span className="legend-band"><span className="legend-mark" aria-hidden="true" />Sin reporte en la semana</span>
         </p>
         <div className="flex flex-wrap gap-2">
           <div className="landing-toggle" role="group" aria-label="Vista de frentes">

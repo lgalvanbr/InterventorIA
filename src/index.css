@@ -433,7 +433,7 @@ body {
 }
 .landing-bar-track {
   position: relative;
-  height: 72px;
+  height: 96px;
   background: var(--asfalto-claro);
   border-radius: 2px;
   overflow: hidden;
@@ -490,3 +490,24 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .landing-bar-fill { transition: none; }
 }
+
+/* % de avance sobre cada barra (vertical en pantallas angostas) */
+.landing-bar-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  color: #e9edf1;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.landing-bar-label.is-inside { top: 4px; color: #1b2228; }
+@media (max-width: 700px) {
+  .landing-bar-label { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 9px; }
+}
+.legend-band { display: inline-flex; align-items: center; gap: 5px; margin-left: 12px; white-space: nowrap; }
+.legend-swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.legend-band .legend-mark { margin-left: 0; }
