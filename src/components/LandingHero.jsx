@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Layers, MapPin, FileText } from 'lucide-react';
 import { frenteReportDays } from '../data/reportCoverage';
 import { useProject } from '../context/ProjectContext';
-import { BrandName, BrandEmblem } from './BrandName';
+import { BrandName, BrandLogoCard } from './BrandName';
 import WeekPicker from './WeekPicker';
 
 // Encabezado del tablero: los frentes dibujados como tramos (CIV) de vía.
@@ -110,12 +110,16 @@ export default function LandingHero({
     <section className="landing-hero no-print" aria-labelledby="landing-title">
       <div className="landing-hero-head">
         <div className="max-w-xl">
-          <p className="text-sm text-slate-300 flex items-center gap-2">
-            {project?.marca?.logoUrl && (
-              <span className="bg-white rounded-md p-0.5 inline-flex"><BrandEmblem marca={project.marca} size={26} /></span>
-            )}
-            <span>{isContractorMode && 'Portal del contratista, '}<BrandName marca={project?.marca} /></span>
-          </p>
+          {project?.marca?.logoCompletoUrl ? (
+            <div className="flex items-center gap-3 mb-3">
+              <BrandLogoCard marca={project.marca} height={52} />
+              {isContractorMode && <span className="text-sm text-slate-300">Portal del contratista</span>}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-300">
+              {isContractorMode && 'Portal del contratista, '}<BrandName marca={project?.marca} />
+            </p>
+          )}
           <h1 id="landing-title" className="landing-title">{project?.nombre}</h1>
           <p className="text-sm sm:text-base text-slate-300 mt-2 leading-relaxed">
             {lanes.map(l => l.title).join(' y ')}{contratante}.

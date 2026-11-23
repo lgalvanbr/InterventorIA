@@ -14,13 +14,27 @@ export function BrandName({ marca, short = false, className = '' }) {
   );
 }
 
-// Emblema de la marca (logoUrl); no muestra nada si no hay logo
+// Emblema de la marca (logoUrl) a su proporción real; `size` es el ancho máximo
 export function BrandEmblem({ marca, size = 28, className = '' }) {
   if (!marca?.logoUrl) return null;
   return (
-    <img src={marca.logoUrl} alt={`Logo de ${marca.nombre || ''}`} width={size} height={size}
-      className={`object-contain shrink-0 ${className}`} style={{ width: size, height: size }} />
+    <img src={marca.logoUrl} alt={`Logo de ${marca.nombre || ''}`}
+      className={`object-contain shrink-0 ${className}`} style={{ width: size, height: 'auto', maxHeight: size }} />
   );
+}
+
+// Logo completo sobre una tarjeta blanca (se ve bien en fondos oscuros); enlaza al sitio web
+export function BrandLogoCard({ marca, height = 48, className = '' }) {
+  if (!marca?.logoCompletoUrl) return null;
+  const img = (
+    <span className="block bg-white rounded-xl px-2.5 py-1.5 shadow-sm">
+      <img src={marca.logoCompletoUrl} alt={marca.nombre || ''} className="block" style={{ height, width: 'auto' }} />
+    </span>
+  );
+  const site = brandSite(marca);
+  return site
+    ? <a href={site} target="_blank" rel="noopener noreferrer" title={`Sitio web de ${marca.nombre || ''}`} className={`inline-block ${className}`}>{img}</a>
+    : <span className={`inline-block ${className}`}>{img}</span>;
 }
 
 // Logo completo para informes impresos (logoCompletoUrl, si no el emblema)

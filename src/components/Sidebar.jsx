@@ -43,7 +43,7 @@ const SHARE_LINKS = [
 
 function ProjectBadge({ marca, size = 36 }) {
   if (marca?.logoUrl) {
-    return <img src={marca.logoUrl} alt="" className="rounded-lg object-contain bg-white border border-slate-200 shrink-0" style={{ width: size, height: size }} />;
+    return <img src={marca.logoUrl} alt="" className="object-contain shrink-0" style={{ width: size + 8, height: 'auto' }} />;
   }
   return (
     <span
