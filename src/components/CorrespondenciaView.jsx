@@ -158,6 +158,8 @@ export default function CorrespondenciaView({ projects = [], isContractorMode })
 
       {error && <p role="alert" className="mb-4 text-sm font-semibold text-red-700 flex gap-1.5"><AlertCircle size={16} className="mt-0.5" />{error}</p>}
 
+      {doc && <QuickCopyBar items={items} sincronizacion={doc.sincronizacion} />}
+
       {/* Resumen: lo que exige acción primero */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {[
@@ -552,7 +554,8 @@ function ConnectModal({ onClose, projectName }) {
           <li>Abre tu proyecto de Apps Script (el que hoy arma la hoja de oficios).</li>
           <li><strong>Archivo → Nuevo → Script</strong>, llámalo <code>InterventorIA</code> y pega este código. Tu código actual no se modifica.</li>
           <li>Ejecuta <code>cargarHistoricoInterventorIA</code> y acepta los permisos. Si el registro dice “Faltan correos”, ejecútala de nuevo.</li>
-          <li>Ejecuta <code>programarSincronizacion</code> para que los correos nuevos lleguen solos cada 15 minutos.</li>
+          <li>En <strong>Configuración del proyecto</strong> (engranaje) verifica que la zona horaria sea <code>America/Bogota</code>.</li>
+          <li>Ejecuta <code>programarSincronizacion</code>: los correos se actualizan solos todos los días a las 6:00 a. m. y 6:00 p. m. Para actualizar a mano, ejecuta <code>sincronizarInterventorIA</code>.</li>
         </ol>
         <p>
           Usa los mismos filtros de correos automáticos de tu script. Reenviar correos ya cargados no los duplica ni cambia lo que edites aquí.
@@ -588,18 +591,91 @@ function reportRow(i) {
   ];
 }
 
+const reportHeader = (tipo) => ['FECHA', 'No. RADICADO', 'ASUNTO', tipo === 'recibido' ? 'ENTIDAD GENERA EMAIL' : 'DESTINATARIO', 'COMPONENTE', 'RESPUESTA', 'ESTADO'];
+const reportRows = (items, tipo, desde, hasta) => items
+  .filter(i => i.tipo === tipo && i.fecha >= desde && i.fecha <= hasta)
+  .sort((a, b) => `${a.fecha}${a.hora || ''}`.localeCompare(`${b.fecha}${b.hora || ''}`))
+  .map(reportRow);
+const reportTsv = (tipo, rows) => [reportHeader(tipo), ...rows].map(r => r.map(safeCell).join('\t')).join('\n');
+
+// Copiado rápido del estado de la correspondencia (recibidos / enviados) para el informe
+const RANGOS = [
+  { id: 'hoy', label: 'Hoy' },
+  { id: 'sync', label: 'Desde la última sincronización' },
+  { id: '7d', label: 'Últimos 7 días' },
+  { id: 'mes', label: 'Este mes' }
+];
+function rangoFechas(id, hoy, sincronizacion) {
+  const d = new Date(`${hoy}T12:00:00`);
+  if (id === 'hoy') return [hoy, hoy];
+  if (id === '7d') { d.setDate(d.getDate() - 6); return [toIsoLocal(d), hoy]; }
+  if (id === 'sync') {
+    // Desde el día de la sincronización anterior (cubre el corte de 6 a. m. / 6 p. m.)
+    const last = sincronizacion?.fecha ? new Date(sincronizacion.fecha) : null;
+    if (last) last.setHours(last.getHours() - 12);
+    return [last ? toIsoLocal(last) : hoy, hoy];
+  }
+  return [`${hoy.slice(0, 8)}01`, hoy];
+}
+const toIsoLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+function QuickCopyBar({ items, sincronizacion }) {
+  const hoy = todayLocalIso();
+  const [rango, setRango] = useState('mes');
+  const [copied, setCopied] = useState('');
+  const [desde, hasta] = rangoFechas(rango, hoy, sincronizacion);
+  const data = {
+    recibido: reportRows(items, 'recibido', desde, hasta),
+    enviado: reportRows(items, 'enviado', desde, hasta)
+  };
+  const copy = async (tipo) => {
+    try {
+      await navigator.clipboard.writeText(reportTsv(tipo, data[tipo]));
+      setCopied(tipo);
+      setTimeout(() => setCopied(''), 2000);
+    } catch {
+      window.prompt('Copia la tabla:', reportTsv(tipo, data[tipo]));
+    }
+  };
+  const pendientes = data.recibido.filter(r => r[6] === 'PENDIENTE').length;
+  return (
+    <section className="mb-6 rounded-xl border border-slate-200 bg-white px-4 py-3 flex flex-col md:flex-row md:items-center gap-3">
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-slate-800">Copiado rápido para el informe</p>
+        <p className="text-xs text-slate-500">
+          {desde === hasta ? ddmmyyyy(desde) : `${ddmmyyyy(desde)} al ${ddmmyyyy(hasta)}`}: {data.recibido.length} recibidos ({pendientes} pendientes), {data.enviado.length} enviados.
+        </p>
+      </div>
+      <select value={rango} onChange={(e) => setRango(e.target.value)} className="rounded-lg border-slate-300 text-sm" aria-label="Período">
+        {RANGOS.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
+      </select>
+      <div className="flex gap-2">
+        {[['recibido', 'Copiar recibidos'], ['enviado', 'Copiar enviados']].map(([tipo, label]) => (
+          <button
+            key={tipo}
+            type="button"
+            onClick={() => copy(tipo)}
+            disabled={data[tipo].length === 0}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold disabled:opacity-40 ${tipo === 'recibido' ? 'bg-primary text-white' : 'border border-slate-300 bg-white text-slate-700'}`}
+          >
+            {copied === tipo ? <Check size={14} /> : <Copy size={14} />}
+            {copied === tipo ? 'Copiado' : `${label} (${data[tipo].length})`}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function ReportModal({ items, onClose }) {
   const hoy = todayLocalIso();
   const [desde, setDesde] = useState(`${hoy.slice(0, 8)}01`);
   const [hasta, setHasta] = useState(hoy);
   const [tab, setTab] = useState('recibido');
   const [copied, setCopied] = useState(false);
-  const header = ['FECHA', 'No. RADICADO', 'ASUNTO', tab === 'recibido' ? 'ENTIDAD GENERA EMAIL' : 'DESTINATARIO', 'COMPONENTE', 'RESPUESTA', 'ESTADO'];
-  const rows = items
-    .filter(i => i.tipo === tab && i.fecha >= desde && i.fecha <= hasta)
-    .sort((a, b) => `${a.fecha}${a.hora || ''}`.localeCompare(`${b.fecha}${b.hora || ''}`))
-    .map(reportRow);
-  const tsv = [header, ...rows].map(r => r.map(safeCell).join('\t')).join('\n');
+  const header = reportHeader(tab);
+  const rows = reportRows(items, tab, desde, hasta);
+  const tsv = reportTsv(tab, rows);
 
   const download = () => {
     const csv = [header, ...rows].map(r => r.map(v => `"${safeCell(v).replace(/"/g, '""')}"`).join(';')).join('\r\n');

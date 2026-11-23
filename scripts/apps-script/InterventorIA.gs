@@ -5,13 +5,16 @@
 //
 // Uso:
 //   1. cargarHistoricoInterventorIA()  -> una vez, carga los correos desde FECHA_HISTORICO.
-//   2. programarSincronizacion()       -> una vez, deja corriendo la sincronización cada 15 min.
+//   2. programarSincronizacion()       -> una vez, deja la sincronización diaria a las 6:00 a. m.
+//                                         y 6:00 p. m. (zona horaria del proyecto: America/Bogota).
+//   sincronizarInterventorIA()         -> cuando quieras actualizar a mano.
 // Reenviar correos ya cargados no los duplica ni cambia lo que se haya editado en la app.
 
 var IA_URL = '__URL_INGESTA__';     // dirección de envío (la da la app)
 var IA_CLAVE = '';                  // solo si se configuró INTEGRACION_TOKEN en Vercel
 var IA_DOMINIO_PROPIO = 'incolta';  // correos de este dominio cuentan como ENVIADOS
-var IA_DIAS_SINCRONIZACION = 3;     // ventana de la sincronización periódica
+var IA_DIAS_SINCRONIZACION = 2;     // ventana de cada sincronización (cubre de sobra 12 horas)
+var IA_HORAS_DIARIAS = [6, 18];     // 6:00 a. m. y 6:00 p. m.
 var IA_FECHA_HISTORICO = '2026/01/01';
 
 // Correos automáticos que no son correspondencia (mismos filtros del script de informes)
@@ -64,13 +67,23 @@ function cargarHistoricoInterventorIA() {
   Logger.log('Faltan correos: ejecuta de nuevo cargarHistoricoInterventorIA (van ' + start + ' hilos).');
 }
 
-/** Deja la sincronización corriendo cada 15 minutos (borra programaciones anteriores). */
+/**
+ * Programa la sincronización todos los días a las 6:00 a. m. y 6:00 p. m.
+ * Borra programaciones anteriores de esta función, así se puede ejecutar varias veces.
+ * Google la ejecuta dentro de la hora indicada (por ejemplo, entre 6:00 y 6:59).
+ */
 function programarSincronizacion() {
+  if (Session.getScriptTimeZone() !== 'America/Bogota') {
+    Logger.log('Aviso: la zona horaria del proyecto es ' + Session.getScriptTimeZone() +
+      '. Cámbiala a America/Bogota en Configuración del proyecto para que las 6 sean hora de Colombia.');
+  }
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'sincronizarInterventorIA') ScriptApp.deleteTrigger(t);
   });
-  ScriptApp.newTrigger('sincronizarInterventorIA').timeBased().everyMinutes(15).create();
-  Logger.log('Sincronización programada cada 15 minutos.');
+  IA_HORAS_DIARIAS.forEach(function (hora) {
+    ScriptApp.newTrigger('sincronizarInterventorIA').timeBased().everyDays(1).atHour(hora).nearMinute(0).create();
+  });
+  Logger.log('Sincronización programada todos los días a las ' + IA_HORAS_DIARIAS.join(' y ') + ' horas.');
 }
 
 function enviarHilos_(threads) {
