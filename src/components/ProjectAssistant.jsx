@@ -263,6 +263,7 @@ export default function ProjectAssistant() {
                 </span>
               </Field>
               <Field label="URL del logo" hint="Opcional; si se deja vacío se usan las iniciales."><input className={inputCls} value={proyecto.marca?.logoUrl || ''} onChange={(e) => update(['marca', 'logoUrl'], e.target.value)} /></Field>
+              <Field label="Sitio web" hint="Opcional; el nombre de la interventoría enlaza aquí."><input className={inputCls} placeholder="https://" value={proyecto.marca?.sitioWeb || ''} onChange={(e) => update(['marca', 'sitioWeb'], e.target.value)} /></Field>
               <Field label="Contratante"><input className={inputCls} value={proyecto.contratante || ''} onChange={(e) => update(['contratante'], e.target.value)} /></Field>
               <Field label="Ubicación"><input className={inputCls} value={proyecto.ubicacion || ''} onChange={(e) => update(['ubicacion'], e.target.value)} /></Field>
               <Field label="Contrato de interventoría"><input className={inputCls} value={proyecto.interventoria?.contrato || ''} onChange={(e) => update(['interventoria', 'contrato'], e.target.value)} /></Field>

@@ -28,6 +28,7 @@ import { cloneWeeklyReport, calculateConsolidatedMetrics } from '../data/reports
 import { frentePhotoList, frenteNoteList, mergeEditedList, photoKey, noteKey } from '../data/reportsMerge';
 import { computeReportCoverage, countPendingWeeks } from '../data/reportCoverage';
 import { useProject } from '../context/ProjectContext';
+import { BrandEmblem } from './BrandName';
 import { contractForFrente, contractInitials } from '../data/projectConfig';
 import WeekPicker from './WeekPicker';
 import { storageKey } from '../data/projectSession';
@@ -619,6 +620,9 @@ export default function InspectorPortal({
       {/* ENCABEZADO: semana + estado de guardado */}
       <header className="sticky top-0 z-30 bg-primary text-white shadow-md">
         <div className="max-w-lg mx-auto px-4 pt-3 pb-2 flex items-center gap-3">
+          {project?.marca?.logoUrl && (
+            <span className="bg-white rounded-lg p-1 inline-flex shrink-0"><BrandEmblem marca={project.marca} size={30} /></span>
+          )}
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-blue-100 truncate">{project?.marca?.nombreCorto || project?.marca?.nombre}: inspección de obra</p>
             <h1 className="mt-0.5 text-base font-bold truncate">

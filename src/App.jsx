@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import Sidebar from './components/Sidebar';
+import { BrandName, BrandEmblem } from './components/BrandName';
 import { initializeWeeklyReports, initialWeekForProject, calculateConsolidatedMetrics } from './data/reportsWeekly';
 import { diffReports } from './data/reportsMerge';
 import { lazyWithRetry } from './utils/lazyWithRetry';
@@ -599,12 +600,16 @@ export default function App() {
         {isLandingOnlyMode && (
           <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 py-2.5 sticky top-0 z-30 shadow-xs flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center font-bold text-sm shadow-xs">
-                <span className="material-symbols-outlined text-lg">construction</span>
-              </div>
+              {projectConfig.marca?.logoUrl ? (
+                <BrandEmblem marca={projectConfig.marca} size={32} />
+              ) : (
+                <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center font-bold text-sm shadow-xs">
+                  <span className="material-symbols-outlined text-lg">construction</span>
+                </div>
+              )}
               <div>
                 <span className="font-headline-md text-sm sm:text-base font-extrabold text-primary tracking-tight block leading-tight">
-                  {projectConfig.marca?.nombre}
+                  <BrandName marca={projectConfig.marca} />
                 </span>
                 <span className="text-xs text-slate-500 block">
                   Tablero de frentes de obra
@@ -636,9 +641,11 @@ export default function App() {
               <span className="material-symbols-outlined text-2xl">menu</span>
             </button>
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-xl font-bold">construction</span>
+              {projectConfig.marca?.logoUrl
+                ? <BrandEmblem marca={projectConfig.marca} size={26} />
+                : <span className="material-symbols-outlined text-primary text-xl font-bold">construction</span>}
               <span className="font-headline-md text-sm font-black text-primary tracking-tight">
-                {projectConfig.marca?.nombreCorto || projectConfig.marca?.nombre}{isContractorMode ? ' – contratista' : ''}
+                <BrandName marca={projectConfig.marca} short />{isContractorMode ? ' – contratista' : ''}
               </span>
             </div>
           </header>

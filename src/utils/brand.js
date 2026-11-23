@@ -26,3 +26,19 @@ export const brandInitials = (name = '') => {
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
   return words.slice(0, 2).map(w => w[0].toUpperCase()).join('');
 };
+
+// Sitio web de la interventoría (solo http/https)
+export const brandSite = (marca) => (/^https?:\/\//i.test(String(marca?.sitioWeb || '').trim()) ? marca.sitioWeb.trim() : '');
+
+// Ícono de la pestaña del navegador con el emblema de la marca
+export function applyBrandIcon(marca) {
+  const href = marca?.logoUrl;
+  if (!href) return;
+  let link = document.querySelector('link[rel="icon"]');
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    document.head.appendChild(link);
+  }
+  link.href = href;
+}

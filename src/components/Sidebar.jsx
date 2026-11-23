@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useProject } from '../context/ProjectContext';
 import { shareUrl } from '../data/projectSession';
 import { brandInitials } from '../utils/brand';
+import { BrandName } from './BrandName';
 import { PoweredByInterventorIA } from './InterventorIAMark';
 
 // Navegación agrupada por tarea. Las vistas son las mismas de antes (mismos ids).
@@ -110,7 +111,7 @@ export default function Sidebar({
           <ProjectBadge marca={project?.marca} />
           {expanded && (
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-slate-900 truncate leading-tight">{project?.marca?.nombre}</p>
+              <p className="text-sm font-bold text-slate-900 truncate leading-tight"><BrandName marca={project?.marca} /></p>
               <p className="text-xs text-slate-500 truncate">{project?.nombre}</p>
               {!isContractorMode && (
                 <a href="/?mode=proyectos" className="text-xs font-semibold text-primary no-underline hover:underline">
