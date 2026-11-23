@@ -9,6 +9,7 @@ import { diffReports, legacyArrayToChanges } from '../src/data/reportsMerge.js';
 import { createReportsStore } from './_reportsStore.js';
 import { createProjectsStore, summarizeProject, validateProjectConfig } from './_projectsStore.js';
 import { draftProjectFromDocuments, isAssistantConfigured } from './_projectAssistant.js';
+import { summarizeWeekActivities } from './_actividadesAI.js';
 import { createCorrespondenciaStore } from './_correspondenciaStore.js';
 import { normalizeItem, mapRecordKeys } from '../src/data/correspondencia.js';
 
@@ -502,6 +503,31 @@ export default async function handler(req, res) {
       res.status(200).json(config);
     } catch (err) {
       res.status(503).json({ error: 'No se pudo leer el proyecto.', detail: err.message });
+    }
+    return;
+  }
+
+  // POST /api/actividades/resumir -> área técnica concisa por frente, redactada con IA
+  if (pathname === '/api/actividades/resumir' && req.method === 'POST') {
+    res.setHeader('Cache-Control', 'no-store');
+    if (!isAssistantConfigured()) {
+      res.status(503).json({ error: 'El resumen con IA no está configurado: falta la variable ANTHROPIC_API_KEY en Vercel.' });
+      return;
+    }
+    const body = await getBody(req);
+    const frentes = (Array.isArray(body?.frentes) ? body.frentes : [])
+      .filter(f => f && f.id && Array.isArray(f.lineas) && f.lineas.length)
+      .slice(0, 80)
+      .map(f => ({ id: String(f.id), frente: String(f.frente || ''), lineas: f.lineas.slice(0, 80).map(l => String(l).slice(0, 600)) }));
+    if (!frentes.length) {
+      res.status(400).json({ error: 'No hay actividades registradas para resumir.' });
+      return;
+    }
+    try {
+      res.status(200).json({ frentes: await summarizeWeekActivities(frentes) });
+    } catch (err) {
+      console.error('Resumen de actividades:', err);
+      res.status(err.status === 422 ? 422 : 502).json({ error: err.status === 422 ? err.message : 'La IA no respondió. Intenta de nuevo en unos minutos.' });
     }
     return;
   }
