@@ -1,4 +1,5 @@
 import WeekPicker from './WeekPicker';
+import ActividadesSemana from './ActividadesSemana';
 import React, { useState, useEffect } from 'react';
 import { 
   calculateConsolidatedMetrics, 
@@ -14,6 +15,7 @@ import { Calendar, Unlock, Save, PlusCircle, CheckCircle2, Search, TrendingUp, H
 
 export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onNavigateToDetail, isContractorMode }) {
   const [activeReportId, setActiveReportId] = useState('');
+  const [tab, setTab] = useState('avance'); // 'avance' | 'actividades'
   const [searchTerm, setSearchTerm] = useState('');
   const [editedFrentes, setEditedFrentes] = useState([]);
   const [editedStartDate, setEditedStartDate] = useState('');
@@ -319,6 +321,32 @@ export default function WeeklyReports({ weeklyReports = [], onUpdateReports, onN
       )}
 
       {activeReport && (
+        <div role="tablist" aria-label="Vista de la semana" className="flex gap-1 border-b border-slate-200 mb-6">
+          {[['avance', 'Avance'], ['actividades', 'Actividades']].map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
+              onClick={() => setTab(key)}
+              className={`px-4 py-2 text-sm font-bold -mb-px border-b-2 transition-colors ${tab === key ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {activeReport && tab === 'actividades' && (
+        <ActividadesSemana
+          report={activeReport}
+          weeklyReports={weeklyReports}
+          onUpdateReports={onUpdateReports}
+          readOnly={isContractorMode}
+        />
+      )}
+
+      {activeReport && tab === 'avance' && (
         <div className="flex flex-col gap-6">
 
           {/* Consolidado Stats and Meta Card */}
