@@ -601,7 +601,7 @@ export default function App() {
           <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 sm:px-6 py-2.5 sticky top-0 z-30 shadow-xs flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               {projectConfig.marca?.logoUrl ? (
-                <BrandEmblem marca={projectConfig.marca} size={42} />
+                <BrandEmblem marca={projectConfig.marca} size={32} />
               ) : (
                 <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center font-bold text-sm shadow-xs">
                   <span className="material-symbols-outlined text-lg">construction</span>
@@ -642,7 +642,7 @@ export default function App() {
             </button>
             <div className="flex items-center gap-2">
               {projectConfig.marca?.logoUrl
-                ? <BrandEmblem marca={projectConfig.marca} size={36} />
+                ? <BrandEmblem marca={projectConfig.marca} size={26} />
                 : <span className="material-symbols-outlined text-primary text-xl font-bold">construction</span>}
               <span className="font-headline-md text-sm font-black text-primary tracking-tight">
                 <BrandName marca={projectConfig.marca} short />{isContractorMode ? ' – contratista' : ''}
