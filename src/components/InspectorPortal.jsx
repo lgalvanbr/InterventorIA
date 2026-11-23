@@ -29,6 +29,7 @@ import { frentePhotoList, frenteNoteList, mergeEditedList, photoKey, noteKey } f
 import { computeReportCoverage, countPendingWeeks } from '../data/reportCoverage';
 import { useProject } from '../context/ProjectContext';
 import { contractForFrente, contractInitials } from '../data/projectConfig';
+import WeekPicker from './WeekPicker';
 import { storageKey } from '../data/projectSession';
 
 // Novedades frecuentes para la bitácora (un toque)
@@ -620,26 +621,22 @@ export default function InspectorPortal({
         <div className="max-w-lg mx-auto px-4 pt-3 pb-2 flex items-center gap-3">
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-blue-100 truncate">{project?.marca?.nombreCorto || project?.marca?.nombre}: inspección de obra</p>
-            <label className="relative flex items-center mt-0.5 w-full">
-              <span className="sr-only">Semana de obra</span>
-              <select
-                value={String(currentReport.id_informe)}
-                onChange={(e) => {
-                  const match = sortedReports.find(r => String(r.id_informe) === e.target.value);
-                  if (match) handleReportChange(match.id_informe);
-                }}
-                className="w-full min-w-0 appearance-none bg-none bg-transparent border-0 p-0 pr-6 text-base font-bold text-white focus:ring-0 cursor-pointer truncate"
-              >
-                {sortedReports.map(r => (
-                  <option key={r.id_informe} value={String(r.id_informe)} className="text-slate-900">
-                    Semana {r.numero_semana} · {shortDate(r.fecha_inicial_corte)} – {shortDate(r.fecha_final_corte)}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={16} className="absolute right-0 pointer-events-none text-blue-200" />
-            </label>
+            <h1 className="mt-0.5 text-base font-bold truncate">
+              Semana {currentReport.numero_semana} · {shortDate(currentReport.fecha_inicial_corte)} – {shortDate(currentReport.fecha_final_corte)}
+            </h1>
           </div>
           <SaveStatusPill saveState={saveState} activeUploads={activeUploads} failedUploads={failedUploads} pendingSync={pendingSyncCount} />
+        </div>
+
+        {/* Semanas: las 4 últimas a un toque, las anteriores en el desplegable */}
+        <div className="max-w-lg mx-auto px-3 pb-2">
+          <WeekPicker
+            compact
+            tone="dark"
+            weeks={sortedReports.map(r => ({ value: r.id_informe, numero: r.numero_semana, desde: r.fecha_inicial_corte, hasta: r.fecha_final_corte }))}
+            value={currentReport.id_informe}
+            onChange={(id) => handleReportChange(id)}
+          />
         </div>
 
         {/* Frente actual: toca para cambiar */}

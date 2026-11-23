@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { todayLocalIso } from '../utils/dates';
 import LandingHero from './LandingHero';
+import WeekPicker from './WeekPicker';
 import { 
   Search, Calendar, MapPin, 
   ChevronLeft, ChevronRight, X, Eye, Image as ImageIcon, ArrowRight, Layers,
@@ -98,6 +99,13 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
   
   // Extract all unique weeks available from weeklyReports
   const availableWeeks = [...new Set((weeklyReports || []).map(r => r.numero_semana))].sort((a, b) => b - a);
+  // Semanas para el selector rápido (últimas 4 como botones, el resto en "Anteriores")
+  const weekOptions = (weeklyReports || []).map(r => ({
+    value: r.numero_semana,
+    numero: r.numero_semana,
+    desde: r.fecha_inicial_corte,
+    hasta: r.fecha_final_corte
+  }));
   
   // Selected global week state
   const [selectedWeek, setSelectedWeek] = useState(availableWeeks[0] || 29);
@@ -624,6 +632,9 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         onCopyMonth={() => setShowMonthlyCopyModal(true)}
+        weeks={weekOptions}
+        selectedWeek={selectedWeek}
+        onWeekChange={(w) => { setSelectedWeek(Number(w)); setPhotoFilterMode('week'); }}
       />
 
       {/* 1.5 Interactive KPI Telemetry Strip */}
@@ -902,15 +913,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                   ))}
                 </select>
               ) : (
-                <select
-                  value={selectedWeek}
-                  onChange={(e) => setSelectedWeek(Number(e.target.value))}
-                  className="bg-transparent text-[11px] font-bold text-slate-800 focus:outline-none cursor-pointer border-none py-0.5 pr-1"
-                >
-                  {availableWeeks.map(wNum => (
-                    <option key={wNum} value={wNum}>Semana {wNum}</option>
-                  ))}
-                </select>
+                <WeekPicker compact weeks={weekOptions} value={selectedWeek} onChange={(w) => setSelectedWeek(Number(w))} />
               )}
             </div>
 

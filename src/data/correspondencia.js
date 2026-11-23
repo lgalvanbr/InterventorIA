@@ -8,9 +8,9 @@
 export const DEFAULT_PLAZO_DIAS_HABILES = 5;
 
 // Campos que vienen de la fuente (se actualizan en cada sincronización)
-const SOURCE_FIELDS = ['radicado', 'tipo', 'canal', 'fecha', 'remitente', 'destinatario', 'parte', 'asunto', 'resumen', 'enlace', 'adjuntos', 'hilo', 'enRespuestaA'];
+const SOURCE_FIELDS = ['radicado', 'radicados', 'tipo', 'canal', 'fecha', 'hora', 'remitente', 'destinatario', 'parte', 'asunto', 'resumen', 'cuerpo', 'enlace', 'adjuntos', 'hilo', 'enRespuestaA', 'respuestaFuente'];
 // Campos que se gestionan en InterventorIA (una vez editados, la fuente no los cambia)
-export const APP_FIELDS = ['estado', 'requiereRespuesta', 'fechaLimite', 'respuesta', 'frentes', 'notas', 'parte'];
+export const APP_FIELDS = ['estado', 'requiereRespuesta', 'fechaLimite', 'respuesta', 'frentes', 'notas', 'parte', 'componente'];
 
 const clean = (v) => (v == null ? '' : String(v).trim());
 // Solo enlaces web (evita javascript: u otros esquemas en datos que vienen de correos)
@@ -42,6 +42,7 @@ export function guessParte(text, hints = {}) {
   if (!t) return 'otro';
   if ((hints.entidad || []).some(h => h && t.includes(h.toLowerCase()))) return 'entidad';
   if ((hints.contratista || []).some(h => h && t.includes(h.toLowerCase()))) return 'contratista';
+  if (/\.gov\.co\b/.test(t)) return 'entidad'; // entidades públicas colombianas
   return 'otro';
 }
 
@@ -57,22 +58,77 @@ export function stableId(raw) {
   return `h:${(h >>> 0).toString(36)}`;
 }
 
+// ---------- Clasificación (mismas reglas del Apps Script de INCOLTA) ----------
+const has = (text, words) => words.some(w => text.includes(w));
+const COMPONENT_RULES = [
+  ['Ambiental', ['ambiental', 'rcd', 'forestal', 'residuos']],
+  ['Financiero', ['cuenta de cobro', 'acta de cobro', ' apu', 'apus', 'adición contractual', 'adicion contractual', 'prórroga', 'prorroga']],
+  ['SST', ['seguridad social', 'sst', 'salud', 'ingreso', 'cuadrilla', 'hoja de vida profesional sst']],
+  ['Social', ['gestion social', 'gestión social', 'vecindad', 'veeduria', 'veeduría', ' cdi', 'mano de obra', 'comunidad']]
+];
+const TRANSITO_WORDS = ['tránsito', 'transito', ' pmt', 'pmt ', 'movilidad', ' sdm', 'sdm '];
+
+// Componente: Técnico por defecto; "/ Tránsito" si el correo trata de PMT o movilidad
+export function classifyComponente(asunto = '', cuerpo = '') {
+  const text = ` ${`${asunto} ${cuerpo}`.toLowerCase()} `;
+  const base = (COMPONENT_RULES.find(([, words]) => has(text, words)) || ['Técnico'])[0];
+  return has(text, TRANSITO_WORDS) ? `${base} / Tránsito` : base;
+}
+
+// Radicados citados en el asunto: INC-…, CON-COP-…, consecutivos numéricos de 13 a 18 dígitos (SDM, IDU)
+export function extractRadicados(text = '') {
+  const found = [];
+  const add = (r) => { const v = r.toUpperCase(); if (!found.includes(v)) found.push(v); };
+  (String(text).match(/\b(?:CON-COP-\d+(?:-\d+)*|INC-\d+(?:-\d+)*)\b/gi) || []).forEach(add);
+  (String(text).match(/\b20\d{11,16}\b/g) || []).forEach(add);
+  return found;
+}
+
+// Columna "Respuesta" del informe: oficio cruzado, respuesta a comunicado o sin oficio
+export function respuestaLabel(asunto = '') {
+  const cruzado = String(asunto).match(/\b(?:CON-COP-\d+(?:-\d+)*|INC-\d+(?:-\d+)*)\b/i);
+  if (cruzado) return cruzado[0].toUpperCase();
+  if (/^\s*(re|rv|fwd?|reenv(i|í)ado)\s*:/i.test(asunto) || /\b(re|fwd?):/i.test(asunto)) return 'Respuesta a comunicado anterior';
+  return 'Sin oficio cruzado';
+}
+
+// "Vence 09/12/2026" en el asunto o el cuerpo -> fecha límite
+export function extractVencimiento(text = '') {
+  const m = String(text).match(/vence(?:n|r)?(?:\s+el)?\s*:?\s*(\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})/i);
+  return m ? toIsoDate(m[1]) : '';
+}
+
+// Los ids de mensaje de Gmail (16 hex) no son radicados
+const isGmailId = (v) => /^[0-9a-f]{15,18}$/i.test(clean(v));
+
 export function normalizeItem(raw, { origen = 'app', hints } = {}) {
   const tipo = /env|sal|out|sent/i.test(clean(raw.tipo)) ? 'enviado' : 'recibido';
   const contraparte = tipo === 'recibido' ? raw.remitente : raw.destinatario;
   const parteRaw = clean(raw.parte).toLowerCase();
   const parte = ['contratista', 'entidad', 'otro'].includes(parteRaw) ? parteRaw : guessParte(contraparte, hints);
+  const asunto = clean(raw.asunto);
+  const cuerpo = clean(raw.cuerpo).slice(0, 5000);
+  // La hoja actual guarda el id de Gmail en "No. RADICADO": se usa como id, no como radicado
+  const radicadoCol = clean(raw.radicado);
+  const idFromRadicado = isGmailId(radicadoCol) ? radicadoCol : '';
+  const radicados = extractRadicados(asunto);
+  const estadoRaw = clean(raw.estado).toLowerCase();
   return {
-    id: stableId(raw),
-    radicado: clean(raw.radicado),
+    id: stableId({ ...raw, id: raw.id || raw.idMensaje || raw.messageId || idFromRadicado, radicado: idFromRadicado ? '' : radicadoCol }),
+    radicado: (idFromRadicado ? '' : radicadoCol) || radicados.join('-'),
+    radicados,
     tipo,
     canal: /ofic/i.test(clean(raw.canal)) ? 'oficio' : (clean(raw.canal) ? clean(raw.canal).toLowerCase() : 'correo'),
     fecha: toIsoDate(raw.fecha),
     remitente: clean(raw.remitente),
     destinatario: clean(raw.destinatario),
     parte,
-    asunto: clean(raw.asunto),
-    resumen: clean(raw.resumen).slice(0, 2000),
+    asunto,
+    resumen: clean(raw.resumen).slice(0, 2000) || cuerpo.replace(/\s+/g, ' ').slice(0, 280),
+    cuerpo,
+    componente: clean(raw.componente) || classifyComponente(asunto, cuerpo),
+    respuestaFuente: clean(raw.respuestaFuente) || respuestaLabel(asunto),
+    hora: clean(raw.hora),
     enlace: safeUrl(raw.enlace),
     adjuntos: Array.isArray(raw.adjuntos) ? raw.adjuntos.map(clean).filter(Boolean) : clean(raw.adjuntos).split(/[\s,;]+/).filter(u => /^https?:\/\//.test(u)),
     hilo: clean(raw.hilo || raw.threadId),
@@ -80,8 +136,9 @@ export function normalizeItem(raw, { origen = 'app', hints } = {}) {
     requiereRespuesta: raw.requiereRespuesta === undefined || raw.requiereRespuesta === ''
       ? tipo === 'recibido'
       : !/^(no|false|0)$/i.test(String(raw.requiereRespuesta)),
-    fechaLimite: toIsoDate(raw.fechaLimite),
-    estado: clean(raw.estado).toLowerCase() || '',
+    fechaLimite: toIsoDate(raw.fechaLimite) || extractVencimiento(`${asunto} ${cuerpo}`),
+    // TRAMITADO/PENDIENTE de la hoja son estimaciones por palabras: el estado real se calcula aquí
+    estado: ['respondido', 'pendiente', 'informativo'].includes(estadoRaw) ? estadoRaw : '',
     respuesta: raw.respuesta && typeof raw.respuesta === 'object' ? raw.respuesta : null,
     frentes: Array.isArray(raw.frentes) ? raw.frentes.map(String) : clean(raw.frentes).split(/[\s,;]+/).filter(Boolean),
     notas: clean(raw.notas),
@@ -194,7 +251,9 @@ export function withComputedStatus(items, { hoy, plazoDias = DEFAULT_PLAZO_DIAS_
       plazo,
       situacion,
       diasRestantes: situacion === 'respondido' || situacion === 'informativo' ? null : businessDaysBetween(hoy, plazo),
-      respuestaAuto: !item.respuesta && autoRespuesta ? { fecha: autoRespuesta.fecha, radicado: autoRespuesta.radicado, asunto: autoRespuesta.asunto } : null
+      respuestaAuto: !item.respuesta && autoRespuesta
+        ? { fecha: autoRespuesta.fecha, radicado: autoRespuesta.radicado, asunto: autoRespuesta.asunto, destinatario: autoRespuesta.destinatario }
+        : null
     };
   });
 }
@@ -206,11 +265,14 @@ export const HEADER_SYNONYMS = {
   tipo: ['tipo', 'entrada/salida', 'sentido', 'recibido/enviado'],
   canal: ['canal', 'medio'],
   fecha: ['fecha', 'fecha recibido', 'fecha de recibo', 'fecha radicado', 'date', 'fecha correo'],
-  remitente: ['remitente', 'de', 'from', 'enviado por', 'origen'],
+  remitente: ['remitente', 'de', 'from', 'enviado por', 'origen', 'entidad / remitente', 'entidad genera email', 'entidad/remitente'],
   destinatario: ['destinatario', 'para', 'to', 'dirigido a'],
   parte: ['parte', 'entidad/contratista', 'tipo remitente', 'actor'],
   asunto: ['asunto', 'subject', 'referencia', 'tema'],
-  resumen: ['resumen', 'cuerpo', 'contenido', 'descripcion', 'descripción', 'snippet', 'body'],
+  resumen: ['resumen', 'descripcion', 'descripción', 'snippet'],
+  cuerpo: ['cuerpo', 'contenido', 'contenido del correo', 'body', 'mensaje'],
+  componente: ['componente', 'area', 'área'],
+  respuestaFuente: ['respuesta', 'oficio cruzado'],
   enlace: ['enlace', 'link', 'url', 'enlace gmail', 'link correo'],
   adjuntos: ['adjuntos', 'archivos', 'attachments'],
   hilo: ['hilo', 'thread', 'thread id', 'threadid', 'id hilo'],
@@ -258,3 +320,19 @@ export function mapRecordKeys(obj) {
   }
   return out;
 }
+
+// Nombre visible de una dirección: "Consorcio Malla Vial <obra@x.co>" -> "Consorcio Malla Vial"
+export const displayName = (address = '') => {
+  const first = String(address).split(',')[0].trim();
+  const name = first.replace(/<[^>]*>/, '').replace(/"/g, '').trim();
+  return name || first.replace(/[<>]/g, '');
+};
+
+// Texto de la columna RESPUESTA cuando la respuesta se detectó en el hilo (como en el informe)
+export const autoRespuestaLabel = (auto, fmtDate = (d) => d) => {
+  if (!auto) return '';
+  const fwd = /^\s*(fwd?|rv|reenv)/i.test(auto.asunto || '');
+  return fwd
+    ? `Fwd a ${displayName(auto.destinatario)} ${fmtDate(auto.fecha)}`
+    : `Respondido ${auto.radicado ? `con ${auto.radicado} ` : ''}${fmtDate(auto.fecha)}`;
+};
