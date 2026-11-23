@@ -432,6 +432,7 @@ body {
   gap: 4px;
 }
 .landing-bar-track {
+  --bar-num-space: 19px; /* espacio que ocupa el número del frente arriba */
   position: relative;
   height: 96px;
   background: var(--asfalto-claro);
@@ -504,9 +505,26 @@ body {
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
-.landing-bar-label.is-inside { top: 4px; color: #1b2228; }
+.landing-bar-label.is-inside { color: #1b2228; }
+/* Número del frente, arriba de cada barra y semitransparente */
+.landing-bar-num {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.5);
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.35);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
 @media (max-width: 700px) {
-  .landing-bar-label { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 9px; }
+  .landing-bar-label, .landing-bar-num { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 9px; }
+  .landing-bar-track { --bar-num-space: 28px; }
 }
 .legend-band { display: inline-flex; align-items: center; gap: 5px; margin-left: 12px; white-space: nowrap; }
 .legend-swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
