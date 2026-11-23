@@ -1,8 +1,35 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import Sidebar from './components/Sidebar';
-import { initializeWeeklyReports, calculateConsolidatedMetrics } from './data/reportsWeekly';
+import { initializeWeeklyReports, initialWeekForProject, calculateConsolidatedMetrics } from './data/reportsWeekly';
 import { diffReports } from './data/reportsMerge';
 import { lazyWithRetry } from './utils/lazyWithRetry';
+import { storageKey, apiPath, isDefaultProject } from './data/projectSession';
+import { configToProjects } from './data/projectConfig';
+import { useProject } from './context/ProjectContext';
+
+// Contratos generados desde la configuración del proyecto, conservando lo editado en este
+// navegador (estado, cumplimiento, fotos de galería...) y actualizando los datos del proyecto
+// (CIV, eje, tramo, coordenadas, nombres).
+const CONFIG_FRENTE_FIELDS = ['frente', 'alias', 'civ', 'eje', 'desde', 'hasta', 'barrio', 'tipoIntervencion', 'prioridad', 'name', 'latitude', 'longitude'];
+const CONFIG_CONTRACT_FIELDS = ['name', 'shortName', 'contractNo', 'contractor', 'constructionBudget', 'interventoriaBudget', 'duration', 'description', 'frentePrefix'];
+function mergeProjectsWithConfig(saved, config) {
+  const fresh = configToProjects(config);
+  if (!Array.isArray(saved) || saved.length === 0) return fresh;
+  return fresh.map(contract => {
+    const old = saved.find(p => p.id === contract.id);
+    if (!old) return contract;
+    const merged = { ...old };
+    CONFIG_CONTRACT_FIELDS.forEach(k => { merged[k] = contract[k]; });
+    merged.frentes = contract.frentes.map(f => {
+      const prev = (old.frentes || []).find(of => of.id === f.id);
+      if (!prev) return f;
+      const next = { ...prev };
+      CONFIG_FRENTE_FIELDS.forEach(k => { next[k] = f[k]; });
+      return next;
+    });
+    return merged;
+  });
+}
 
 // Vistas con carga perezosa resiliente a nuevos despliegues (auto-recuperación de chunks obsoletos)
 const Dashboard = lazyWithRetry(() => import('./components/Dashboard'));
@@ -13,6 +40,7 @@ const FrentesControl = lazyWithRetry(() => import('./components/FrentesControl')
 const WeeklyReports = lazyWithRetry(() => import('./components/WeeklyReports'));
 const WeeklyReportPanel = lazyWithRetry(() => import('./components/WeeklyReportPanel'));
 const EngineersView = lazyWithRetry(() => import('./components/EngineersView'));
+const CorrespondenciaView = lazyWithRetry(() => import('./components/CorrespondenciaView'));
 const InspectorPortal = lazyWithRetry(() => import('./components/InspectorPortal'));
 const MapView = lazyWithRetry(() => import('./components/MapView'));
 const ProjectInfo = lazyWithRetry(() => import('./components/ProjectInfo'));
@@ -30,254 +58,6 @@ function ViewLoadingFallback() {
   );
 }
 
-// Helper to initialize compliance list of checks for Colombian regulations
-const createDefaultCompliance = (checkedAll = false) => {
-  return {
-    tecnico: {
-      checklist: [
-        { id: 't1', label: 'Verificar planos de construcción aprobados para el frente', checked: checkedAll },
-        { id: 't2', label: 'Controlar ensayos de calidad de materiales (concreto, acero, etc.)', checked: checkedAll },
-        { id: 't3', label: 'Revisar bitácora diaria de obra de este frente', checked: checkedAll },
-        { id: 't4', label: 'Comprobar rendimiento y avance físico vs programación contractual', checked: checkedAll }
-      ],
-      notes: checkedAll ? 'Planos validados por la interventoría. Ensayos de laboratorio conformes.' : ''
-    },
-    financiero: {
-      checklist: [
-        { id: 'f1', label: 'Verificar actas de medición de cantidades de obra ejecutada', checked: checkedAll },
-        { id: 'f2', label: 'Revisar amortización del anticipo asignado al frente', checked: checkedAll },
-        { id: 'f3', label: 'Controlar balance de presupuesto y costos extras del frente', checked: checkedAll },
-        { id: 'f4', label: 'Verificar aprobación de facturas por interventoría', checked: checkedAll }
-      ],
-      notes: checkedAll ? 'Actas mensuales firmadas y amortización del anticipo al día.' : ''
-    },
-    administrativo: {
-      checklist: [
-        { id: 'a1', label: 'Verificar registro de asistencia del personal asignado', checked: checkedAll },
-        { id: 'a2', label: 'Revisar diario de obra / Bitácora firmado por residentes', checked: checkedAll },
-        { id: 'a3', label: 'Controlar listado de maquinaria activa en el frente', checked: checkedAll },
-        { id: 'a4', label: 'Revisar cumplimiento del cronograma detallado', checked: checkedAll }
-      ],
-      notes: checkedAll ? 'Diarios de obra firmados y maquinaria registrada.' : ''
-    },
-    legal: {
-      checklist: [
-        { id: 'l1', label: 'Verificar vigencia y cobertura de las pólizas de seguro del contrato', checked: checkedAll },
-        { id: 'l2', label: 'Revisar otrosíes o actas de suspensión/modificación aplicables', checked: checkedAll },
-        { id: 'l3', label: 'Verificar pago de aportes parafiscales y seguridad social del personal', checked: checkedAll },
-        { id: 'l4', label: 'Inspeccionar cumplimiento del objeto contractual en este frente', checked: checkedAll }
-      ],
-      notes: checkedAll ? 'Certificados de aportes de nómina aprobados sin observaciones.' : ''
-    },
-    ambiental: {
-      checklist: [
-        { id: 'am1', label: 'Inspeccionar el Plan de Manejo Ambiental (PMA)', checked: checkedAll },
-        { id: 'am2', label: 'Verificar manejo de escombros y disposición final (certificados de botadero)', checked: checkedAll },
-        { id: 'am3', label: 'Revisar control de emisiones de polvo y ruido', checked: checkedAll },
-        { id: 'am4', label: 'Comprobar limpieza y orden ambiental en el frente', checked: checkedAll }
-      ],
-      notes: checkedAll ? 'Cumplimiento ambiental verificado en botadero autorizado.' : ''
-    },
-    social: {
-      checklist: [
-        { id: 's1', label: 'Verificar actas de socialización previas con la vecindad/comunidad', checked: checkedAll },
-        { id: 's2', label: 'Atender y registrar PQRS (Peticiones, Quejas, Reclamos) del sector', checked: checkedAll },
-        { id: 's3', label: 'Verificar porcentaje de mano de obra local contratada', checked: checkedAll },
-        { id: 's4', label: 'Revisar actas de vecindad levantadas antes del inicio', checked: checkedAll }
-      ],
-      notes: checkedAll ? 'Socialización efectuada y actas de vecindad registradas.' : ''
-    },
-    sst: {
-      checklist: [
-        { id: 'sst1', label: 'Inspeccionar uso obligatorio de EPP completo por el personal', checked: checkedAll },
-        { id: 'sst2', label: 'Verificar planillas de afiliación a ARL, EPS y Pensión al día', checked: checkedAll },
-        { id: 'sst3', label: 'Revisar realización de la charla diaria de seguridad (5 minutos)', checked: checkedAll },
-        { id: 'sst4', label: 'Monitorear señalización de peligro y cerramientos de seguridad activos', checked: checkedAll }
-      ],
-      notes: checkedAll ? 'Charlas de seguridad de 5 min al día. EPP en campo verificado.' : ''
-    }
-  };
-};
-
-// 22 Geolocalizados Frentes de Obra for Malla Vial
-const MALLA_VIAL_FRENTES_RAW = [
-  { civ: '1002332', eje: 'KR 7F', desde: 'AC 161', hasta: 'CL 161A', type: 'Local', area: 335.4, lat: '4.736779', lng: '-74.025494', status: 'al-dia', progress: 23, plannedProgress: 11, supervisor: 'Ing. Carolina Rojas', totalBudget: 313155084, executedBudget: 37578610, description: 'Tramo: AC 161 hasta CL 161A - Área: 335.4 m² - Malla: Local | Acta inicio: 18/06/2026 | Real: 02/07/2026 | Vence: 24/09/2026' },
-  { civ: '1000067', eje: 'CL 192', desde: 'KR 7B', hasta: 'KR 8', type: 'Local', area: 194.94, lat: '4.769023', lng: '-74.028627', status: 'al-dia', progress: 33, plannedProgress: 27, supervisor: 'Ing. Juan Mendoza', totalBudget: 253799700, executedBudget: 83753901, description: 'Tramo: KR 7B hasta KR 8 - Área: 194.94 m² - Malla: Local | Real Inicio: 09/06/2026 | Plazo: 20/04/2026 al 20/11/2026' },
-  { civ: '1007361', eje: 'KR 7B', desde: '192', hasta: 'Cerrada', type: 'Local', area: 113.43, lat: '4.769023', lng: '-74.028627', status: 'al-dia', progress: 40, plannedProgress: 39, supervisor: 'Ing. Juan Mendoza' },
-  { civ: '1000086', eje: 'KR 7B', desde: '192', hasta: 'Cerrada', type: 'Local', area: 167.22, lat: '4.769023', lng: '-74.028627', status: 'al-dia', progress: 42, plannedProgress: 34, supervisor: 'Ing. Juan Mendoza' },
-  { civ: '1001471', eje: 'KR 19', desde: 'CL 166', hasta: 'Sin Establecer', type: 'Local', area: 484.43, lat: '4.746409', lng: '-74.042640', status: 'al-dia', progress: 22, plannedProgress: 7, supervisor: 'Ing. Diana Guerrero' },
-  { civ: '1004836', eje: '7 B BIS', desde: 'CL 123', hasta: 'CL 124', type: 'Intermedia', area: 814.47, lat: '4.699749', lng: '-74.031773', status: 'al-dia', progress: 0, plannedProgress: 0, supervisor: 'Ing. Carlos Ortiz' },
-  { civ: '1003131', eje: 'Calle 148', desde: 'Carrera 16B', hasta: 'Carrera 17A', type: 'Local', area: 491.51, lat: '4.730479', lng: '-74.043712', status: 'al-dia', progress: 0, plannedProgress: 0, supervisor: 'Ing. Carolina Rojas' },
-  { civ: '1001881', eje: 'CL 163ª', desde: 'KR 13 A', hasta: 'KR 13 B', type: 'Local', area: 417.5, lat: '4.741022', lng: '-74.033712', status: 'al-dia', progress: 0, plannedProgress: 0, supervisor: 'Ing. Diego Pardo' },
-  { civ: '1002987', eje: 'KR 8B BIS', desde: 'CL 163', hasta: 'CL 163A', type: 'Local', area: 360.01, lat: '4.739400', lng: '-74.027619', status: 'al-dia', progress: 50, plannedProgress: 29, supervisor: 'Ing. Diego Pardo' },
-  { civ: '1005246', eje: 'CL 111', desde: 'KR 14', hasta: 'KR 14B', type: 'Local', area: 749.17, lat: '4.693499', lng: '-74.042721', status: 'al-dia', progress: 100, plannedProgress: 100, supervisor: 'Ing. Carlos Ortiz' },
-  { civ: '1006974', eje: 'Calle 185B', desde: 'Carrera 8C', hasta: 'Carrera 8D', type: 'Local', area: 199.03, lat: '4.762333', lng: '-74.031029', status: 'al-dia', progress: 0, plannedProgress: 0, supervisor: 'Ing. Juan Mendoza' },
-  { civ: '1006799', eje: 'KR 1ª', desde: 'CL 127 B BIS A', hasta: 'CL 127 B BIS', type: 'Local', area: 269.64, lat: '4.703701', lng: '-74.023672', status: 'al-dia', progress: 23, plannedProgress: 23, supervisor: 'Ing. Carolina Rojas' },
-  { civ: '1004557', eje: 'KR 1ª', desde: 'CL 127 B BIS', hasta: '127 B', type: 'Local', area: 244.07, lat: '4.703701', lng: '-74.023672', status: 'al-dia', progress: 23, plannedProgress: 19, supervisor: 'Ing. Carolina Rojas' },
-  { civ: '1001202', eje: 'KR 8C', desde: 'CL 181', hasta: 'CL 181B', type: 'Local', area: 692.67, lat: '4.757676', lng: '-74.030866', status: 'alerta', progress: 1, plannedProgress: 18, supervisor: 'Ing. Diego Pardo' },
-  { civ: '1000988', eje: 'KR 7C', desde: 'CL 182B', hasta: 'AC 183', type: 'Local', area: 471.86, lat: '4.759772', lng: '-74.028383', status: 'alerta', progress: 1, plannedProgress: 18, supervisor: 'Ing. Diego Pardo' },
-  { civ: '1001202', eje: 'KR 8C', desde: 'CL 181', hasta: 'CL 181B', type: 'Local', area: 692.67, lat: '4.757676', lng: '-74.030866', status: 'alerta', progress: 66, plannedProgress: 80, supervisor: 'Ing. Diana Guerrero' },
-  { civ: '1007255', eje: 'Carrera 2B', desde: 'Calle 127B', hasta: 'Calle 127C', type: 'Local', area: 76.72, lat: '4.704844', lng: '-74.023904', status: 'al-dia', progress: 0, plannedProgress: 0, supervisor: 'Ing. Carolina Rojas' },
-  { civ: '1005663', eje: 'KR 11B', desde: 'CL 104A', hasta: 'AK 9', type: 'Local', area: 1027.18, lat: '4.687661', lng: '-74.042491', status: 'al-dia', progress: 89, plannedProgress: 69, supervisor: 'Ing. Diana Guerrero' },
-  { civ: '1005704', eje: 'KR 11B', desde: 'CL 103A', hasta: 'CL 104A', type: 'Local', area: 735.2, lat: '4.686872', lng: '-74.042882', status: 'al-dia', progress: 90, plannedProgress: 67, supervisor: 'Ing. Diana Guerrero' },
-  { civ: '1005491', eje: 'CL 106ª', desde: 'KR 13A', hasta: 'KR 14', type: 'Local', area: 53.73, lat: '4.689826', lng: '-74.045197', status: 'al-dia', progress: 100, plannedProgress: 100, supervisor: 'Ing. Carlos Ortiz' },
-  { civ: '1005808', eje: 'KR 12', desde: 'CL 101', hasta: 'CL 101A', type: 'Local', area: 530.35, lat: '4.684540', lng: '-74.045465', status: 'al-dia', progress: 100, plannedProgress: 100, supervisor: 'Ing. Carlos Ortiz' },
-  { civ: '1008209', eje: 'Carrera 8C', desde: 'CL 167D', hasta: 'CL 168', type: 'Intermedia', area: 544.83, lat: '4.745266', lng: '-74.026888', status: 'al-dia', progress: 100, plannedProgress: 100, supervisor: 'Ing. Diana Guerrero' }
-];
-
-// 20 Geolocalizados Frentes de Obra for Espacio Público
-const ESPACIO_PUBLICO_FRENTES_RAW = [
-  { civ: '1001048', pk: '3000', eje: 'Carrera 7 a', desde: 'Calle 182', hasta: 'Calle 182ª', area: 154.04, lat: '4.759100', lng: '-74.027433', status: 'al-dia', progress: 40, plannedProgress: 40, supervisor: 'Ing. Diana Guerrero' },
-  { civ: '1007343', pk: '92073803', eje: 'Carrera 13', desde: 'Calle 187', hasta: 'Calle 187ª', area: 32.01, lat: '4.764420', lng: '-74.036999', status: 'al-dia', progress: 90, plannedProgress: 90, supervisor: 'Ing. Andrés Castro' },
-  { civ: '1000029', pk: '92053192', eje: 'Carrera 19ª', desde: 'Calle 196', hasta: 'Calle 195', area: 344.63, lat: '4.773203', lng: '-74.040019', status: 'al-dia', progress: 75, plannedProgress: 75, supervisor: 'Ing. Andrés Castro' },
-  { civ: '1007338', pk: '92073807', eje: 'Carrera 18 a', desde: 'Calle 189', hasta: 'Cerrada', area: 79.83, lat: '4.765923', lng: '-74.039117', status: 'al-dia', progress: 55, plannedProgress: 55, supervisor: 'Ing. Javier Ruiz' },
-  { civ: '1000067', pk: '7021', eje: 'CL 192', desde: 'KR 7B', hasta: 'KR 8', area: 55.23, lat: '4.769023', lng: '-74.028627', status: 'al-dia', progress: 60, plannedProgress: 60, supervisor: 'Ing. Andrés Castro' },
-  { civ: '1000067', pk: '7020', eje: 'CL 192', desde: 'KR 7B', hasta: 'KR 8', area: 70.6, lat: '4.769023', lng: '-74.028627', status: 'al-dia', progress: 65, plannedProgress: 65, supervisor: 'Ing. Andrés Castro' },
-  { civ: '1003131', pk: '5055', eje: 'Calle 148', desde: 'Carrera 17', hasta: 'Carrera 18', area: 134.29, lat: '4.730479', lng: '-74.043712', status: 'al-dia', progress: 48, plannedProgress: 50, supervisor: 'Ing. Javier Ruiz' },
-  { civ: '1003135', pk: '5053', eje: 'Calle 148', desde: 'Carrera 16B', hasta: 'Carrera 17', area: 131.55, lat: '4.730479', lng: '-74.043712', status: 'al-dia', progress: 52, plannedProgress: 50, supervisor: 'Ing. Javier Ruiz' },
-  { civ: '1005444', pk: '20005212', eje: 'Calle 104', desde: 'Carrera 17A', hasta: 'Carrera 18ª', area: 119.05, lat: '4.690304', lng: '-74.050113', status: 'al-dia', progress: 85, plannedProgress: 80, supervisor: 'Ing. Javier Ruiz' },
-  { civ: '1005268', pk: '20004061', eje: 'Calle 108', desde: 'Carrera 17', hasta: 'Carrera 17ª', area: 280.18, lat: '4.692872', lng: '-74.047504', status: 'al-dia', progress: 70, plannedProgress: 70, supervisor: 'Ing. Javier Ruiz' },
-  { civ: '1003125', pk: '2129', eje: 'Carrera 18', desde: 'Calle 148', hasta: 'Calle 150', area: 179.47, lat: '4.730940', lng: '-74.043916', status: 'al-dia', progress: 35, plannedProgress: 40, supervisor: 'Ing. Javier Ruiz' },
-  { civ: '1002332', pk: '1460', eje: 'KR 7F', desde: 'AC 161', hasta: 'CL 161A', area: 102.88, lat: '4.736728', lng: '-74.025532', status: 'al-dia', progress: 95, plannedProgress: 95, supervisor: 'Ing. Andrés Castro' },
-  { civ: '1002087', pk: '1539', eje: 'KR 8 B BIS', desde: 'Calle 163', hasta: 'Cale163a', area: 92.96, lat: '4.736728', lng: '-74.025532', status: 'al-dia', progress: 80, plannedProgress: 80, supervisor: 'Ing. Andrés Castro' },
-  { civ: '1006974', pk: '92073759', eje: 'Calle 185 B', desde: 'Kr 8 C', hasta: 'Kr 8 D', area: 61.44, lat: '4.762292', lng: '-74.030374', status: 'al-dia', progress: 30, plannedProgress: 30, supervisor: 'Ing. Javier Ruiz' },
-  { civ: '1006974', pk: '92073760', eje: 'Calle 185 B', desde: 'Kr 8 C', hasta: 'Kr 8 D', area: 81.42, lat: '4.762292', lng: '-74.030374', status: 'al-dia', progress: 40, plannedProgress: 40, supervisor: 'Ing. Javier Ruiz' },
-  { civ: '1001044', pk: '3006', eje: 'Carrera 7c', desde: 'Calle 182', hasta: 'Calle 182B', area: 279.77, lat: '4.759232', lng: '-74.028292', status: 'al-dia', progress: 68, plannedProgress: 70, supervisor: 'Ing. Andrés Castro' },
-  { civ: '1001044', pk: '3007', eje: 'Carrera 7c', desde: 'Calle 182', hasta: 'Calle 182B', area: 179.85, lat: '4.759232', lng: '-74.028292', status: 'al-dia', progress: 72, plannedProgress: 70, supervisor: 'Ing. Andrés Castro' },
-  { civ: '1000988', pk: '3008', eje: 'Carrera 7c', desde: 'Calle 182B', hasta: 'Calle 183', area: 189.49, lat: '4.759772', lng: '-74.028383', status: 'al-dia', progress: 50, plannedProgress: 50, supervisor: 'Ing. Andrés Castro' },
-  { civ: '1000988', pk: '3009', eje: 'Carrera 7c', desde: 'Calle 182B', hasta: 'Calle 183', area: 109.85, lat: '4.759772', lng: '-74.028383', status: 'al-dia', progress: 45, plannedProgress: 50, supervisor: 'Ing. Andrés Castro' },
-  { civ: '1000720', pk: '20013130', eje: 'Calle 185 C bis', desde: 'Kr 3ª', hasta: 'Kr 4', area: 253.41, lat: '4.762149', lng: '-74.024926', status: 'al-dia', progress: 95, plannedProgress: 95, supervisor: 'Ing. Andrés Castro' },
-  { 
-    civ: '1005243', 
-    pk: '20004062', 
-    eje: 'carrera 17A', 
-    desde: 'calle 109', 
-    hasta: 'calle 108', 
-    area: 91.5, 
-    lat: '4.693450', 
-    lng: '-74.047620', 
-    status: 'al-dia', 
-    progress: 25, 
-    plannedProgress: 25, 
-    supervisor: 'Ing. Javier Ruiz',
-    barrio: 'Santa Ana Occidental',
-    tipoIntervencion: 'Andén',
-    prioridad: 'Emergencia',
-    frenteNumber: 201,
-    alias: 'Frente 201 (Ítem 21)',
-    totalBudget: 44759461,
-    executedBudget: 11189865,
-    description: 'Tramo: calle 109 hasta calle 108 - Área: 91.5 m² - Andén Concreto MR-40 | Aprobado COI 33 del 13/08/2026 | Emergencia'
-  }
-];
-
-// Generator to build enriched frentes list from raw configurations
-const generateFrentes = (rawList, isMallaVial) => {
-  return rawList.map((f, index) => {
-    // Determine default checking status (mostly checked except for alerts)
-    const isCompliant = f.status === 'al-dia';
-    const comp = createDefaultCompliance(isCompliant);
-
-    // If alert, make sure l3 (Parafiscales) is false to trigger red flag
-    if (f.status === 'alerta') {
-      comp.legal.checklist = comp.legal.checklist.map(item => 
-        item.id === 'l3' ? { ...item, checked: false } : item
-      );
-      comp.legal.notes = 'Falta radicar planilla y paz y salvo de parafiscales firmado por Revisor Fiscal.';
-    }
-
-    // Concrete tests mock data
-    const tests = [];
-    if (isMallaVial && index === 0) {
-      tests.push({
-        id: 't_m1',
-        testDate: '2026-06-25',
-        mixDesign: '4000 PSI (28 MPa)',
-        strengthRequired: 28,
-        strengthResult: 29.8,
-        status: 'passed',
-        laboratoryName: 'Suelos & Concretos de Colombia'
-      });
-    }
-    // Failed test under frente_2 (alert) to trigger técnico red flag
-    if (isMallaVial && index === 1) {
-      tests.push({
-        id: 't_m2',
-        testDate: '2026-06-28',
-        mixDesign: '4000 PSI (28 MPa)',
-        strengthRequired: 28,
-        strengthResult: 23.4, // Failed
-        status: 'failed',
-        laboratoryName: 'Suelos & Concretos de Colombia'
-      });
-    }
-
-    return {
-      id: `${isMallaVial ? 'f_mv' : 'f_ep'}_${index + 1}`,
-      frente: f.frenteNumber || (isMallaVial ? (index + 1) : (index + 101)),
-      alias: f.alias || `Frente ${f.frenteNumber || (isMallaVial ? index + 1 : index + 101)}`,
-      civ: f.civ,
-      eje: f.eje,
-      desde: f.desde,
-      hasta: f.hasta,
-      barrio: f.barrio || '',
-      tipoIntervencion: f.tipoIntervencion || '',
-      prioridad: f.prioridad || 'Normal',
-      name: `${isMallaVial ? 'Malla Vial' : 'Espacio Público'} - CIV ${f.civ} (${f.eje})`,
-      description: f.description || `Tramo: ${f.desde} hasta ${f.hasta} - Área: ${f.area} m2 - Malla: ${f.type || 'N/A'}`,
-      latitude: f.lat,
-      longitude: f.lng,
-      supervisor: f.supervisor || 'Ing. Luis Carlos Galvan',
-      progress: f.progress,
-      plannedProgress: f.plannedProgress,
-      status: f.status,
-      concreteTests: tests,
-      pagaMetrics: {
-        co2Emissions: Math.round(f.area * 0.005 * 10) / 10,
-        localLabor: f.status === 'alerta' ? 45 : 75,
-        femaleLabor: 25,
-        machineryHours: Math.round(f.area * 0.05)
-      },
-      financialMetrics: {
-        totalBudget: f.totalBudget !== undefined ? f.totalBudget : (f.area * 320000),
-        executedBudget: f.executedBudget !== undefined ? f.executedBudget : (f.area * 320000 * (f.progress / 100)),
-        advanceAmortized: 20
-      },
-      compliance: comp,
-      photos: []
-    };
-  });
-};
-
-const getSeededProjects = () => {
-  return [
-    {
-      id: 'project_1',
-      name: 'Conservación de la Malla Vial Local e Intermedia - Localidad de Usaquén',
-      contractNo: 'IDU-2026-CO301',
-      contractor: 'Consorcio Malla Vial Bogotá 2026',
-      constructionBudget: 22800000000,
-      interventoriaBudget: 1720000000,
-      duration: 18,
-      plannedProgress: 68,
-      description: 'Actividades de conservación, rehabilitación, parcheo y reconstrucción de la malla vial local e intermedia en la localidad de Usaquén en Bogotá D.C.',
-      frentes: generateFrentes(MALLA_VIAL_FRENTES_RAW, true)
-    },
-    {
-      id: 'project_2',
-      name: 'Conservación y Adecuación de Espacio Público - Localidad de Usaquén',
-      contractNo: 'IDU-2026-CO302',
-      contractor: 'Infraestructuras de los Andes S.A.S.',
-      constructionBudget: 14500000000,
-      interventoriaBudget: 1150000000,
-      duration: 15,
-      plannedProgress: 58,
-      description: 'Actividades de conservación, reparación y adecuación del espacio público (andenes, vados peatonales, plazoletas) en la localidad de Usaquén en Bogotá D.C.',
-      frentes: generateFrentes(ESPACIO_PUBLICO_FRENTES_RAW, false)
-    }
-  ];
-};
-
 // Copia local para abrir rápido y sin conexión. Se escribe agrupada (1,5 MB de JSON por
 // escritura): antes se escribía en cada tecla del autoguardado y trababa los celulares.
 let pendingLocalReports = null;
@@ -286,7 +66,7 @@ const flushWeeklyReportsToStorage = () => {
   clearTimeout(localWriteTimer);
   if (!pendingLocalReports) return;
   try {
-    localStorage.setItem('geo_interventoria_weekly_reports', JSON.stringify(pendingLocalReports));
+    localStorage.setItem(storageKey('geo_interventoria_weekly_reports'), JSON.stringify(pendingLocalReports));
   } catch (err) {
     console.warn("No se pudo guardar la copia local de informes:", err);
   }
@@ -302,6 +82,7 @@ if (typeof window !== 'undefined') {
 }
 
 export default function App() {
+  const projectConfig = useProject();
   const [projects, setProjects] = useState([]);
   const [activeProjectId, setActiveProjectId] = useState(null);
   const [activeFrenteId, setActiveFrenteId] = useState(null);
@@ -329,7 +110,7 @@ export default function App() {
   const [isLandingOnlyMode, setIsLandingOnlyMode] = useState(false);
   const [designOverrides, setDesignOverrides] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('geo_interventoria_design_overrides') || '{}');
+      return JSON.parse(localStorage.getItem(storageKey('geo_interventoria_design_overrides')) || '{}');
     } catch (e) {
       return {};
     }
@@ -337,8 +118,8 @@ export default function App() {
 
   const handleUpdateDesignOverrides = (newOverrides) => {
     setDesignOverrides(newOverrides);
-    localStorage.setItem('geo_interventoria_design_overrides', JSON.stringify(newOverrides));
-    fetch('/api/design-overrides', {
+    localStorage.setItem(storageKey('geo_interventoria_design_overrides'), JSON.stringify(newOverrides));
+    fetch(apiPath('/api/design-overrides'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newOverrides)
@@ -399,41 +180,35 @@ export default function App() {
 
   // Load from localStorage or set defaults
   useEffect(() => {
-    let loadedProjects = [];
-    const savedProjects = localStorage.getItem('geo_interventoria_projects_v7');
-    if (savedProjects) {
-      try {
-        loadedProjects = JSON.parse(savedProjects);
-        setProjects(loadedProjects);
-      } catch (e) {
-        console.error("Error al cargar de localStorage, cargando datos por defecto:", e);
-        loadedProjects = getSeededProjects();
-        setProjects(loadedProjects);
-        localStorage.setItem('geo_interventoria_projects_v7', JSON.stringify(loadedProjects));
-      }
-    } else {
-      loadedProjects = getSeededProjects();
-      setProjects(loadedProjects);
-      localStorage.setItem('geo_interventoria_projects_v7', JSON.stringify(loadedProjects));
+    let savedProjects = null;
+    try {
+      savedProjects = JSON.parse(localStorage.getItem(storageKey('geo_interventoria_projects_v7')) || 'null');
+    } catch (e) {
+      console.error("Copia local de proyectos ilegible; se usa la configuración del proyecto:", e);
     }
+    const loadedProjects = mergeProjectsWithConfig(savedProjects, projectConfig);
+    setProjects(loadedProjects);
+    try {
+      localStorage.setItem(storageKey('geo_interventoria_projects_v7'), JSON.stringify(loadedProjects));
+    } catch { /* sin almacenamiento */ }
 
     // Fetch design overrides from Supabase and save to local storage
-    fetch('/api/design-overrides')
+    fetch(apiPath('/api/design-overrides'))
       .then(res => res.json())
       .then(data => {
         if (data && typeof data === 'object' && Object.keys(data).length > 0) {
-          localStorage.setItem('geo_interventoria_design_overrides', JSON.stringify(data));
+          localStorage.setItem(storageKey('geo_interventoria_design_overrides'), JSON.stringify(data));
           setDesignOverrides(data);
         }
       })
       .catch(err => console.warn("Error loading design overrides from cloud:", err));
 
     // Fetch project info from Supabase and save to local storage
-    fetch('/api/project-info')
+    fetch(apiPath('/api/project-info'))
       .then(res => res.json())
       .then(data => {
         if (data && data.objeto) {
-          localStorage.setItem('geo_interventoria_project_info_v1', JSON.stringify(data));
+          localStorage.setItem(storageKey('geo_interventoria_project_info_v1'), JSON.stringify(data));
         }
       })
       .catch(err => console.warn("Error loading project info from cloud:", err));
@@ -441,7 +216,7 @@ export default function App() {
     // Load weekly reports from local server API database / Supabase
     let localWeekly = null;
     try {
-      const raw = localStorage.getItem('geo_interventoria_weekly_reports');
+      const raw = localStorage.getItem(storageKey('geo_interventoria_weekly_reports'));
       if (raw) localWeekly = JSON.parse(raw);
     } catch (e) {}
 
@@ -449,7 +224,7 @@ export default function App() {
       setWeeklyReports(localWeekly);
     }
 
-    fetch('/api/weekly-reports')
+    fetch(apiPath('/api/weekly-reports'))
       .then(async res => {
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
@@ -494,7 +269,10 @@ export default function App() {
               };
             })
           );
-          const seededWeekly = initializeWeeklyReports(allFrentes);
+          // Usaquén conserva su semana base histórica; un proyecto nuevo arranca en la semana de hoy
+          const seededWeekly = isDefaultProject
+            ? initializeWeeklyReports(allFrentes)
+            : [initialWeekForProject(allFrentes, projectConfig.calendario)];
           handleUpdateWeeklyReports(seededWeekly).catch(() => {});
         }
       })
@@ -504,7 +282,7 @@ export default function App() {
       });
 
     // Default active project
-    const savedActiveId = localStorage.getItem('geo_interventoria_active_id');
+    const savedActiveId = localStorage.getItem(storageKey('geo_interventoria_active_id'));
     if (savedActiveId) {
       setActiveProjectId(savedActiveId);
     }
@@ -526,10 +304,24 @@ export default function App() {
     }
   }, []);
 
+  // Si llega una versión editada de la configuración del proyecto, actualizar los contratos
+  const configAppliedRef = useRef(projectConfig);
+  useEffect(() => {
+    if (configAppliedRef.current === projectConfig) return;
+    configAppliedRef.current = projectConfig;
+    setProjects(prev => {
+      const next = mergeProjectsWithConfig(prev, projectConfig);
+      try {
+        localStorage.setItem(storageKey('geo_interventoria_projects_v7'), JSON.stringify(next));
+      } catch { /* sin almacenamiento */ }
+      return next;
+    });
+  }, [projectConfig]);
+
   const saveProjects = (updatedProjects) => {
     setProjects(updatedProjects);
     try {
-      localStorage.setItem('geo_interventoria_projects_v7', JSON.stringify(updatedProjects));
+      localStorage.setItem(storageKey('geo_interventoria_projects_v7'), JSON.stringify(updatedProjects));
     } catch (err) {
       console.warn("localStorage saveProjects warning:", err);
     }
@@ -548,7 +340,7 @@ export default function App() {
       failedChangesRef.current = [];
       const toSend = [...retried, ...changes];
       try {
-        const res = await fetch('/api/weekly-reports', {
+        const res = await fetch(apiPath('/api/weekly-reports'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ changes: toSend }),
@@ -648,7 +440,7 @@ export default function App() {
 
   const handleSelectProject = (projectId) => {
     setActiveProjectId(projectId);
-    localStorage.setItem('geo_interventoria_active_id', projectId);
+    localStorage.setItem(storageKey('geo_interventoria_active_id'), projectId);
     
     // Auto-focus first frente
     const proj = projects.find(p => p.id === projectId);
@@ -709,7 +501,7 @@ export default function App() {
       saveProjects(updated);
       setView('dashboard');
       setActiveProjectId(null);
-      localStorage.removeItem('geo_interventoria_active_id');
+      localStorage.removeItem(storageKey('geo_interventoria_active_id'));
       setActiveFrenteId(null);
       return;
     }
@@ -725,7 +517,7 @@ export default function App() {
     if (newView === 'project-detail') {
       // If navigating directly from sidebar to map view, reset active project to show unified map
       setActiveProjectId(null);
-      localStorage.removeItem('geo_interventoria_active_id');
+      localStorage.removeItem(storageKey('geo_interventoria_active_id'));
       setActiveFrenteId(null);
     }
     setView(newView);
@@ -737,14 +529,14 @@ export default function App() {
   const getUnifiedProject = () => {
     return {
       id: 'unified_project',
-      name: 'Consolidado General - Usaquén (Vial y Espacio Público)',
-      contractNo: 'IDU-Usaquén-2026-CONS',
-      contractor: 'Consorcios Bogotá Conservación (Consolidado)',
+      name: `Consolidado general – ${projectConfig.nombre}`,
+      contractNo: (projectConfig.contratos || []).map(c => c.numero).filter(Boolean).join(' / ') || 'Consolidado',
+      contractor: (projectConfig.contratos || []).map(c => c.contratista).filter(Boolean).join(' / '),
       constructionBudget: projects.reduce((acc, curr) => acc + (curr.constructionBudget || 0), 0),
       interventoriaBudget: projects.reduce((acc, curr) => acc + (curr.interventoriaBudget || 0), 0),
       duration: 18,
       plannedProgress: 63,
-      description: 'Vista integrada y georreferenciada de los tramos de Malla Vial y adecuaciones de Espacio Público activos en la localidad de Usaquén.',
+      description: `Vista integrada de los frentes de ${(projectConfig.contratos || []).map(c => c.nombreCorto).join(' y ')} en ${projectConfig.ubicacion || 'el proyecto'}.`,
       frentes: projects.flatMap(p => p.frentes || [])
     };
   };
@@ -757,10 +549,8 @@ export default function App() {
       const updatedFrentes = updatedProject.frentes;
       const newProjects = projects.map(p => {
         const subFrentes = updatedFrentes.filter(uf => {
-          // Check prefix mapping (f_mv for project_1, f_ep for project_2)
-          if (p.id === 'project_1') return uf.id.startsWith('f_mv');
-          if (p.id === 'project_2') return uf.id.startsWith('f_ep');
-          return false;
+          // Cada contrato conserva los frentes con su prefijo (f_mv, f_ep, ...)
+          return Boolean(p.frentePrefix) && String(uf.id).startsWith(`${p.frentePrefix}_`);
         });
         return {
           ...p,
@@ -814,10 +604,10 @@ export default function App() {
               </div>
               <div>
                 <span className="font-headline-md text-sm sm:text-base font-extrabold text-primary tracking-tight block leading-tight">
-                  INCOLTA SAS • Usaquén
+                  {projectConfig.marca?.nombre}
                 </span>
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
-                  Tablero de Control de Frentes (43 Frentes)
+                <span className="text-xs text-slate-500 block">
+                  Tablero de frentes de obra
                 </span>
               </div>
             </div>
@@ -848,7 +638,7 @@ export default function App() {
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-primary text-xl font-bold">construction</span>
               <span className="font-headline-md text-sm font-black text-primary tracking-tight">
-                {isContractorMode ? 'INCOLTA • Hub Contratista' : 'INCOLTA SAS'}
+                {projectConfig.marca?.nombreCorto || projectConfig.marca?.nombre}{isContractorMode ? ' – contratista' : ''}
               </span>
             </div>
           </header>
@@ -872,12 +662,12 @@ export default function App() {
             onBack={() => {
               setView('dashboard');
               setActiveProjectId(null);
-              localStorage.removeItem('geo_interventoria_active_id');
+              localStorage.removeItem(storageKey('geo_interventoria_active_id'));
               setActiveFrenteId(null);
             }} 
             onResetToUnified={() => {
               setActiveProjectId(null);
-              localStorage.removeItem('geo_interventoria_active_id');
+              localStorage.removeItem(storageKey('geo_interventoria_active_id'));
               setActiveFrenteId(null);
             }}
             onUpdateProject={handleUpdateProjectOrUnified}
@@ -890,7 +680,7 @@ export default function App() {
                 if (parentProj) {
                   // Switch project dynamically!
                   setActiveProjectId(parentProj.id);
-                  localStorage.setItem('geo_interventoria_active_id', parentProj.id);
+                  localStorage.setItem(storageKey('geo_interventoria_active_id'), parentProj.id);
                   setActiveFrenteId(frenteId);
                 }
               } else {
@@ -967,6 +757,10 @@ export default function App() {
           <ConfigView projects={projects} />
         )}
 
+        {view === 'correspondencia' && (
+          <CorrespondenciaView projects={projects} isContractorMode={isContractorMode} />
+        )}
+
         {view === 'engineers' && (
           <EngineersView projects={projects} onUpdateProjects={saveProjects} />
         )}
@@ -990,10 +784,10 @@ export default function App() {
                 </div>
                 <div>
                   <h1 className="text-sm font-extrabold text-primary leading-tight">
-                    INCOLTA SAS • Mapa Georreferenciado
+                    Mapa de frentes – {projectConfig.marca?.nombreCorto || projectConfig.marca?.nombre}
                   </h1>
-                  <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
-                    Usaquén - 43 Frentes de Obra Georreferenciados
+                  <p className="text-xs text-slate-500">
+                    {projectConfig.nombre}: {projects.reduce((n, p) => n + (p.frentes?.length || 0), 0)} frentes georreferenciados
                   </p>
                 </div>
               </div>

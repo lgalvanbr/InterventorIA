@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
+import { storageKey } from '../data/projectSession';
 
 // Leaflet default icon SVG fallback (eliminates 404 asset errors in Vite)
 const defaultIconSvg = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="25" height="41" viewBox="0 0 25 41"><path fill="%232563eb" stroke="%231d4ed8" stroke-width="1.5" d="M12.5 0C5.6 0 0 5.6 0 12.5C0 21.9 12.5 41 12.5 41C12.5 41 25 21.9 25 12.5C25 5.6 19.4 0 12.5 0Z"/><circle cx="12.5" cy="12.5" r="5.5" fill="%23ffffff"/></svg>`;
@@ -125,7 +126,7 @@ export default function MapView({
     let customColors = {};
     if (typeof window !== 'undefined') {
       try {
-        customColors = JSON.parse(localStorage.getItem('geo_interventoria_frentes_colors') || '{}');
+        customColors = JSON.parse(localStorage.getItem(storageKey('geo_interventoria_frentes_colors')) || '{}');
       } catch (e) {
         console.error("Error parsing custom colors:", e);
       }

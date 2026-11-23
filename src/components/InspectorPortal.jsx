@@ -15,6 +15,7 @@ import {
   CloudOff,
   Loader2,
   ClipboardPaste,
+  ClipboardList,
   Plus
 } from 'lucide-react';
 import {
@@ -25,6 +26,10 @@ import {
 } from '../utils/imageCompressor';
 import { cloneWeeklyReport, calculateConsolidatedMetrics } from '../data/reportsWeekly';
 import { frentePhotoList, frenteNoteList, mergeEditedList, photoKey, noteKey } from '../data/reportsMerge';
+import { computeReportCoverage, countPendingWeeks } from '../data/reportCoverage';
+import { useProject } from '../context/ProjectContext';
+import { contractForFrente, contractInitials } from '../data/projectConfig';
+import { storageKey } from '../data/projectSession';
 
 // Novedades frecuentes para la bitácora (un toque)
 const QUICK_LOG_TAGS = [
@@ -64,7 +69,13 @@ const shortDate = (iso) => {
   return `${d} ${MONTHS[m - 1]}`;
 };
 
-const isMallaVial = (f) => f?.id?.startsWith('f_mv');
+// Colores de insignia por contrato (en el orden de la configuración del proyecto)
+const CONTRACT_TONES = [
+  { solid: 'bg-amber-400 text-slate-900', soft: 'bg-amber-100 text-amber-900' },
+  { solid: 'bg-teal-300 text-slate-900', soft: 'bg-teal-100 text-teal-900' },
+  { solid: 'bg-sky-300 text-slate-900', soft: 'bg-sky-100 text-sky-900' },
+  { solid: 'bg-violet-300 text-slate-900', soft: 'bg-violet-100 text-violet-900' }
+];
 const frentePhotos = frentePhotoList;
 const frenteNotes = frenteNoteList;
 const addDaysIso = (iso, days) => {
@@ -91,6 +102,13 @@ export default function InspectorPortal({
   isDataFresh = true,
   pendingSyncCount = 0
 }) {
+  const project = useProject();
+  const contracts = project?.contratos || [];
+  const toneFor = (f) => {
+    const idx = contracts.indexOf(contractForFrente(project, f?.id));
+    return CONTRACT_TONES[(idx < 0 ? 0 : idx) % CONTRACT_TONES.length];
+  };
+  const initialsFor = (f) => contractInitials(project, f?.id);
   const sortedReports = useMemo(
     () => [...weeklyReports].sort((a, b) => b.numero_semana - a.numero_semana),
     [weeklyReports]
@@ -113,6 +131,8 @@ export default function InspectorPortal({
   const [showWeekPhotos, setShowWeekPhotos] = useState(false);
   const [viewerPhotoId, setViewerPhotoId] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [isPendingOpen, setIsPendingOpen] = useState(false);
+  const pendingDayRef = useRef(null); // día a seleccionar al saltar desde "Pendientes"
 
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
@@ -151,7 +171,7 @@ export default function InspectorPortal({
     if (sortedReports.length === 0 || selectedReportId !== null) return;
     const containsToday = sortedReports.find(r => todayIso >= r.fecha_inicial_corte && todayIso <= r.fecha_final_corte);
     let savedId = null;
-    try { savedId = localStorage.getItem('geo_interventoria_inspector_report_id'); } catch { /* sin almacenamiento */ }
+    try { savedId = localStorage.getItem(storageKey('geo_interventoria_inspector_report_id')); } catch { /* sin almacenamiento */ }
     const saved = sortedReports.find(r => String(r.id_informe) === String(savedId));
     setSelectedReportId((containsToday || saved || sortedReports[0]).id_informe);
   }, [sortedReports, selectedReportId, todayIso]);
@@ -182,12 +202,24 @@ export default function InspectorPortal({
     });
   }, [currentReport?.fecha_inicial_corte]);
 
-  // Al cambiar de semana, seleccionar hoy si está dentro de ella
+  // Al cambiar de semana: el día pedido desde "Pendientes", o hoy si está dentro de ella
   useEffect(() => {
     if (weekDates.length === 0) return;
+    const wanted = pendingDayRef.current;
+    const wantedIdx = wanted ? weekDates.findIndex(d => d.iso === wanted) : -1;
+    if (wantedIdx !== -1) {
+      pendingDayRef.current = null;
+      setActiveDayIdx(wantedIdx);
+      return;
+    }
     const idx = weekDates.findIndex(d => d.iso === todayIso);
     setActiveDayIdx(idx !== -1 ? idx : 0);
   }, [weekDates, todayIso]);
+
+  // Cobertura de reportes: semanas, días y frentes activos que faltan
+  const coverage = useMemo(() => computeReportCoverage(weeklyReports, todayIso), [weeklyReports, todayIso]);
+  const pendingWeeksCount = countPendingWeeks(coverage);
+  const currentWeekCoverage = coverage.weeks.find(w => w.status === 'en-curso') || null;
 
   const activeDateStr = weekDates[activeDayIdx]?.iso || '';
   const activeDayName = weekDates[activeDayIdx] ? DAY_NAMES[weekDates[activeDayIdx].date.getDay()] : '';
@@ -489,7 +521,7 @@ export default function InspectorPortal({
     if (String(reportId) === String(selectedReportId)) return;
     await saveIfDirty();
     setSelectedReportId(reportId);
-    try { localStorage.setItem('geo_interventoria_inspector_report_id', String(reportId)); } catch { /* sin almacenamiento */ }
+    try { localStorage.setItem(storageKey('geo_interventoria_inspector_report_id'), String(reportId)); } catch { /* sin almacenamiento */ }
   };
 
   const [isCreatingWeek, setIsCreatingWeek] = useState(false);
@@ -547,8 +579,7 @@ export default function InspectorPortal({
   const pickerFrentes = useMemo(() => {
     const term = pickerSearch.trim().toLowerCase();
     return frentes.filter(f => {
-      if (pickerContract === 'malla' && !isMallaVial(f)) return false;
-      if (pickerContract === 'espacio' && isMallaVial(f)) return false;
+      if (pickerContract !== 'all' && !String(f.id).startsWith(`${pickerContract}_`)) return false;
       const done = hasActivityOn(f, activeDateStr);
       if (pickerStatus === 'pending' && done) return false;
       if (pickerStatus === 'done' && !done) return false;
@@ -557,7 +588,10 @@ export default function InspectorPortal({
     });
   }, [frentes, pickerContract, pickerStatus, pickerSearch, activeDateStr]);
 
-  const mallaCount = frentes.filter(isMallaVial).length;
+  const contractCounts = contracts.map(c => ({
+    ...c,
+    count: frentes.filter(f => String(f.id).startsWith(`${c.prefijo}_`)).length
+  }));
 
   if (!currentReport) {
     return (
@@ -585,7 +619,7 @@ export default function InspectorPortal({
       <header className="sticky top-0 z-30 bg-primary text-white shadow-md">
         <div className="max-w-lg mx-auto px-4 pt-3 pb-2 flex items-center gap-3">
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-semibold text-blue-200 uppercase tracking-wider">Inspección de obra · Usaquén</p>
+            <p className="text-xs font-semibold text-blue-100 truncate">{project?.marca?.nombreCorto || project?.marca?.nombre}: inspección de obra</p>
             <label className="relative flex items-center mt-0.5 w-full">
               <span className="sr-only">Semana de obra</span>
               <select
@@ -616,9 +650,9 @@ export default function InspectorPortal({
             className="w-full flex items-center gap-3 bg-white/10 hover:bg-white/15 active:bg-white/20 rounded-xl px-3 py-2.5 text-left transition-colors"
           >
             <span className={`shrink-0 w-11 h-11 rounded-lg flex flex-col items-center justify-center font-bold leading-none ${
-              isMallaVial(activeFrente) ? 'bg-amber-400 text-slate-900' : 'bg-teal-300 text-slate-900'
+              toneFor(activeFrente).solid
             }`}>
-              <span className="text-[10px] uppercase">{isMallaVial(activeFrente) ? 'MV' : 'EP'}</span>
+              <span className="text-[10px] uppercase">{initialsFor(activeFrente)}</span>
               <span className="text-base">{activeFrente?.frente || '–'}</span>
             </span>
             <span className="flex-1 min-w-0">
@@ -636,6 +670,30 @@ export default function InspectorPortal({
       </header>
 
       <main className="flex-1 w-full max-w-lg mx-auto px-3 py-3 flex flex-col gap-3">
+
+        {/* Reportes pendientes */}
+        {(pendingWeeksCount > 0 || (currentWeekCoverage?.missingDays.length ?? 0) > 0) && (
+          <button
+            type="button"
+            onClick={() => setIsPendingOpen(true)}
+            className="w-full flex items-center gap-3 bg-white rounded-2xl px-3 py-2.5 shadow-sm text-left active:bg-slate-50"
+          >
+            <span className="shrink-0 w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+              <ClipboardList size={20} />
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-bold text-slate-900">Reportes pendientes</span>
+              <span className="block text-xs text-slate-500 truncate">
+                {[
+                  pendingWeeksCount > 0 && `${pendingWeeksCount} semana${pendingWeeksCount === 1 ? '' : 's'} incompleta${pendingWeeksCount === 1 ? '' : 's'}`,
+                  currentWeekCoverage?.missingDays.length > 0 &&
+                    `${currentWeekCoverage.missingDays.length} día${currentWeekCoverage.missingDays.length === 1 ? '' : 's'} sin reporte esta semana`
+                ].filter(Boolean).join(' · ')}
+              </span>
+            </span>
+            <ChevronRight size={18} className="shrink-0 text-slate-400" />
+          </button>
+        )}
 
         {/* Avisos de semana */}
         {isViewingOldWeek && (
@@ -949,8 +1007,9 @@ export default function InspectorPortal({
                   aria-label="Contrato"
                 >
                   <option value="all">Contrato</option>
-                  <option value="malla">Malla vial ({mallaCount})</option>
-                  <option value="espacio">Espacio público ({frentes.length - mallaCount})</option>
+                  {contractCounts.map(c => (
+                    <option key={c.prefijo} value={c.prefijo}>{c.nombreCorto || c.nombre} ({c.count})</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -972,9 +1031,9 @@ export default function InspectorPortal({
                       className={`w-full flex items-center gap-3 rounded-xl px-2 py-2.5 text-left ${isSelected ? 'bg-primary/5 ring-1 ring-primary/30' : 'active:bg-slate-50'}`}
                     >
                       <span className={`shrink-0 w-10 h-10 rounded-lg flex flex-col items-center justify-center leading-none font-bold ${
-                        isMallaVial(f) ? 'bg-amber-100 text-amber-900' : 'bg-teal-100 text-teal-900'
+                        toneFor(f).soft
                       }`}>
-                        <span className="text-[9px]">{isMallaVial(f) ? 'MV' : 'EP'}</span>
+                        <span className="text-[9px]">{initialsFor(f)}</span>
                         <span className="text-sm">{f.frente}</span>
                       </span>
                       <span className="flex-1 min-w-0">
@@ -995,6 +1054,33 @@ export default function InspectorPortal({
             </ul>
           </div>
         </div>
+      )}
+
+      {/* REPORTES PENDIENTES */}
+      {isPendingOpen && (
+        <PendingReportsSheet
+          coverage={coverage}
+          todayIso={todayIso}
+          onClose={() => setIsPendingOpen(false)}
+          onGoToDay={async (report, dayIso) => {
+            setIsPendingOpen(false);
+            setShowWeekPhotos(false);
+            if (String(report.id_informe) === String(currentReport?.id_informe)) {
+              const idx = weekDates.findIndex(d => d.iso === dayIso);
+              if (idx !== -1) handleDayChange(idx);
+            } else {
+              pendingDayRef.current = dayIso;
+              await handleReportChange(report.id_informe);
+            }
+          }}
+          onGoToFrente={async (report, frenteId) => {
+            setIsPendingOpen(false);
+            if (String(report.id_informe) !== String(currentReport?.id_informe)) {
+              await handleReportChange(report.id_informe);
+            }
+            goToFrente(frenteId);
+          }}
+        />
       )}
 
       {/* VISOR DE FOTO: descripción y eliminar */}
@@ -1075,5 +1161,152 @@ function SaveStatusPill({ saveState, activeUploads, failedUploads, pendingSync }
       {icon}
       {text}
     </span>
+  );
+}
+
+const STATUS_STYLE = {
+  'sin-reportes': { label: 'Sin reportes', cls: 'bg-rose-100 text-rose-800' },
+  parcial: { label: 'Incompleta', cls: 'bg-amber-100 text-amber-900' },
+  completa: { label: 'Completa', cls: 'bg-emerald-100 text-emerald-800' },
+  'en-curso': { label: 'En curso', cls: 'bg-blue-100 text-blue-800' }
+};
+
+
+const dayLabel = (iso) => {
+  const d = new Date(`${iso}T12:00:00`);
+  return `${DAY_NAMES[d.getDay()].slice(0, 3)} ${d.getDate()}`;
+};
+
+// Rangos compactos: [22,23,24,27] -> "22–24, 27"
+const compactRanges = (nums) => {
+  const out = [];
+  for (let i = 0; i < nums.length; i++) {
+    let j = i;
+    while (j + 1 < nums.length && nums[j + 1] === nums[j] + 1) j++;
+    out.push(i === j ? `${nums[i]}` : `${nums[i]}–${nums[j]}`);
+    i = j;
+  }
+  return out.join(', ');
+};
+
+function PendingReportsSheet({ coverage, onClose, onGoToDay, onGoToFrente }) {
+  const project = useProject();
+  const frenteLabel = (f) => `${contractInitials(project, f.id)} ${f.frente || ''}`.trim();
+  const current = coverage.weeks.find(w => w.status === 'en-curso');
+  const previous = coverage.weeks.filter(w => w.status !== 'en-curso');
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/60 flex flex-col justify-end" onClick={onClose}>
+      <div
+        className="bg-white rounded-t-2xl w-full max-w-lg mx-auto max-h-[88vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="Reportes pendientes"
+      >
+        <div className="px-4 pt-3 pb-3 border-b border-slate-100">
+          <div className="mx-auto w-10 h-1 rounded-full bg-slate-300 mb-3" />
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold">Reportes pendientes</h2>
+              <p className="text-sm text-slate-500">Frentes activos = con reportes en las últimas 4 semanas</p>
+            </div>
+            <button type="button" onClick={onClose} className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center" aria-label="Cerrar">
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-5">
+          {current && (
+            <section>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                Esta semana · Semana {current.numero}
+              </h3>
+              <div className="rounded-xl border border-slate-200 p-3 flex flex-col gap-3">
+                <div>
+                  <p className="text-sm font-semibold">
+                    {current.reportedDays.length} de {current.workDays} días con reporte
+                  </p>
+                  {current.missingDays.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {current.missingDays.map(day => (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => onGoToDay(current.report, day)}
+                          className="rounded-full bg-rose-50 text-rose-700 border border-rose-200 px-3 py-1.5 text-xs font-bold"
+                        >
+                          {dayLabel(day)}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-emerald-700 mt-1">Todos los días anteriores tienen reporte.</p>
+                  )}
+                </div>
+                {current.missingFrentes.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 mb-1.5">
+                      Frentes activos sin reporte esta semana ({current.missingFrentes.length})
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {current.missingFrentes.map(f => (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => onGoToFrente(current.report, f.id)}
+                          className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-700"
+                          title={f.eje}
+                        >
+                          {frenteLabel(f)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          <section>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Semanas anteriores</h3>
+            <ul className="flex flex-col gap-2">
+              {previous.map(w => {
+                const st = STATUS_STYLE[w.status];
+                const firstMissing = w.missingDays[0] || w.report.fecha_inicial_corte;
+                return (
+                  <li key={w.numero}>
+                    <button
+                      type="button"
+                      onClick={() => onGoToDay(w.report, firstMissing)}
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-left active:bg-slate-50"
+                    >
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-bold">
+                          Semana {w.numero}
+                          <span className="font-normal text-slate-500"> · {shortDate(w.report.fecha_inicial_corte)} – {shortDate(w.report.fecha_final_corte)}</span>
+                        </span>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold ${st.cls}`}>{st.label}</span>
+                      </span>
+                      <span className="block text-xs text-slate-500 mt-0.5">
+                        {w.reportedDays.length} de {w.workDays} días · {w.reportedFrentes.length} frente{w.reportedFrentes.length === 1 ? '' : 's'} con reporte
+                        {w.missingFrentes.length > 0 && w.status !== 'completa' &&
+                          ` · faltan ${w.missingFrentes.slice(0, 4).map(frenteLabel).join(', ')}${w.missingFrentes.length > 4 ? '…' : ''}`}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+
+          {coverage.missingWeekNumbers.length > 0 && (
+            <p className="text-xs text-slate-500 pb-2">
+              Semanas que nunca se crearon: <strong>{compactRanges(coverage.missingWeekNumbers)}</strong>
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

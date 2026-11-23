@@ -9,6 +9,7 @@ import { getDisenoForCiv } from '../data/frentesDisenos';
 import { generateMonthlyBitacoraText, getReportMonthKey, getReportMonthLabel } from '../data/reportsWeekly';
 import { optimizePhotoListForPrint } from '../utils/printOptimizer';
 import StaticMapThumbnail from './StaticMapThumbnail';
+import { useProject } from '../context/ProjectContext';
 
 const getIaCommentForFrente = (consolidadoIa, frenteNumber) => {
   if (!consolidadoIa) return '';
@@ -343,6 +344,7 @@ export default function WeeklyReportPanel({
   onSaveReport,
   isContractorMode
 }) {
+  const project = useProject();
   const [activeTab, setActiveTab] = useState('comite'); // 'comite', 'pdf', 'frentes'
   const [activeDayIdx, setActiveDayIdx] = useState(0);
   const [editingFrenteId, setEditingFrenteId] = useState(initialEditingFrenteId);
@@ -431,7 +433,7 @@ export default function WeeklyReportPanel({
 
   const handleCopyInfo = () => {
     let text = `INFORME SEMANAL DE BITÁCORAS Y FRENTES\n`;
-    text += `EMPRESA: INCOLTA SAS\n`;
+    text += `EMPRESA: ${project?.marca?.nombre || ''}\n`;
     text += `SEMANA: ${report.numero_semana}\n`;
     text += `PERÍODO: ${report.fecha_inicial_corte} AL ${report.fecha_final_corte}\n\n`;
     
@@ -1200,8 +1202,8 @@ export default function WeeklyReportPanel({
                   <h1 className="text-sm font-black tracking-tight text-slate-900 uppercase">
                     INFORME SEMANAL DE INTERVENTORÍA TÉCNICA
                   </h1>
-                  <p className="text-[10px] font-black text-primary uppercase leading-tight mb-0.5">INCOLTA SAS</p>
-                  <p className="text-[9px] font-bold text-slate-500">Consorcio Interventoría Usaquén • Contrato IDU-19-620-18</p>
+                  <p className="text-[10px] font-black text-primary uppercase leading-tight mb-0.5">{project?.marca?.nombre}</p>
+                  <p className="text-[9px] font-bold text-slate-500">{project?.interventoria?.consorcio || project?.nombre}{project?.interventoria?.contrato ? ` • Contrato ${project.interventoria.contrato}` : ''}</p>
                 </div>
                 <div className="text-right">
                   <span className="text-xs font-black bg-slate-900 text-white px-2.5 py-1 rounded">
@@ -1433,8 +1435,8 @@ export default function WeeklyReportPanel({
               <h1 className="text-base font-black tracking-tight text-slate-900 uppercase leading-none">
                 INFORME SEMANAL DE INTERVENTORÍA TÉCNICA
               </h1>
-              <p className="text-xs font-black text-primary uppercase leading-tight mt-1 mb-0.5">INCOLTA SAS</p>
-              <p className="text-[10px] font-bold text-slate-500">Consorcio Interventoría Usaquén • Contrato IDU-19-620-18</p>
+              <p className="text-xs font-black text-primary uppercase leading-tight mt-1 mb-0.5">{project?.marca?.nombre}</p>
+              <p className="text-[10px] font-bold text-slate-500">{project?.interventoria?.consorcio || project?.nombre}{project?.interventoria?.contrato ? ` • Contrato ${project.interventoria.contrato}` : ''}</p>
             </div>
           </div>
           <div className="text-right">

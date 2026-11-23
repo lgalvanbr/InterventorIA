@@ -30,13 +30,23 @@
     }
   ],
   "rewrites": [
-    { "source": "/api/:path*", "destination": "/api?path=api/:path*" },
-    { "source": "/uploads/:path*", "destination": "/api?path=uploads/:path*" },
-    { "source": "/((?!api|uploads|frentes|assets).*)$", "destination": "/index.html" }
+    {
+      "source": "/api/:path*",
+      "destination": "/api?path=api/:path*"
+    },
+    {
+      "source": "/uploads/:path*",
+      "destination": "/api?path=uploads/:path*"
+    },
+    {
+      "source": "/((?!api|uploads|frentes|assets).*)$",
+      "destination": "/index.html"
+    }
   ],
   "functions": {
     "api/index.js": {
-      "includeFiles": "src/data/saved_weekly_reports.json"
+      "includeFiles": "src/data/saved_weekly_reports.json",
+      "maxDuration": 60
     }
   }
 }

@@ -14,15 +14,22 @@ import { applyChangeToWeek, normalizeReports } from '../src/data/reportsMerge.js
 const MAX_RETRIES = 5;
 // Relativo a este archivo (no al directorio desde donde se lanza el proceso)
 const DEFAULT_SEED_FILE = fileURLToPath(new URL('../src/data/saved_weekly_reports.json', import.meta.url));
-const weekRowId = (semana) => `semana_${Number(semana)}`;
 
-export function createReportsStore({ supabaseUrl, supabaseKey, seedFile }) {
-  return supabaseKey
-    ? supabaseStore(supabaseUrl, supabaseKey)
-    : fileStore(seedFile || DEFAULT_SEED_FILE);
+// Proyecto por defecto (Usaquén): filas semana_<N>. Otros proyectos: <proyecto>__semana_<N>.
+export const weekRowPrefix = (projectId) =>
+  !projectId || projectId === 'usaquen' ? 'semana_' : `${projectId}__semana_`;
+
+export function createReportsStore({ supabaseUrl, supabaseKey, seedFile, projectId }) {
+  const prefix = weekRowPrefix(projectId);
+  if (supabaseKey) return supabaseStore(supabaseUrl, supabaseKey, prefix);
+  const file = prefix === 'semana_'
+    ? (seedFile || DEFAULT_SEED_FILE)
+    : DEFAULT_SEED_FILE.replace(/\.json$/, `.${projectId}.json`);
+  return fileStore(file);
 }
 
-function supabaseStore(url, key) {
+function supabaseStore(url, key, prefix) {
+  const weekRowId = (semana) => `${prefix}${Number(semana)}`;
   const headers = { apikey: key, Authorization: `Bearer ${key}` };
   const rest = `${url}/rest/v1/weekly_reports`;
 
@@ -39,6 +46,7 @@ function supabaseStore(url, key) {
   }
 
   async function migrateFromLegacyRow() {
+    if (prefix !== 'semana_') return []; // solo el proyecto original tenía la fila única
     const rows = await request(`${rest}?id=eq.main_reports&select=data`);
     const legacy = normalizeReports(rows?.[0]?.data || []);
     if (legacy.length === 0) return [];
@@ -52,7 +60,7 @@ function supabaseStore(url, key) {
   }
 
   async function listWeeksRaw() {
-    const rows = await request(`${rest}?id=like.semana_*&select=data`);
+    const rows = await request(`${rest}?id=like.${prefix}*&select=data`);
     return normalizeReports(rows.map(r => r.data));
   }
 

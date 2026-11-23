@@ -3,6 +3,8 @@ import L from 'leaflet';
 import { getDisenoForCiv, DESIGN_TEMPLATES } from '../data/frentesDisenos';
 import { Layers, AlertTriangle, FileText, Info, Search, Upload, ExternalLink, HelpCircle } from 'lucide-react';
 import { compressImage, uploadPhotoResiliently } from '../utils/imageCompressor';
+import { storageKey } from '../data/projectSession';
+import { useProject } from '../context/ProjectContext';
 
 function MiniMap({ latitude, longitude, status }) {
   const mapContainerRef = useRef(null);
@@ -84,13 +86,14 @@ function MiniMap({ latitude, longitude, status }) {
 }
 
 export default function FrentesControl({ projects, designOverrides, onUpdateDesignOverrides }) {
+  const project = useProject();
   const [selectedCiv, setSelectedCiv] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [localPdfFile, setLocalPdfFile] = useState(null);
   const [localPdfUrl, setLocalPdfUrl] = useState(null);
   const [uploadedPdfs, setUploadedPdfs] = useState(() => {
     try {
-      return JSON.parse(localStorage.getItem('geo_interventoria_uploaded_pdfs') || '{}');
+      return JSON.parse(localStorage.getItem(storageKey('geo_interventoria_uploaded_pdfs')) || '{}');
     } catch (e) {
       return {};
     }
@@ -180,7 +183,7 @@ export default function FrentesControl({ projects, designOverrides, onUpdateDesi
           if (result.url) {
             const nextPdfs = { ...uploadedPdfs, [selectedCiv]: result.url };
             setUploadedPdfs(nextPdfs);
-            localStorage.setItem('geo_interventoria_uploaded_pdfs', JSON.stringify(nextPdfs));
+            localStorage.setItem(storageKey('geo_interventoria_uploaded_pdfs'), JSON.stringify(nextPdfs));
             
             setLocalPdfFile(file);
             if (localPdfUrl) {
@@ -262,9 +265,9 @@ export default function FrentesControl({ projects, designOverrides, onUpdateDesi
 
   const handleSaveModules = () => {
     if (!editedDesign) return;
-    const overrides = JSON.parse(localStorage.getItem('geo_interventoria_design_overrides') || '{}');
+    const overrides = JSON.parse(localStorage.getItem(storageKey('geo_interventoria_design_overrides')) || '{}');
     overrides[selectedCiv] = editedDesign;
-    localStorage.setItem('geo_interventoria_design_overrides', JSON.stringify(overrides));
+    localStorage.setItem(storageKey('geo_interventoria_design_overrides'), JSON.stringify(overrides));
     setIsEditingModules(false);
     window.location.reload();
   };
@@ -280,9 +283,9 @@ export default function FrentesControl({ projects, designOverrides, onUpdateDesi
       nombre_grupo: `Frente Personalizado (CIV ${selectedCiv})`
     };
     
-    const overrides = JSON.parse(localStorage.getItem('geo_interventoria_design_overrides') || '{}');
+    const overrides = JSON.parse(localStorage.getItem(storageKey('geo_interventoria_design_overrides')) || '{}');
     overrides[selectedCiv] = newDesign;
-    localStorage.setItem('geo_interventoria_design_overrides', JSON.stringify(overrides));
+    localStorage.setItem(storageKey('geo_interventoria_design_overrides'), JSON.stringify(overrides));
     window.location.reload();
   };
 
@@ -376,7 +379,7 @@ export default function FrentesControl({ projects, designOverrides, onUpdateDesi
             Control de Frentes y Diseños
           </h2>
           <p className="text-slate-500 text-sm font-medium">
-            Consulta las especificaciones de diseño estructural aprobadas (INCOLTA S.A.S.) y planos geométricos de cada CIV.
+            Consulta las especificaciones de diseño estructural aprobadas ({project?.marca?.nombre}) y planos geométricos de cada CIV.
           </p>
         </div>
       </section>

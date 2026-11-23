@@ -7,9 +7,20 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.SUPABASE_SERVICE_RO
 import crypto from 'crypto';
 import { diffReports, legacyArrayToChanges } from '../src/data/reportsMerge.js';
 import { createReportsStore } from './_reportsStore.js';
+import { createProjectsStore, summarizeProject, validateProjectConfig } from './_projectsStore.js';
+import { draftProjectFromDocuments, isAssistantConfigured } from './_projectAssistant.js';
+import { createCorrespondenciaStore } from './_correspondenciaStore.js';
+import { normalizeItem, mapRecordKeys } from '../src/data/correspondencia.js';
 
 // Supabase (una fila por semana) en producción; archivo local si no hay credenciales
 const reportsStore = createReportsStore({ supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_KEY });
+const projectsStore = createProjectsStore({ supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_KEY });
+const DEFAULT_PROJECT = 'usaquen';
+const PROJECT_ID = /^[a-z0-9-]{3,40}$/;
+// Semanas de un proyecto (Usaquén usa las filas originales semana_<N>)
+const weeksStoreFor = (projectId) => projectId === DEFAULT_PROJECT
+  ? reportsStore
+  : createReportsStore({ supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_KEY, projectId });
 // Copia en memoria de fotos/PDF subidos (respaldo para GET /uploads/* en Vercel). Lo usan
 // /api/upload-photo y /api/upload-design: sin esta declaración ambos fallan con HTTP 500.
 const memoryUploadedFiles = {};
@@ -113,10 +124,10 @@ async function uploadDesignToSupabase(civId, fileName, base64Data, bucketName = 
   return `${SUPABASE_URL}/storage/v1/object/public/${bucketName}/${filePath}`;
 }
 
-async function getProjectInfoFromSupabase() {
+async function getProjectInfoFromSupabase(row = 'project_info') {
   if (!SUPABASE_KEY) return null;
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/weekly_reports?id=eq.project_info&select=data`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/weekly_reports?id=eq.${row}&select=data`, {
       headers: {
         'apikey': SUPABASE_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`
@@ -134,7 +145,7 @@ async function getProjectInfoFromSupabase() {
   return null;
 }
 
-async function saveProjectInfoToSupabase(infoData) {
+async function saveProjectInfoToSupabase(infoData, row = 'project_info') {
   if (!SUPABASE_KEY) return false;
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/weekly_reports`, {
@@ -146,7 +157,7 @@ async function saveProjectInfoToSupabase(infoData) {
         'Prefer': 'resolution=merge-duplicates'
       },
       body: JSON.stringify({
-        id: 'project_info',
+        id: row,
         data: infoData
       })
     });
@@ -157,10 +168,10 @@ async function saveProjectInfoToSupabase(infoData) {
   return false;
 }
 
-async function getOverridesFromSupabase() {
+async function getOverridesFromSupabase(row = 'design_overrides') {
   if (!SUPABASE_KEY) return null;
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/weekly_reports?id=eq.design_overrides&select=data`, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/weekly_reports?id=eq.${row}&select=data`, {
       headers: {
         'apikey': SUPABASE_KEY,
         'Authorization': `Bearer ${SUPABASE_KEY}`
@@ -178,7 +189,7 @@ async function getOverridesFromSupabase() {
   return null;
 }
 
-async function saveOverridesToSupabase(overridesData) {
+async function saveOverridesToSupabase(overridesData, row = 'design_overrides') {
   if (!SUPABASE_KEY) return false;
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/weekly_reports`, {
@@ -190,7 +201,7 @@ async function saveOverridesToSupabase(overridesData) {
         'Prefer': 'resolution=merge-duplicates'
       },
       body: JSON.stringify({
-        id: 'design_overrides',
+        id: row,
         data: overridesData
       })
     });
@@ -368,6 +379,9 @@ export default async function handler(req, res) {
   }
 
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  const projectId = url.searchParams.get('proyecto') || DEFAULT_PROJECT;
+  // Filas propias del proyecto (Usaquén conserva los nombres originales)
+  const scopedRow = (row) => (projectId === DEFAULT_PROJECT || !PROJECT_ID.test(projectId) ? row : `${row}__${projectId}`);
   let pathname = url.pathname;
   const pathParam = url.searchParams.get('path');
   if (pathParam) {
@@ -462,13 +476,190 @@ export default async function handler(req, res) {
     return;
   }
 
+  // ---------- Proyectos ----------
+  // GET /api/proyectos -> resumen de todos los proyectos
+  if (pathname === '/api/proyectos' && req.method === 'GET') {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const list = await projectsStore.list();
+      res.status(200).json(list.map(summarizeProject));
+    } catch (err) {
+      res.status(503).json({ error: 'No se pudieron leer los proyectos.', detail: err.message });
+    }
+    return;
+  }
+
+  // GET /api/proyectos/<id> -> configuración completa
+  const projectMatch = pathname.match(/^\/api\/proyectos\/([a-z0-9-]{3,40})$/);
+  if (projectMatch && req.method === 'GET') {
+    res.setHeader('Cache-Control', 'no-cache');
+    try {
+      const config = await projectsStore.get(projectMatch[1]);
+      if (!config) {
+        res.status(404).json({ error: 'Proyecto no encontrado.' });
+        return;
+      }
+      res.status(200).json(config);
+    } catch (err) {
+      res.status(503).json({ error: 'No se pudo leer el proyecto.', detail: err.message });
+    }
+    return;
+  }
+
+  // POST /api/proyectos/asistente -> borrador de proyecto a partir de documentos
+  if (pathname === '/api/proyectos/asistente' && req.method === 'POST') {
+    res.setHeader('Cache-Control', 'no-store');
+    if (!isAssistantConfigured()) {
+      res.status(503).json({ error: 'El asistente no está configurado: falta la variable ANTHROPIC_API_KEY en el servidor.' });
+      return;
+    }
+    const body = await getBody(req);
+    const archivos = Array.isArray(body?.archivos) ? body.archivos.filter(a => a && typeof a.contenido === 'string') : [];
+    if (!archivos.length && !String(body?.texto || '').trim()) {
+      res.status(400).json({ error: 'Comparte al menos un archivo o una descripción del proyecto.' });
+      return;
+    }
+    try {
+      const draft = await draftProjectFromDocuments({ texto: body.texto, archivos });
+      res.status(200).json({ ...draft, errores: validateProjectConfig(draft.proyecto) });
+    } catch (err) {
+      console.error('Asistente de proyecto:', err);
+      res.status(err.status === 422 ? 422 : 502).json({ error: err.status === 422 ? err.message : 'El asistente no respondió. Intenta de nuevo en unos minutos.' });
+    }
+    return;
+  }
+
+  // POST /api/proyectos -> crear ({ crear: true, proyecto }) o actualizar ({ proyecto })
+  if (pathname === '/api/proyectos' && req.method === 'POST') {
+    const body = await getBody(req);
+    const config = body?.proyecto;
+    const errors = validateProjectConfig(config);
+    if (errors.length) {
+      res.status(400).json({ error: 'El proyecto tiene datos incompletos.', errores: errors });
+      return;
+    }
+    try {
+      const saved = await projectsStore.save(config, { create: !!body.crear });
+      res.status(200).json({ success: true, proyecto: summarizeProject(saved) });
+    } catch (err) {
+      res.status(err.status === 409 ? 409 : 502).json({ error: err.message });
+    }
+    return;
+  }
+
+  // ---------- Correspondencia (oficios y correos) ----------
+  if (pathname === '/api/correspondencia' || pathname === '/api/correspondencia/ingesta') {
+    res.setHeader('Cache-Control', 'no-store');
+    if (!PROJECT_ID.test(projectId)) {
+      res.status(400).json({ error: 'Proyecto inválido.' });
+      return;
+    }
+    let config;
+    try {
+      config = await projectsStore.get(projectId);
+    } catch (err) {
+      res.status(503).json({ error: 'No se pudo verificar el proyecto.', detail: err.message });
+      return;
+    }
+    if (!config) {
+      res.status(404).json({ error: 'Proyecto no encontrado.' });
+      return;
+    }
+    const store = createCorrespondenciaStore({ supabaseUrl: SUPABASE_URL, supabaseKey: SUPABASE_KEY, projectId });
+
+    // GET: todos los registros del proyecto
+    if (pathname === '/api/correspondencia' && req.method === 'GET') {
+      try {
+        res.status(200).json(await store.get());
+      } catch (err) {
+        res.status(503).json({ error: 'No se pudo leer la correspondencia.', detail: err.message });
+      }
+      return;
+    }
+
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Método no permitido.' });
+      return;
+    }
+    const body = await getBody(req);
+    const raw = Array.isArray(body?.items) ? body.items.filter(i => i && typeof i === 'object') : [];
+    if (raw.length === 0) {
+      res.status(400).json({ error: 'Se espera { items: [...] } con al menos un registro.' });
+      return;
+    }
+    if (raw.length > 2000) {
+      res.status(413).json({ error: 'Envía como máximo 2.000 registros por petición.' });
+      return;
+    }
+
+    const isIngest = pathname === '/api/correspondencia/ingesta';
+    // Clave opcional para la integración (variable INTEGRACION_TOKEN en el servidor)
+    if (isIngest && process.env.INTEGRACION_TOKEN) {
+      const token = req.headers['x-integracion-token'] || body.token;
+      if (token !== process.env.INTEGRACION_TOKEN) {
+        res.status(401).json({ error: 'Clave de integración incorrecta.' });
+        return;
+      }
+    }
+
+    const corr = config.correspondencia || {};
+    const hints = {
+      entidad: [config.contratante, ...(corr.dominiosEntidad || [])].filter(Boolean),
+      contratista: [...(config.contratos || []).map(c => c.contratista), ...(corr.dominiosContratista || [])].filter(Boolean)
+    };
+    // Fuente externa (Apps Script) o importación de Excel desde la app: se reconocen los
+    // encabezados de la hoja y se combinan sin pisar lo gestionado en la app
+    const fromSource = isIngest || body.fuente === 'excel';
+    const origen = isIngest ? String(body.fuente || 'integracion').slice(0, 40) : (fromSource ? 'excel' : 'app');
+    const items = raw
+      .map(i => (fromSource ? normalizeItem(mapRecordKeys(i), { origen, hints }) : (i.id ? i : normalizeItem(i, { origen, hints }))))
+      .filter(i => i.id && (i.fecha || i.asunto));
+
+    try {
+      const result = await store.upsert(items, {
+        origen: fromSource ? origen : 'app',
+        sincronizacion: fromSource ? { fecha: new Date().toISOString(), fuente: origen, recibidos: items.length } : undefined
+      });
+      res.status(200).json({
+        success: true,
+        nuevos: result.added,
+        actualizados: result.updated,
+        total: result.doc.items.length,
+        ...(isIngest ? {} : { items: result.doc.items, sincronizacion: result.doc.sincronizacion })
+      });
+    } catch (err) {
+      console.error('Correspondencia:', err);
+      res.status(502).json({ error: err.message });
+    }
+    return;
+  }
+
+  // Las semanas siempre pertenecen a un proyecto existente
+  if (pathname === '/api/weekly-reports') {
+    if (!PROJECT_ID.test(projectId)) {
+      res.status(400).json({ error: 'Proyecto inválido.' });
+      return;
+    }
+    if (projectId !== DEFAULT_PROJECT) {
+      try {
+        if (!(await projectsStore.get(projectId))) {
+          res.status(404).json({ error: 'Proyecto no encontrado.' });
+          return;
+        }
+      } catch (err) {
+        res.status(503).json({ error: 'No se pudo verificar el proyecto.', detail: err.message });
+        return;
+      }
+    }
+  }
+
   // GET /api/weekly-reports -> siempre la versión real de Supabase (con ETag para no re-descargar)
   if (pathname === '/api/weekly-reports' && req.method === 'GET') {
     // no-cache: el navegador puede reutilizar su copia solo tras validar el ETag; la CDN no la guarda.
     res.setHeader('Cache-Control', 'no-cache');
     let reports;
     try {
-      reports = sortWeeks(await reportsStore.listWeeks());
+      reports = sortWeeks(await weeksStoreFor(projectId).listWeeks());
     } catch (err) {
       console.error("No se pudieron leer los informes de Supabase:", err);
       res.status(503).json({ error: 'No hay conexión con la base de datos (Supabase).', detail: err.message });
@@ -503,11 +694,11 @@ export default async function handler(req, res) {
     const conflicts = [];
     try {
       if (isLegacy) {
-        changes = legacyArrayToChanges(await reportsStore.listWeeks(), body);
+        changes = legacyArrayToChanges(await weeksStoreFor(projectId).listWeeks(), body);
       }
       // Cada cambio se aplica sobre la última versión de su semana (con reintento si otro guardó en medio)
       for (const change of changes) {
-        const result = await reportsStore.applyChange(change);
+        const result = await weeksStoreFor(projectId).applyChange(change);
         if (result.conflict) {
           conflicts.push(result.conflict);
           if (result.report) saved.push(result.report);
@@ -592,7 +783,7 @@ export default async function handler(req, res) {
 
   // GET /api/project-info
   if (pathname === '/api/project-info' && req.method === 'GET') {
-    const cloudInfo = await getProjectInfoFromSupabase();
+    const cloudInfo = await getProjectInfoFromSupabase(scopedRow('project_info'));
     if (cloudInfo) {
       res.status(200).json(cloudInfo);
       return;
@@ -613,7 +804,7 @@ export default async function handler(req, res) {
   if (pathname === '/api/project-info' && req.method === 'POST') {
     try {
       const body = await getBody(req);
-      const savedToCloud = await saveProjectInfoToSupabase(body);
+      const savedToCloud = await saveProjectInfoToSupabase(body, scopedRow('project_info'));
       
       // Also write to local file for dev
       try {
@@ -632,7 +823,7 @@ export default async function handler(req, res) {
 
   // GET /api/design-overrides
   if (pathname === '/api/design-overrides' && req.method === 'GET') {
-    const cloudOverrides = await getOverridesFromSupabase();
+    const cloudOverrides = await getOverridesFromSupabase(scopedRow('design_overrides'));
     if (cloudOverrides) {
       res.status(200).json(cloudOverrides);
       return;
@@ -653,7 +844,7 @@ export default async function handler(req, res) {
   if (pathname === '/api/design-overrides' && req.method === 'POST') {
     try {
       const body = await getBody(req);
-      const savedToCloud = await saveOverridesToSupabase(body);
+      const savedToCloud = await saveOverridesToSupabase(body, scopedRow('design_overrides'));
       
       // Also write to local file for dev
       try {

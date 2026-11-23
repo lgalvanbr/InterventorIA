@@ -1,17 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { storageKey, apiPath, isDefaultProject } from '../data/projectSession';
+import { useProject } from '../context/ProjectContext';
 import { 
   Info, FileText, ShieldAlert, Award, Calendar, DollarSign, 
   MapPin, UserCheck, Link as LinkIcon, Edit2, Save, CloudLightning, Loader2
 } from 'lucide-react';
 
-export default function ProjectInfo({ isContractorMode }) {
-  const [activeTab, setActiveTab] = useState('technical'); // 'technical' or 'legal'
-  const [isEditing, setIsEditing] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-
-  // Initial State Data matching Colombian IDU public works structure
-  const [projectData, setProjectData] = useState({
+const USAQUEN_PROJECT_INFO = {
     // Technical Data
     objeto: 'Conservación, rehabilitación, mantenimiento y reconstrucción de la malla vial local, intermedia y espacio público en la localidad de Usaquén, Bogotá D.C.',
     localizacion: 'Localidad de Usaquén (Usaquén, San Cristóbal Uribe, Toberín, Los Cedros, Country Club, Santa Bárbara)',
@@ -37,13 +32,55 @@ export default function ProjectInfo({ isContractorMode }) {
     polizaSalarios: 'Póliza Seguros del Estado No. 9845723 - Cobertura: $1.140.000.000 - Vigencia hasta: 2030-04-15',
     adicionesTiempo: 'Sin adiciones a la fecha',
     adicionesPresupuesto: 'Sin adiciones presupuestales a la fecha',
-  });
+  };
+
+const projectInfoFromConfig = (config) => {
+  const contratos = config?.contratos || [];
+  return {
+    objeto: contratos.map(c => c.descripcion || c.nombre).filter(Boolean).join(' '),
+    localizacion: config?.ubicacion || '',
+    fechaInicio: config?.calendario?.fechaInicioPrimeraSemana || '',
+    plazoMeses: String(Math.max(0, ...contratos.map(c => Number(c.duracionMeses) || 0)) || ''),
+    fechaFinEstimada: '',
+    especificacionesTecnicas: '',
+    avanceFisicoProgramado: '',
+    avanceFisicoReal: '',
+    residenteObra: '',
+    directorInterventoria: '',
+    numeroContrato: config?.interventoria?.contrato || '',
+    contratistaObra: contratos.map(c => c.contratista).filter(Boolean).join(' / '),
+    interventoriaEmpresa: config?.marca?.nombre || '',
+    presupuestoObra: contratos.reduce((n, c) => n + (Number(c.presupuestoObra) || 0), 0),
+    presupuestoInterventoria: contratos.reduce((n, c) => n + (Number(c.presupuestoInterventoria) || 0), 0),
+    enlaceSecop: '',
+    estadoContrato: 'Activo / En Ejecución',
+    polizaResponsabilidad: '',
+    polizaCumplimiento: '',
+    polizaSalarios: '',
+    adicionesTiempo: '',
+    adicionesPresupuesto: ''
+  };
+};
+
+export default function ProjectInfo({ isContractorMode }) {
+  const project = useProject();
+  const [activeTab, setActiveTab] = useState('technical'); // 'technical' or 'legal'
+  const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Valores iniciales: los del proyecto Usaquén, o una ficha armada desde la configuración
+  // del proyecto activo (se completa y guarda desde esta misma pantalla)
+  const [projectData, setProjectData] = useState(() =>
+    isDefaultProject ? USAQUEN_PROJECT_INFO : projectInfoFromConfig(project)
+  );
+
 
   // Load from local storage and try to sync from Supabase
   useEffect(() => {
     async function loadData() {
       // 1. Check local storage
-      const saved = localStorage.getItem('geo_interventoria_project_info_v1');
+      const saved = localStorage.getItem(storageKey('geo_interventoria_project_info_v1'));
       if (saved) {
         try {
           setProjectData(JSON.parse(saved));
@@ -54,12 +91,12 @@ export default function ProjectInfo({ isContractorMode }) {
 
       // 2. Fetch project info from Supabase via API
       try {
-        const cloudRes = await fetch('/api/project-info');
+        const cloudRes = await fetch(apiPath('/api/project-info'));
         if (cloudRes.ok) {
           const data = await cloudRes.json();
           if (data && data.objeto) {
             setProjectData(data);
-            localStorage.setItem('geo_interventoria_project_info_v1', JSON.stringify(data));
+            localStorage.setItem(storageKey('geo_interventoria_project_info_v1'), JSON.stringify(data));
           }
         }
       } catch (err) {
@@ -82,11 +119,11 @@ export default function ProjectInfo({ isContractorMode }) {
   const handleSave = async () => {
     setIsSaving(true);
     // 1. Save to local storage
-    localStorage.setItem('geo_interventoria_project_info_v1', JSON.stringify(projectData));
+    localStorage.setItem(storageKey('geo_interventoria_project_info_v1'), JSON.stringify(projectData));
 
     // 2. Save to Supabase Cloud
     try {
-      const response = await fetch('/api/project-info', {
+      const response = await fetch(apiPath('/api/project-info'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -348,7 +385,7 @@ export default function ProjectInfo({ isContractorMode }) {
 
               <div className="space-y-4 text-xs">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Director de Interventoría (INCOLTA SAS)</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Director de interventoría ({projectData.interventoriaEmpresa})</span>
                   {isEditing ? (
                     <input
                       type="text"

@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { todayLocalIso } from '../utils/dates';
+import LandingHero from './LandingHero';
 import { 
   Search, Calendar, MapPin, 
   ChevronLeft, ChevronRight, X, Eye, Image as ImageIcon, ArrowRight, Layers,
   FileText, Copy, Check, Sparkles, Table,
   SlidersHorizontal, ArrowUpDown, CheckCircle2, AlertTriangle, Zap,
-  Building2, Route, Footprints, ShieldAlert, Clock3
+  Building2, Route, ShieldAlert, Clock3
 } from 'lucide-react';
 import { getDisenoForCiv } from '../data/frentesDisenos';
 import { 
@@ -18,6 +19,8 @@ import {
 import MapView from './MapView';
 import StaticMapThumbnail from './StaticMapThumbnail';
 import L from 'leaflet';
+import { storageKey } from '../data/projectSession';
+import { useProject } from '../context/ProjectContext';
 
 
 // Leaflet default icon SVG fallback (eliminates 404 asset errors in Vite)
@@ -86,9 +89,10 @@ const getLayerColor = (type) => {
 const MONTH_STRIP_LIMIT = 10;
 
 export default function Dashboard({ projects = [], onSelectProject, onAddProject: _onAddProject, isContractorMode, weeklyReports = [], onNavigateToReports }) {
+  const project = useProject();
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'map'
-  const [contractFilter, setContractFilter] = useState('all'); // 'all', 'malla_vial', 'espacio_publico'
+  const [contractFilter, setContractFilter] = useState('all'); // 'all' o el prefijo del contrato (f_mv, f_ep, ...)
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'al-dia', 'alerta', 'emergencia'
   const [sortBy, setSortBy] = useState('frente_asc'); // 'frente_asc', 'progress_desc', 'progress_asc', 'budget_desc', 'photos_desc'
   
@@ -241,7 +245,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
   // Active Frentes overrides state (maps frente.id -> boolean)
   const [activeFrentesOverrides, setActiveFrentesOverrides] = useState(() => {
     try {
-      const saved = localStorage.getItem('geo_interventoria_active_frentes');
+      const saved = localStorage.getItem(storageKey('geo_interventoria_active_frentes'));
       return saved ? JSON.parse(saved) : {};
     } catch {
       return {};
@@ -255,7 +259,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
       const current = prev[frenteId] !== undefined ? prev[frenteId] : true;
       const updated = { ...prev, [frenteId]: !current };
       try {
-        localStorage.setItem('geo_interventoria_active_frentes', JSON.stringify(updated));
+        localStorage.setItem(storageKey('geo_interventoria_active_frentes'), JSON.stringify(updated));
       } catch {}
       return updated;
     });
@@ -451,8 +455,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
     if (!showInactiveFrentes && !isActive) return false;
 
     // Filter by Contract (Malla Vial vs Espacio Público)
-    if (contractFilter === 'malla_vial' && !f.id.startsWith('f_mv')) return false;
-    if (contractFilter === 'espacio_publico' && !f.id.startsWith('f_ep')) return false;
+    if (contractFilter !== 'all' && !String(f.id).startsWith(`${contractFilter}_`)) return false;
 
     // Filter by Status
     if (statusFilter === 'al-dia' && f.status !== 'al-dia') return false;
@@ -501,11 +504,24 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
 
   // Calculate dynamic KPI metric counts
   const totalCount = frentes.length;
-  const mvCount = frentes.filter(f => f.id.startsWith('f_mv')).length;
-  const epCount = frentes.filter(f => f.id.startsWith('f_ep')).length;
   const pendingCount = frentes.filter(f => getFrenteDailyUploadStatus(f).isMissingUpload).length;
   const reportedCount = frentes.filter(f => getFrenteDailyUploadStatus(f).hasUploadToday).length;
   const emergencyCount = frentes.filter(f => f.prioridad === 'Emergencia').length;
+  const emergencyLabel = frentes.filter(f => f.prioridad === 'Emergencia').map(f => `Frente ${f.frente}`).join(', ') || 'Sin emergencias';
+  // Contratos del proyecto con su número de frentes (tarjetas, pestañas y filtros)
+  const CONTRACT_STYLES = [
+    { active: 'bg-blue-600 text-white border-blue-600 ring-blue-500/30', idle: 'hover:border-blue-300', text: 'text-blue-600', tab: 'bg-blue-600 text-white' },
+    { active: 'bg-indigo-600 text-white border-indigo-600 ring-indigo-500/30', idle: 'hover:border-indigo-300', text: 'text-indigo-600', tab: 'bg-indigo-600 text-white' },
+    { active: 'bg-teal-600 text-white border-teal-600 ring-teal-500/30', idle: 'hover:border-teal-300', text: 'text-teal-600', tab: 'bg-teal-600 text-white' },
+    { active: 'bg-violet-600 text-white border-violet-600 ring-violet-500/30', idle: 'hover:border-violet-300', text: 'text-violet-600', tab: 'bg-violet-600 text-white' }
+  ];
+  const contractStats = (project?.contratos || []).map((c, i) => ({
+    prefijo: c.prefijo,
+    label: c.nombreCorto || c.nombre,
+    numero: c.numero,
+    count: frentes.filter(f => String(f.id).startsWith(`${c.prefijo}_`)).length,
+    style: CONTRACT_STYLES[i % CONTRACT_STYLES.length]
+  }));
   const avgProgress = totalCount > 0 ? Math.round(frentes.reduce((acc, f) => acc + (f.progress || 0), 0) / totalCount) : 0;
 
   const hasActiveFilters = (
@@ -599,71 +615,16 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
   return (
     <div className="flex-1 px-3 py-4 sm:px-6 sm:py-6 max-w-container-max mx-auto grid-bg min-h-screen pb-16 relative">
       
-      {/* 1. Header Hero Banner with INCOLTA SAS and Radar Telemetry */}
-      <section className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white rounded-xl sm:rounded-2xl p-5 sm:p-8 mb-5 sm:mb-6 shadow-md no-print">
-        <div className="relative z-10 max-w-2xl">
-          <span className="bg-indigo-500/20 text-indigo-300 font-extrabold text-[9.5px] sm:text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-full border border-indigo-500/30 inline-block mb-3">
-            {isContractorMode ? 'INCOLTA SAS • PORTAL DEL CONTRATISTA' : 'INCOLTA SAS • CONSOLA DE AUDITORÍA'}
-          </span>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black font-headline tracking-tight text-white mb-2 leading-tight">
-            INCOLTA <span className="text-cyan-400">SAS</span> — Control de Frentes
-          </h1>
-          <p className="text-slate-350 text-xs sm:text-sm leading-relaxed mb-4 sm:mb-6 font-medium max-w-xl">
-            Plataforma didáctica de interventoría y control. Navega por semanas de avance físico, visualiza las estructuras de suelo certificadas y consulta registros fotográficos de campo.
-          </p>
-          
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`text-xs font-bold px-3.5 sm:px-4 py-2 rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1.5 flex-1 sm:flex-initial ${
-                viewMode === 'grid' 
-                  ? 'bg-white text-slate-900 border-white shadow-sm' 
-                  : 'bg-white/10 text-white border-white/10 hover:bg-white/15'
-              }`}
-            >
-              <Layers size={14} />
-              <span>Cuadrícula</span>
-            </button>
-            <button
-              onClick={() => setViewMode('map')}
-              className={`text-xs font-bold px-3.5 sm:px-4 py-2 rounded-lg border transition-all cursor-pointer flex items-center justify-center gap-1.5 flex-1 sm:flex-initial ${
-                viewMode === 'map' 
-                  ? 'bg-white text-slate-900 border-white shadow-sm' 
-                  : 'bg-white/10 text-white border-white/10 hover:bg-white/15'
-              }`}
-            >
-              <MapPin size={14} />
-              <span>Mapa Unificado</span>
-            </button>
-            <button
-              onClick={() => setShowMonthlyCopyModal(true)}
-              className="bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black px-3.5 sm:px-4 py-2 rounded-lg transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer border border-amber-300 active:scale-95 w-full sm:w-auto"
-            >
-              <FileText size={14} />
-              <span>Copiar Datos del Mes (Word / IA)</span>
-            </button>
-          </div>
-        </div>
-        
-        {/* Animated Telemetry Hologram */}
-        <div className="absolute right-6 top-6 bottom-6 w-1/3 pointer-events-none hidden lg:block overflow-hidden rounded-xl border border-white/5 bg-white/5 shadow-inner z-0">
-          <div className="absolute inset-0 opacity-15 bg-[linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] bg-[size:16px_16px]" />
-          
-          {/* Pulse Radar Rings */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 border border-cyan-400/25 rounded-full animate-ping opacity-25" style={{ animationDuration: '3s' }} />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-32 border border-indigo-400/35 rounded-full animate-ping opacity-40" style={{ animationDuration: '2s' }} />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 border border-cyan-400/50 rounded-full animate-pulse opacity-60" />
-          
-          {/* Animated Nodes (Frentes telemetry simulation) */}
-          <div className="absolute top-1/4 left-1/3 w-3 h-3 bg-cyan-400 rounded-full shadow-[0_0_8px_#22d3ee] animate-pulse" />
-          <div className="absolute top-2/3 left-1/4 w-2.5 h-2.5 bg-emerald-400 rounded-full shadow-[0_0_8px_#34d399] animate-pulse" style={{ animationDelay: '0.4s' }} />
-          <div className="absolute top-1/2 left-3/4 w-3.5 h-3.5 bg-indigo-400 rounded-full shadow-[0_0_8px_#818cf8] animate-pulse" style={{ animationDelay: '0.8s' }} />
-          <div className="absolute top-3/4 left-2/3 w-2 h-2 bg-amber-400 rounded-full shadow-[0_0_8px_#fbbf24] animate-pulse" style={{ animationDelay: '1.2s' }} />
-
-          {/* Laser scanning line */}
-          <div className="absolute inset-x-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent top-0 animate-scan" />
-        </div>
-      </section>
+      {/* 1. Encabezado: frentes como tramos de vía (avance y reporte de la semana) */}
+      <LandingHero
+        frentes={frentes}
+        weekReport={activeReport}
+        avgProgress={avgProgress}
+        isContractorMode={isContractorMode}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        onCopyMonth={() => setShowMonthlyCopyModal(true)}
+      />
 
       {/* 1.5 Interactive KPI Telemetry Strip */}
       <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 mb-5 sm:mb-6 no-print">
@@ -679,50 +640,32 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
           title="Ver todos los frentes sin filtros"
         >
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider opacity-75">Total Frentes</span>
+            <span className="text-xs font-semibold opacity-80">Frentes</span>
             <Building2 size={14} className="opacity-70 group-hover:scale-110 transition-transform" />
           </div>
           <div className="text-xl sm:text-2xl font-black font-mono-numbers tracking-tight">{totalCount}</div>
-          <div className="text-[9.5px] sm:text-[10px] font-medium opacity-65 truncate mt-0.5">22 MV • 21 EP ({avgProgress}% av.)</div>
+          <div className="text-[9.5px] sm:text-[10px] font-medium opacity-65 truncate mt-0.5">{contractStats.map(c => `${c.count} ${c.label.toLowerCase()}`).join(', ')}</div>
         </button>
 
-        {/* Malla Vial */}
-        <button
-          type="button"
-          onClick={() => setContractFilter(prev => prev === 'malla_vial' ? 'all' : 'malla_vial')}
-          className={`p-3 sm:p-3.5 rounded-xl border text-left transition-all duration-200 cursor-pointer relative overflow-hidden group ${
-            contractFilter === 'malla_vial'
-              ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-500/30'
-              : 'bg-white text-slate-800 border-slate-200 hover:border-blue-300 hover:shadow-xs'
-          }`}
-          title="Filtrar frentes del contrato de Malla Vial"
-        >
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider opacity-75">Malla Vial</span>
-            <Route size={14} className={contractFilter === 'malla_vial' ? 'text-white' : 'text-blue-500'} />
-          </div>
-          <div className={`text-xl sm:text-2xl font-black font-mono-numbers tracking-tight ${contractFilter === 'malla_vial' ? 'text-white' : 'text-blue-600'}`}>{mvCount}</div>
-          <div className="text-[9.5px] sm:text-[10px] font-medium opacity-65 truncate mt-0.5">IDU-Usaquén-CONS</div>
-        </button>
-
-        {/* Espacio Público */}
-        <button
-          type="button"
-          onClick={() => setContractFilter(prev => prev === 'espacio_publico' ? 'all' : 'espacio_publico')}
-          className={`p-3 sm:p-3.5 rounded-xl border text-left transition-all duration-200 cursor-pointer relative overflow-hidden group ${
-            contractFilter === 'espacio_publico'
-              ? 'bg-indigo-600 text-white border-indigo-600 shadow-md ring-2 ring-indigo-500/30'
-              : 'bg-white text-slate-800 border-slate-200 hover:border-indigo-300 hover:shadow-xs'
-          }`}
-          title="Filtrar frentes del contrato de Espacio Público"
-        >
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider opacity-75">Espacio Público</span>
-            <Footprints size={14} className={contractFilter === 'espacio_publico' ? 'text-white' : 'text-indigo-500'} />
-          </div>
-          <div className={`text-xl sm:text-2xl font-black font-mono-numbers tracking-tight ${contractFilter === 'espacio_publico' ? 'text-white' : 'text-indigo-600'}`}>{epCount}</div>
-          <div className="text-[9.5px] sm:text-[10px] font-medium opacity-65 truncate mt-0.5">IDU-ESP-2026-042</div>
-        </button>
+        {/* Una tarjeta por contrato del proyecto */}
+        {contractStats.map(c => (
+          <button
+            key={c.prefijo}
+            type="button"
+            onClick={() => setContractFilter(prev => prev === c.prefijo ? 'all' : c.prefijo)}
+            className={`p-3 sm:p-3.5 rounded-xl border text-left transition-all duration-200 cursor-pointer relative overflow-hidden group ${
+              contractFilter === c.prefijo ? `${c.style.active} shadow-md ring-2` : `bg-white text-slate-800 border-slate-200 ${c.style.idle} hover:shadow-xs`
+            }`}
+            title={`Filtrar frentes de ${c.label}`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-semibold opacity-80 truncate">{c.label}</span>
+              <Route size={14} className={contractFilter === c.prefijo ? 'text-white' : c.style.text} />
+            </div>
+            <div className={`text-xl sm:text-2xl font-black font-mono-numbers tracking-tight ${contractFilter === c.prefijo ? 'text-white' : c.style.text}`}>{c.count}</div>
+            <div className="text-[9.5px] sm:text-[10px] font-medium opacity-65 truncate mt-0.5">{c.numero}</div>
+          </button>
+        ))}
 
         {/* Al Día */}
         <button
@@ -736,7 +679,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
           title="Filtrar frentes con reporte diario cargado hoy"
         >
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider opacity-75">Reportes Al Día</span>
+            <span className="text-xs font-semibold opacity-80">Con reporte hoy</span>
             <CheckCircle2 size={14} className={dailyReportFilter === 'reported' ? 'text-white' : 'text-emerald-500'} />
           </div>
           <div className={`text-xl sm:text-2xl font-black font-mono-numbers tracking-tight ${dailyReportFilter === 'reported' ? 'text-white' : 'text-emerald-600'}`}>{reportedCount}</div>
@@ -755,7 +698,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
           title="Filtrar frentes activos pendientes por reporte diario"
         >
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider opacity-75">Pendientes Hoy</span>
+            <span className="text-xs font-semibold opacity-80">Sin reporte hoy</span>
             <Clock3 size={14} className={dailyReportFilter === 'pending' ? 'text-white' : 'text-amber-500'} />
           </div>
           <div className={`text-xl sm:text-2xl font-black font-mono-numbers tracking-tight ${dailyReportFilter === 'pending' ? 'text-white' : 'text-amber-600'}`}>{pendingCount}</div>
@@ -774,11 +717,11 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
           title="Filtrar frentes con prioridad de Emergencia"
         >
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[9.5px] sm:text-[10px] font-black uppercase tracking-wider opacity-75">Emergencia</span>
+            <span className="text-xs font-semibold opacity-80">Emergencia</span>
             <ShieldAlert size={14} className={statusFilter === 'emergencia' ? 'text-white' : 'text-rose-500'} />
           </div>
           <div className={`text-xl sm:text-2xl font-black font-mono-numbers tracking-tight ${statusFilter === 'emergencia' ? 'text-white' : 'text-rose-600'}`}>{emergencyCount}</div>
-          <div className="text-[9.5px] sm:text-[10px] font-medium opacity-65 truncate mt-0.5">Frente 201 • COI 33</div>
+          <div className="text-[9.5px] sm:text-[10px] font-medium opacity-65 truncate mt-0.5">{emergencyLabel}</div>
         </button>
       </section>
 
@@ -821,30 +764,18 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
             >
               Todos ({totalCount})
             </button>
-            <button
-              type="button"
-              onClick={() => setContractFilter('malla_vial')}
-              className={`flex-1 sm:flex-initial px-3 py-1.5 text-[11px] sm:text-xs font-extrabold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                contractFilter === 'malla_vial'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Route size={13} />
-              <span>Malla Vial ({mvCount})</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setContractFilter('espacio_publico')}
-              className={`flex-1 sm:flex-initial px-3 py-1.5 text-[11px] sm:text-xs font-extrabold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                contractFilter === 'espacio_publico'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Footprints size={13} />
-              <span>Espacio Público ({epCount})</span>
-            </button>
+            {contractStats.map(c => (
+              <button
+                key={c.prefijo}
+                type="button"
+                onClick={() => setContractFilter(c.prefijo)}
+                className={`flex-1 sm:flex-initial px-3 py-1.5 text-[11px] sm:text-xs font-extrabold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  contractFilter === c.prefijo ? `${c.style.tab} shadow-xs` : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span>{c.label} ({c.count})</span>
+              </button>
+            ))}
           </div>
 
           {/* View Toggle */}
@@ -1047,7 +978,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
             )}
             {contractFilter !== 'all' && (
               <span className="bg-blue-50 text-blue-800 border border-blue-200 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                {contractFilter === 'malla_vial' ? 'Malla Vial' : 'Espacio Público'}
+                {contractStats.find(c => c.prefijo === contractFilter)?.label || contractFilter}
                 <button type="button" onClick={() => setContractFilter('all')} className="hover:text-blue-950 cursor-pointer"><X size={10} /></button>
               </span>
             )}
@@ -1093,7 +1024,7 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
       <div className="hidden print-report-header mb-6 pb-4 border-b-2 border-slate-800">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">INCOLTA SAS</h1>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">{project?.marca?.nombre}</h1>
             <p className="text-xs text-slate-550 font-bold uppercase tracking-wider mt-0.5">INFORME DE SUPERVISIÓN Y CONTROL DE FRENTES DE OBRA</p>
           </div>
           <div className="text-right">
@@ -1130,21 +1061,16 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
               <div 
                 key={frente.id} 
                 className={`rounded-xl p-6 shadow-premium flex flex-col justify-between transition-all duration-300 relative overflow-hidden print-card-break ${
-                  isMissingUpload
-                    ? 'bg-gradient-to-b from-amber-50/80 via-amber-50/30 to-white border-2 border-amber-500 shadow-md shadow-amber-300/30 ring-2 ring-amber-400/20'
-                    : 'bg-white border border-slate-200 hover:border-primary/20'
+                  'bg-white border border-slate-200 hover:border-primary/20'
                 }`}
               >
                 
-                {/* Warning Banner at Top of Box if Daily Report is Missing */}
+                {/* Sin reporte: etiqueta discreta (antes un banner naranja en cada tarjeta) */}
                 {isMissingUpload && (
-                  <div className="bg-amber-500 text-white font-extrabold text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-lg mb-3 flex items-center justify-between shadow-xs no-print">
-                    <span className="flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-sm animate-bounce">warning</span>
-                      ALERTA DE CONTROL: FRENTE ACTIVO SIN REPORTE REGISTRADO HOY
-                    </span>
-                    <span className="bg-amber-700/60 px-2 py-0.5 rounded text-[8.5px] font-mono">
-                      Reporte Faltante
+                  <div className="mb-3 no-print">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-300 px-2.5 py-1 text-xs font-semibold text-amber-900">
+                      <span className="w-2 h-1 rounded-sm bg-[#f2b705]" aria-hidden="true" />
+                      Sin reporte esta semana
                     </span>
                   </div>
                 )}
@@ -1720,22 +1646,17 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
                     >
                       Todos
                     </button>
-                    <button
-                      onClick={() => setModalContractFilter('malla_vial')}
-                      className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
-                        modalContractFilter === 'malla_vial' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      Malla Vial
-                    </button>
-                    <button
-                      onClick={() => setModalContractFilter('espacio_publico')}
-                      className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
-                        modalContractFilter === 'espacio_publico' ? 'bg-amber-600 text-white' : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      Espacio Público
-                    </button>
+                    {contractStats.map(c => (
+                      <button
+                        key={c.prefijo}
+                        onClick={() => setModalContractFilter(c.prefijo)}
+                        className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all ${
+                          modalContractFilter === c.prefijo ? c.style.tab : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        {c.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
 

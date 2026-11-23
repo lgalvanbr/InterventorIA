@@ -1,4 +1,5 @@
 import React from 'react';
+import { storageKey } from '../data/projectSession';
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -53,8 +54,8 @@ export default class ErrorBoundary extends React.Component {
 
   handleResetState = () => {
     try {
-      localStorage.removeItem('geo_interventoria_inspector_report_id');
-      localStorage.removeItem('geo_interventoria_active_id');
+      localStorage.removeItem(storageKey('geo_interventoria_inspector_report_id'));
+      localStorage.removeItem(storageKey('geo_interventoria_active_id'));
       sessionStorage.clear();
     } catch (e) {}
     window.location.href = window.location.origin + '?reset=' + Date.now();
