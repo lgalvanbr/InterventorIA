@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, X, Upload, Link2, ExternalLink, Loader2, AlertCircle, Plus, Copy, Check } from 'lucide-react';
+import { Search, X, Upload, Link2, ExternalLink, Loader2, AlertCircle, Plus, Copy, Check, FileSpreadsheet } from 'lucide-react';
+import appsScriptTemplate from '../../scripts/apps-script/InterventorIA.gs?raw';
 import { useProject } from '../context/ProjectContext';
 import { apiPath, CURRENT_PROJECT_ID } from '../data/projectSession';
 import { todayLocalIso } from '../utils/dates';
@@ -7,8 +8,12 @@ import {
   withComputedStatus,
   rowsToRecords,
   DEFAULT_PLAZO_DIAS_HABILES,
-  safeUrl
+  safeUrl,
+  classifyComponente,
+  autoRespuestaLabel
 } from '../data/correspondencia';
+
+const COMPONENTES = ['Técnico', 'Ambiental', 'Financiero', 'SST', 'Social'];
 
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const shortDate = (iso) => {
@@ -63,9 +68,10 @@ export default function CorrespondenciaView({ projects = [], isContractorMode })
   const [error, setError] = useState('');
   const [filtro, setFiltro] = useState('abiertos');
   const [parte, setParte] = useState('todas');
+  const [componente, setComponente] = useState('todos');
   const [busqueda, setBusqueda] = useState('');
   const [selectedId, setSelectedId] = useState(null);
-  const [modal, setModal] = useState(null); // 'importar' | 'conectar' | 'nuevo'
+  const [modal, setModal] = useState(null); // 'importar' | 'conectar' | 'nuevo' | 'informe'
   const hoy = todayLocalIso();
 
   const load = useCallback(async () => {
@@ -101,9 +107,10 @@ export default function CorrespondenciaView({ projects = [], isContractorMode })
     return items.filter(i =>
       f.match(i) &&
       (parte === 'todas' || i.parte === parte) &&
+      (componente === 'todos' || (i.componente || '').startsWith(componente)) &&
       (!term || [i.asunto, i.remitente, i.destinatario, i.radicado, i.resumen].some(v => (v || '').toLowerCase().includes(term)))
     );
-  }, [items, filtro, parte, busqueda]);
+  }, [items, filtro, parte, componente, busqueda]);
 
   const allFrentes = useMemo(() => projects.flatMap(p => p.frentes || []), [projects]);
   const frenteLabel = (id) => {
@@ -143,7 +150,8 @@ export default function CorrespondenciaView({ projects = [], isContractorMode })
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => setModal('nuevo')} className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-white px-3 py-2 text-sm font-semibold"><Plus size={16} /> Registrar oficio</button>
             <button type="button" onClick={() => setModal('importar')} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700"><Upload size={16} /> Importar Excel</button>
-            <button type="button" onClick={() => setModal('conectar')} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700"><Link2 size={16} /> Conectar hoja de Google</button>
+            <button type="button" onClick={() => setModal('conectar')} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700"><Link2 size={16} /> Conectar Gmail</button>
+            <button type="button" onClick={() => setModal('informe')} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700"><FileSpreadsheet size={16} /> Exportar para informe</button>
           </div>
         )}
       </header>
@@ -186,6 +194,10 @@ export default function CorrespondenciaView({ projects = [], isContractorMode })
             ))}
           </div>
           <div className="flex gap-2 lg:ml-auto">
+            <select value={componente} onChange={(e) => setComponente(e.target.value)} className="rounded-lg border-slate-300 text-sm" aria-label="Componente">
+              <option value="todos">Todos los componentes</option>
+              {COMPONENTES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
             <select value={parte} onChange={(e) => setParte(e.target.value)} className="rounded-lg border-slate-300 text-sm" aria-label="Parte">
               <option value="todas">Contratista y entidad</option>
               <option value="contratista">Contratista</option>
@@ -227,6 +239,7 @@ export default function CorrespondenciaView({ projects = [], isContractorMode })
                     </span>
                   </span>
                   <span className="shrink-0 flex items-center gap-3 text-xs text-slate-500">
+                    {i.componente && <span className="rounded bg-slate-100 px-1.5 py-0.5 hidden md:inline">{i.componente}</span>}
                     <span className="rounded bg-slate-100 px-1.5 py-0.5">{PARTES[i.parte]}</span>
                     <span className="w-14 text-right">{shortDate(i.fecha)}</span>
                   </span>
@@ -251,6 +264,7 @@ export default function CorrespondenciaView({ projects = [], isContractorMode })
       )}
       {modal === 'importar' && <ImportModal onClose={() => setModal(null)} onImport={(rows) => save(rows, { fuente: 'excel' })} />}
       {modal === 'conectar' && <ConnectModal onClose={() => setModal(null)} projectName={project?.nombre} />}
+      {modal === 'informe' && <ReportModal items={items} onClose={() => setModal(null)} />}
       {modal === 'nuevo' && (
         <NewItemModal
           onClose={() => setModal(null)}
@@ -300,6 +314,7 @@ const fieldCls = 'w-full rounded-lg border-slate-300 text-sm';
 function DetailPanel({ item, frentes, readOnly, onClose, onSave }) {
   const [form, setForm] = useState({
     parte: item.parte,
+    componente: item.componente || classifyComponente(item.asunto, item.cuerpo),
     requiereRespuesta: item.requiereRespuesta,
     fechaLimite: item.fechaLimite || '',
     frentes: item.frentes || [],
@@ -320,12 +335,14 @@ function DetailPanel({ item, frentes, readOnly, onClose, onSave }) {
         : null;
       await onSave({
         parte: form.parte,
+        componente: form.componente,
         requiereRespuesta: form.requiereRespuesta,
         fechaLimite: form.fechaLimite,
         frentes: form.frentes,
         notas: form.notas,
         respuesta,
-        estado: respuesta?.fecha ? 'respondido' : (form.requiereRespuesta ? 'pendiente' : 'informativo'),
+        // Sin respuesta registrada se deja en automático ('') para no anular la respuesta detectada en el hilo
+        estado: respuesta?.fecha ? 'respondido' : (form.requiereRespuesta ? (item.estado === 'pendiente' ? 'pendiente' : '') : 'informativo'),
         ...extra
       });
       setMsg('Guardado');
@@ -344,9 +361,16 @@ function DetailPanel({ item, frentes, readOnly, onClose, onSave }) {
           <dt className="text-slate-500">De</dt><dd className="break-words">{item.remitente || '—'}</dd>
           <dt className="text-slate-500">Para</dt><dd className="break-words">{item.destinatario || '—'}</dd>
           <dt className="text-slate-500">Plazo</dt><dd>{item.plazo ? `${shortDate(item.plazo)} (${plazoText(item) || SITUACION[item.situacion].label})` : '—'}</dd>
-          <dt className="text-slate-500">Origen</dt><dd>{item.origen === 'apps-script' ? 'Hoja de Google' : item.origen === 'excel' ? 'Importación de Excel' : 'Registrado en la app'}</dd>
+          <dt className="text-slate-500">Origen</dt><dd>{item.origen === 'apps-script' ? 'Gmail (Apps Script)' : item.origen === 'excel' ? 'Importación de Excel' : 'Registrado en la app'}</dd>
+          {item.radicados?.length > 0 && (<><dt className="text-slate-500">Radicados</dt><dd className="break-words">{item.radicados.join(', ')}</dd></>)}
+          <dt className="text-slate-500">Respuesta</dt><dd>{item.respuestaFuente || '—'}</dd>
         </dl>
-        {item.resumen && <p className="rounded-lg bg-slate-50 p-3 text-slate-700 whitespace-pre-wrap">{item.resumen}</p>}
+        {(item.cuerpo || item.resumen) && (
+          <details className="rounded-lg bg-slate-50 p-3 text-slate-700" open={!item.cuerpo || item.cuerpo.length < 600}>
+            <summary className="cursor-pointer font-semibold text-slate-600">Contenido del correo</summary>
+            <p className="mt-2 whitespace-pre-wrap">{item.cuerpo || item.resumen}</p>
+          </details>
+        )}
         {safeUrl(item.enlace) && (
           <a href={safeUrl(item.enlace)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary font-semibold">
             <ExternalLink size={14} /> Abrir el correo original
@@ -354,7 +378,7 @@ function DetailPanel({ item, frentes, readOnly, onClose, onSave }) {
         )}
         {item.respuestaAuto && !item.respuesta && (
           <p className="rounded-lg bg-emerald-50 p-3 text-emerald-800">
-            Respondido automáticamente: en el mismo hilo salió “{item.respuestaAuto.asunto}” el {shortDate(item.respuestaAuto.fecha)}.
+            Tramitado en el mismo hilo: {autoRespuestaLabel(item.respuestaAuto, shortDate)} (“{item.respuestaAuto.asunto}”).
           </p>
         )}
 
@@ -372,6 +396,11 @@ function DetailPanel({ item, frentes, readOnly, onClose, onSave }) {
               </label>
               <label className="flex flex-col gap-1"><span className="text-slate-600">Fecha límite</span>
                 <input type="date" value={form.fechaLimite || item.plazo || ''} onChange={(e) => set('fechaLimite', e.target.value)} className={fieldCls} />
+              </label>
+              <label className="flex flex-col gap-1 col-span-2"><span className="text-slate-600">Componente</span>
+                <select value={form.componente} onChange={(e) => set('componente', e.target.value)} className={fieldCls}>
+                  {[...new Set([form.componente, ...COMPONENTES, ...COMPONENTES.map(c => `${c} / Tránsito`)])].map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
               </label>
             </div>
             <div className="rounded-lg border border-slate-200 p-3 flex flex-col gap-2">
@@ -514,57 +543,108 @@ function CopyBlock({ text, label }) {
 
 function ConnectModal({ onClose, projectName }) {
   const endpoint = `${window.location.origin}/api/correspondencia/ingesta?proyecto=${CURRENT_PROJECT_ID}`;
-  const script = `// InterventorIA: envía la correspondencia de esta hoja al proyecto "${projectName}".
-// Pega esto en Extensiones > Apps Script de la hoja donde tu script guarda los correos.
-const URL_INTERVENTORIA = '${endpoint}';
-const CLAVE = '';          // solo si configuraste INTEGRACION_TOKEN en Vercel
-const PESTANA = '';        // nombre de la pestaña; vacío = la primera
-
-function enviarCorrespondencia() {
-  const libro = SpreadsheetApp.getActive();
-  const hoja = PESTANA ? libro.getSheetByName(PESTANA) : libro.getSheets()[0];
-  const filas = hoja.getDataRange().getValues();
-  const encabezados = filas.shift();
-  const items = filas
-    .filter(f => f.some(v => String(v).trim()))
-    .map(f => Object.fromEntries(encabezados.map((h, i) => [h,
-      f[i] instanceof Date ? Utilities.formatDate(f[i], 'America/Bogota', 'yyyy-MM-dd') : f[i]])));
-  for (let i = 0; i < items.length; i += 300) {
-    const res = UrlFetchApp.fetch(URL_INTERVENTORIA, {
-      method: 'post',
-      contentType: 'application/json',
-      headers: CLAVE ? { 'x-integracion-token': CLAVE } : {},
-      payload: JSON.stringify({ fuente: 'apps-script', items: items.slice(i, i + 300) }),
-      muteHttpExceptions: true
-    });
-    if (res.getResponseCode() !== 200) throw new Error(res.getContentText());
-    Logger.log(res.getContentText());
-  }
-}
-
-// Ejecútala una vez: deja la sincronización corriendo cada 15 minutos
-function programarCada15Minutos() {
-  ScriptApp.newTrigger('enviarCorrespondencia').timeBased().everyMinutes(15).create();
-}`;
-
+  const script = appsScriptTemplate.replace('__URL_INGESTA__', endpoint);
   return (
-    <Overlay onClose={onClose} label="Conectar hoja de Google">
-      <PanelHeader title="Conectar la hoja de Google" subtitle="Tu Apps Script ya vuelca los correos en una hoja; este código envía esa hoja a InterventorIA." onClose={onClose} />
+    <Overlay onClose={onClose} label="Conectar Gmail">
+      <PanelHeader title="Conectar Gmail" subtitle={`Envía cada correo (con su contenido) a la correspondencia de “${projectName}”.`} onClose={onClose} />
       <div className="flex-1 overflow-y-auto px-5 py-4 text-sm flex flex-col gap-4 text-slate-700">
         <ol className="list-decimal pl-5 flex flex-col gap-1.5">
-          <li>Abre la hoja y entra a <strong>Extensiones → Apps Script</strong>.</li>
-          <li>Crea un archivo nuevo, pega el código y guárdalo.</li>
-          <li>Ejecuta <code>enviarCorrespondencia</code> una vez y acepta los permisos.</li>
-          <li>Ejecuta <code>programarCada15Minutos</code> para que se sincronice sola.</li>
+          <li>Abre tu proyecto de Apps Script (el que hoy arma la hoja de oficios).</li>
+          <li><strong>Archivo → Nuevo → Script</strong>, llámalo <code>InterventorIA</code> y pega este código. Tu código actual no se modifica.</li>
+          <li>Ejecuta <code>cargarHistoricoInterventorIA</code> y acepta los permisos. Si el registro dice “Faltan correos”, ejecútala de nuevo.</li>
+          <li>Ejecuta <code>programarSincronizacion</code> para que los correos nuevos lleguen solos cada 15 minutos.</li>
         </ol>
         <p>
-          Los encabezados de tu hoja se reconocen solos: Fecha, De/Remitente, Para, Asunto, Radicado, Id del mensaje, Thread ID, Link, Estado, Fecha límite, Frente, Notas…
-          Reenviar las mismas filas no crea duplicados y no cambia lo que hayas editado aquí.
+          Usa los mismos filtros de correos automáticos de tu script. Reenviar correos ya cargados no los duplica ni cambia lo que edites aquí.
+          El componente, los radicados, la respuesta y el vencimiento (“Vence dd/mm/aaaa”) se calculan en InterventorIA y se pueden corregir en el detalle.
         </p>
         <CopyBlock label="código de Apps Script" text={script} />
-        <div>
-          <p className="font-semibold">Dirección de envío</p>
-          <CopyBlock label="dirección" text={endpoint} />
+      </div>
+    </Overlay>
+  );
+}
+
+// Informe con el formato de INCOLTA: recibidos y enviados por separado, listo para Word/Excel
+const ddmmyyyy = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
+function reportRow(i) {
+  const estado = ['respondido', 'informativo', 'enviado'].includes(i.situacion) ? 'TRAMITADO' : 'PENDIENTE';
+  const respuesta = i.respuesta?.fecha
+    ? `Respondido${i.respuesta.radicado ? ` con ${i.respuesta.radicado}` : ''} ${ddmmyyyy(i.respuesta.fecha)}`
+    : i.respuestaAuto ? autoRespuestaLabel(i.respuestaAuto, ddmmyyyy) : (i.respuestaFuente || 'Sin oficio cruzado');
+  return [
+    ddmmyyyy(i.fecha),
+    i.radicado || '',
+    i.asunto,
+    i.tipo === 'enviado' ? i.destinatario : i.remitente,
+    i.componente || '',
+    respuesta,
+    estado
+  ];
+}
+
+function ReportModal({ items, onClose }) {
+  const hoy = todayLocalIso();
+  const [desde, setDesde] = useState(`${hoy.slice(0, 8)}01`);
+  const [hasta, setHasta] = useState(hoy);
+  const [tab, setTab] = useState('recibido');
+  const [copied, setCopied] = useState(false);
+  const header = ['FECHA', 'No. RADICADO', 'ASUNTO', tab === 'recibido' ? 'ENTIDAD GENERA EMAIL' : 'DESTINATARIO', 'COMPONENTE', 'RESPUESTA', 'ESTADO'];
+  const rows = items
+    .filter(i => i.tipo === tab && i.fecha >= desde && i.fecha <= hasta)
+    .sort((a, b) => `${a.fecha}${a.hora || ''}`.localeCompare(`${b.fecha}${b.hora || ''}`))
+    .map(reportRow);
+  const tsv = [header, ...rows].map(r => r.map(v => String(v ?? '').replace(/[\t\n\r]+/g, ' ')).join('\t')).join('\n');
+
+  const download = () => {
+    const csv = [header, ...rows].map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n');
+    const blob = new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `oficios-${tab === 'recibido' ? 'recibidos' : 'enviados'}-${desde}-a-${hasta}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  return (
+    <Overlay onClose={onClose} label="Exportar para informe">
+      <PanelHeader title="Exportar para informe" subtitle="Formato del informe: recibidos y enviados por separado." onClose={onClose} />
+      <div className="px-5 pt-4 flex flex-wrap items-end gap-3 text-sm">
+        <div className="flex rounded-lg bg-slate-100 p-1">
+          {[['recibido', 'Oficios recibidos'], ['enviado', 'Oficios enviados']].map(([k, l]) => (
+            <button key={k} type="button" onClick={() => setTab(k)} aria-pressed={tab === k} className={`rounded-md px-3 py-1.5 font-semibold ${tab === k ? 'bg-white shadow-sm' : 'text-slate-600'}`}>{l}</button>
+          ))}
+        </div>
+        <label className="flex flex-col gap-1"><span className="text-slate-600">Desde</span><input type="date" value={desde} onChange={(e) => setDesde(e.target.value)} className={fieldCls} /></label>
+        <label className="flex flex-col gap-1"><span className="text-slate-600">Hasta</span><input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className={fieldCls} /></label>
+      </div>
+      <div className="flex-1 overflow-auto px-5 py-3">
+        {rows.length === 0 ? (
+          <p className="py-8 text-center text-sm text-slate-500">No hay oficios {tab === 'recibido' ? 'recibidos' : 'enviados'} en este período.</p>
+        ) : (
+          <table className="w-full text-xs">
+            <thead className="text-left text-slate-500"><tr>{header.map(h => <th key={h} className="py-1.5 pr-3 font-semibold whitespace-nowrap">{h}</th>)}</tr></thead>
+            <tbody>
+              {rows.map((r, idx) => (
+                <tr key={idx} className="border-t border-slate-100 align-top">
+                  {r.map((v, j) => <td key={j} className={`py-1.5 pr-3 ${j === 2 ? 'min-w-[16rem]' : 'whitespace-nowrap'}`}>{v}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+      <div className="px-5 py-3 border-t border-slate-100 flex items-center justify-between gap-3">
+        <span className="text-sm text-slate-500">{rows.length} oficios</span>
+        <div className="flex gap-2">
+          <button type="button" disabled={!rows.length} onClick={download} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold disabled:opacity-50">Descargar para Excel</button>
+          <button
+            type="button"
+            disabled={!rows.length}
+            onClick={async () => { await navigator.clipboard.writeText(tsv); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-white px-4 py-2 text-sm font-semibold disabled:opacity-50"
+          >
+            {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Copiado' : 'Copiar tabla'}
+          </button>
         </div>
       </div>
     </Overlay>
