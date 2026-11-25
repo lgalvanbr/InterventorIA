@@ -10,6 +10,7 @@ import { generateMonthlyBitacoraText, getReportMonthKey, getReportMonthLabel } f
 import { optimizePhotoListForPrint } from '../utils/printOptimizer';
 import StaticMapThumbnail from './StaticMapThumbnail';
 import { useProject } from '../context/ProjectContext';
+import { BrandLogoFull } from './BrandName';
 
 const getIaCommentForFrente = (consolidadoIa, frenteNumber) => {
   if (!consolidadoIa) return '';
@@ -1198,12 +1199,15 @@ export default function WeeklyReportPanel({
               
               {/* PDF Header */}
               <div className="border-b-2 border-slate-800 pb-4 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                <BrandLogoFull marca={project?.marca} height={40} />
                 <div>
                   <h1 className="text-sm font-black tracking-tight text-slate-900 uppercase">
                     INFORME SEMANAL DE INTERVENTORÍA TÉCNICA
                   </h1>
                   <p className="text-[10px] font-black text-primary uppercase leading-tight mb-0.5">{project?.marca?.nombre}</p>
                   <p className="text-[9px] font-bold text-slate-500">{project?.interventoria?.consorcio || project?.nombre}{project?.interventoria?.contrato ? ` • Contrato ${project.interventoria.contrato}` : ''}</p>
+                </div>
                 </div>
                 <div className="text-right">
                   <span className="text-xs font-black bg-slate-900 text-white px-2.5 py-1 rounded">
@@ -1428,9 +1432,13 @@ export default function WeeklyReportPanel({
         {/* PDF Header */}
         <div className="border-b-2 border-slate-800 pb-4 flex justify-between items-center text-left">
           <div className="flex items-center gap-3">
-            <div className="bg-primary/10 p-2 rounded text-primary flex items-center justify-center">
-              <span className="material-symbols-outlined text-[24px] font-black">assignment</span>
-            </div>
+            {project?.marca?.logoCompletoUrl || project?.marca?.logoUrl ? (
+              <BrandLogoFull marca={project.marca} height={48} />
+            ) : (
+              <div className="bg-primary/10 p-2 rounded text-primary flex items-center justify-center">
+                <span className="material-symbols-outlined text-[24px] font-black">assignment</span>
+              </div>
+            )}
             <div>
               <h1 className="text-base font-black tracking-tight text-slate-900 uppercase leading-none">
                 INFORME SEMANAL DE INTERVENTORÍA TÉCNICA

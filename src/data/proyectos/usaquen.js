@@ -93,7 +93,9 @@ export const USAQUEN_CONFIG = {
   marca: {
     nombre: 'INCOLTA S.A.S.',
     nombreCorto: 'INCOLTA',
-    logoUrl: '',
+    logoUrl: '/marcas/incolta/emblema-mosaico.svg',
+    logoCompletoUrl: '/marcas/incolta/logo.svg',
+    sitioWeb: 'https://incolta.cuadreb.com',
     color: '#00236f'
   },
   correspondencia: {

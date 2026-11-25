@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Layers, MapPin, FileText } from 'lucide-react';
 import { frenteReportDays } from '../data/reportCoverage';
 import { useProject } from '../context/ProjectContext';
+import { BrandName } from './BrandName';
 import WeekPicker from './WeekPicker';
 
 // Encabezado del tablero: los frentes dibujados como tramos (CIV) de vía.
@@ -110,7 +111,7 @@ export default function LandingHero({
       <div className="landing-hero-head">
         <div className="max-w-xl">
           <p className="text-sm text-slate-300">
-            {isContractorMode ? `Portal del contratista, ${project?.marca?.nombre}` : project?.marca?.nombre}
+            {isContractorMode && 'Portal del contratista, '}<BrandName marca={project?.marca} />
           </p>
           <h1 id="landing-title" className="landing-title">{project?.nombre}</h1>
           <p className="text-sm sm:text-base text-slate-300 mt-2 leading-relaxed">

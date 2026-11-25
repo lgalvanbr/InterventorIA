@@ -3,7 +3,7 @@ import App from './App.jsx';
 import { ProjectContext } from './context/ProjectContext';
 import { CURRENT_PROJECT_ID, isDefaultProject } from './data/projectSession';
 import { USAQUEN_CONFIG } from './data/proyectos/usaquen';
-import { applyBrand } from './utils/brand';
+import { applyBrand, applyBrandIcon } from './utils/brand';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { InterventorIAMark } from './components/InterventorIAMark';
 
@@ -52,6 +52,7 @@ export default function ProjectGate() {
   useEffect(() => {
     if (!config || isShell) return; // las pantallas de InterventorIA no llevan la marca del cliente
     applyBrand(config.marca);
+    applyBrandIcon(config.marca);
     document.title = `${config.nombre} – ${config.marca?.nombre || 'InterventorIA'}`;
   }, [config, isShell]);
 
