@@ -619,6 +619,11 @@ export default function InspectorPortal({
       {/* ENCABEZADO: semana + estado de guardado */}
       <header className="sticky top-0 z-30 bg-primary text-white shadow-md">
         <div className="max-w-lg mx-auto px-4 pt-3 pb-2 flex items-center gap-3">
+          {project?.marca?.logoCompletoUrl && (
+            <span className="bg-white rounded-lg px-1.5 py-1 shrink-0">
+              <img src={project.marca.logoCompletoUrl} alt={project.marca.nombre || ''} className="block" style={{ height: 30, width: 'auto' }} />
+            </span>
+          )}
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-blue-100 truncate">{project?.marca?.nombreCorto || project?.marca?.nombre}: inspección de obra</p>
             <h1 className="mt-0.5 text-base font-bold truncate">

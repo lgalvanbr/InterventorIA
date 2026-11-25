@@ -22,6 +22,7 @@ import StaticMapThumbnail from './StaticMapThumbnail';
 import L from 'leaflet';
 import { storageKey } from '../data/projectSession';
 import { useProject } from '../context/ProjectContext';
+import { BrandLogoFull } from './BrandName';
 
 
 // Leaflet default icon SVG fallback (eliminates 404 asset errors in Vite)
@@ -1026,9 +1027,12 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
       {/* Print-only Report Header */}
       <div className="hidden print-report-header mb-6 pb-4 border-b-2 border-slate-800">
         <div className="flex justify-between items-center">
-          <div>
+          <div className="flex items-center gap-3">
+            <BrandLogoFull marca={project?.marca} height={48} />
+            <div>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">{project?.marca?.nombre}</h1>
             <p className="text-xs text-slate-550 font-bold uppercase tracking-wider mt-0.5">INFORME DE SUPERVISIÓN Y CONTROL DE FRENTES DE OBRA</p>
+            </div>
           </div>
           <div className="text-right">
             <span className="bg-slate-100 border border-slate-250 text-slate-800 font-black px-3 py-1 rounded text-xs">
