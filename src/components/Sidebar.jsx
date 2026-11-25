@@ -37,7 +37,7 @@ const SECTIONS = [
 const SHARE_LINKS = [
   { mode: 'inspector', label: 'Portal de inspectores', hint: 'Para reportar fotos y bitácora desde el celular' },
   { mode: 'landing', label: 'Tablero público', hint: 'Solo lectura, sin menú' },
-  { mode: 'map', label: 'Mapa de obra', hint: 'Todos los frentes georreferenciados' },
+  { mode: 'map', label: 'Solo mapa', hint: 'Únicamente el mapa de frentes, sin acceso al resto del proyecto' },
   { mode: 'contractor', label: 'Acceso del contratista', hint: 'Consulta de mapas, planos e informes' }
 ];
 

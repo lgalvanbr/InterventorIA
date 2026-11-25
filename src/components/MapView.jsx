@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import { storageKey } from '../data/projectSession';
 
@@ -38,6 +38,40 @@ export default function MapView({
   const markersRef = useRef({});
   const clickMarkerRef = useRef(null);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  // Filtro: frentes ocultos (por id) y panel abierto/cerrado
+  const [hiddenIds, setHiddenIds] = useState(() => new Set());
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterQuery, setFilterQuery] = useState('');
+
+  // Grupos para prender/apagar: un grupo por contrato (prefijo del id) y uno para la adición
+  const groups = useMemo(() => {
+    const map = new Map();
+    frentes.forEach(f => {
+      const key = f.adicion ? 'adicion' : String(f.id).split('_').slice(0, 2).join('_');
+      if (!map.has(key)) {
+        const label = f.adicion ? 'Adición' : (String(f.name || '').split(' - CIV')[0] || key);
+        map.set(key, { key, label, ids: [] });
+      }
+      map.get(key).ids.push(f.id);
+    });
+    return [...map.values()].sort((a, b) => (a.key === 'adicion') - (b.key === 'adicion'));
+  }, [frentes]);
+
+  const visibleFrentes = useMemo(
+    () => (hiddenIds.size ? frentes.filter(f => !hiddenIds.has(f.id)) : frentes),
+    [frentes, hiddenIds]
+  );
+
+  const setGroupVisible = (ids, visible) => setHiddenIds(prev => {
+    const next = new Set(prev);
+    ids.forEach(id => (visible ? next.delete(id) : next.add(id)));
+    return next;
+  });
+  const toggleFrente = (id) => setHiddenIds(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   // Bogotá coordinate defaults
   const DEFAULT_CENTER = [4.6097, -74.0817];
@@ -120,7 +154,7 @@ export default function MapView({
     Object.values(markersRef.current).forEach(marker => marker.remove());
     markersRef.current = {};
 
-    if (frentes.length === 0) return;
+    if (visibleFrentes.length === 0) return;
 
     // Get custom colors from localStorage
     let customColors = {};
@@ -136,7 +170,7 @@ export default function MapView({
 
     // Group frentes by rounded coordinates to detect stacking/overlap
     const coordGroups = {};
-    frentes.forEach(f => {
+    visibleFrentes.forEach(f => {
       const lat = parseFloat(f.latitude);
       const lng = parseFloat(f.longitude);
       if (isNaN(lat) || isNaN(lng)) return;
@@ -206,7 +240,7 @@ export default function MapView({
               <span style="font-size: 8px; font-weight: 800; text-transform: uppercase; color: ${isMallaVial ? '#1e3a8a' : '#d97706'}; background-color: ${isMallaVial ? '#eff6ff' : '#fffbeb'}; border: 1px solid ${isMallaVial ? '#bfdbfe' : '#fef3c7'}; padding: 1px 4px; border-radius: 3px;">
                 ${isMallaVial ? 'Malla Vial' : 'Espacio Público'}
               </span>
-              <span style="font-size: 9px; font-weight: 700; color: #64748b;">CIV ${f.civ || ''}</span>
+              <span style="font-size: 9px; font-weight: 700; color: #64748b;">${f.adicion ? '<b style="color:#7c3aed">ADICIÓN</b> · ' : ''}CIV ${f.civ || ''}</span>
             </div>
             <h4 style="margin: 6px 0 4px 0; font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; color: #1e293b;">Frente ${f.frente} - ${f.name}</h4>
             <p style="margin: 0 0 6px 0; font-size: 10px; color: #64748b; line-height: 1.3;">${f.description || 'Sin descripción'}</p>
@@ -242,10 +276,62 @@ export default function MapView({
     if (bounds.length > 0 && !isAddingMode && !activeFrenteId) {
       map.fitBounds(bounds, { padding: [40, 40] });
     }
-  }, [frentes, activeFrenteId, isAddingMode]);
+  }, [visibleFrentes, activeFrenteId, isAddingMode]);
 
   // Active frente object for quick navigation banner
   const activeFrenteObj = frentes.find(f => f.id === activeFrenteId);
+
+  // ---------- Navegador: recorrer los frentes visibles, ver todos y mi ubicación ----------
+  const [navId, setNavId] = useState('');
+  const [locating, setLocating] = useState(false);
+  const userMarkerRef = useRef(null);
+  const navList = useMemo(() => [...visibleFrentes]
+    .filter(f => !isNaN(parseFloat(f.latitude)) && !isNaN(parseFloat(f.longitude)))
+    .sort((a, b) => (parseInt(a.frente, 10) || 0) - (parseInt(b.frente, 10) || 0)), [visibleFrentes]);
+  const navIndex = navList.findIndex(f => f.id === navId);
+
+  const focusFrente = (f) => {
+    const map = mapInstanceRef.current;
+    if (!map || !f) return;
+    setNavId(f.id);
+    const marker = markersRef.current[f.id];
+    const target = marker ? marker.getLatLng() : [parseFloat(f.latitude), parseFloat(f.longitude)];
+    map.setView(target, 17, { animate: true });
+    if (marker) setTimeout(() => marker.openPopup(), 350);
+  };
+  const stepFrente = (delta) => {
+    if (navList.length === 0) return;
+    const i = navIndex < 0 ? (delta > 0 ? 0 : navList.length - 1) : (navIndex + delta + navList.length) % navList.length;
+    focusFrente(navList[i]);
+  };
+  const showAll = () => {
+    const map = mapInstanceRef.current;
+    const points = Object.values(markersRef.current).map(m => m.getLatLng());
+    if (!map || points.length === 0) return;
+    setNavId('');
+    map.closePopup();
+    map.fitBounds(points, { padding: [40, 40] });
+  };
+  const locateMe = () => {
+    const map = mapInstanceRef.current;
+    if (!map || !navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setLocating(false);
+        const here = [coords.latitude, coords.longitude];
+        if (userMarkerRef.current) userMarkerRef.current.setLatLng(here);
+        else {
+          userMarkerRef.current = L.circleMarker(here, { radius: 8, color: '#ffffff', weight: 3, fillColor: '#2563eb', fillOpacity: 1 })
+            .addTo(map)
+            .bindTooltip('Tu ubicación');
+        }
+        map.setView(here, 16, { animate: true });
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   // Center on active frente
   useEffect(() => {
@@ -311,6 +397,18 @@ export default function MapView({
             </button>
           )}
           
+          {!isAddingMode && frentes.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setFilterOpen(o => !o)}
+              aria-expanded={filterOpen}
+              className={`border font-bold text-xs px-3 py-1.5 rounded flex items-center gap-1.5 shadow-sm transition-all ${filterOpen ? 'bg-slate-800 border-slate-800 text-white' : 'bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-700'}`}
+            >
+              <span className="material-symbols-outlined text-[16px]">filter_list</span>
+              Frentes {hiddenIds.size > 0 ? `(${visibleFrentes.length}/${frentes.length})` : ''}
+            </button>
+          )}
+
           <button 
             type="button"
             onClick={() => {
@@ -332,6 +430,96 @@ export default function MapView({
       </div>
       <div className="map-wrapper relative">
         <div ref={mapContainerRef} style={{ height: '100%', width: '100%' }}></div>
+
+        {/* Navegador sencillo */}
+        {!isAddingMode && navList.length > 0 && (
+          <div className="absolute top-3 left-14 z-[1000] flex items-center gap-1 bg-white/95 backdrop-blur border border-slate-200 rounded-xl shadow-lg p-1 max-w-[calc(100%-4.5rem)]">
+            <button type="button" onClick={() => stepFrente(-1)} title="Frente anterior" aria-label="Frente anterior"
+              className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[20px]">chevron_left</span>
+            </button>
+            <select
+              value={navIndex >= 0 ? navId : ''}
+              onChange={e => focusFrente(navList.find(f => f.id === e.target.value))}
+              aria-label="Ir a un frente"
+              className="min-w-0 w-40 sm:w-56 text-xs font-semibold text-slate-800 bg-transparent border-0 focus:outline-none cursor-pointer"
+            >
+              <option value="" disabled>Ir a un frente… ({navList.length})</option>
+              {navList.map(f => (
+                <option key={f.id} value={f.id}>Frente {f.frente} · {f.eje}{f.adicion ? ' (adición)' : ''}</option>
+              ))}
+            </select>
+            <button type="button" onClick={() => stepFrente(1)} title="Frente siguiente" aria-label="Frente siguiente"
+              className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+            </button>
+            <span className="w-px h-6 bg-slate-200 mx-0.5 shrink-0" />
+            <button type="button" onClick={showAll} title="Ver todos los frentes" aria-label="Ver todos los frentes"
+              className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[18px]">zoom_out_map</span>
+            </button>
+            {typeof navigator !== 'undefined' && navigator.geolocation && (
+              <button type="button" onClick={locateMe} disabled={locating} title="Mi ubicación" aria-label="Mi ubicación"
+                className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-700 flex items-center justify-center shrink-0 disabled:opacity-50">
+                <span className={`material-symbols-outlined text-[18px] ${locating ? 'animate-pulse' : ''}`}>my_location</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Panel para prender y apagar frentes */}
+        {filterOpen && (
+          <div className="absolute top-3 right-3 z-[1000] w-72 max-w-[calc(100%-1.5rem)] max-h-[calc(100%-1.5rem)] flex flex-col bg-white/95 backdrop-blur border border-slate-200 rounded-xl shadow-xl text-slate-800">
+            <div className="p-3 border-b border-slate-100 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold">Mostrar en el mapa</span>
+                <span className="text-[11px] text-slate-500">{visibleFrentes.length} de {frentes.length}</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {groups.map(g => {
+                  const shown = g.ids.filter(id => !hiddenIds.has(id)).length;
+                  const on = shown === g.ids.length;
+                  return (
+                    <button key={g.key} type="button" aria-pressed={on}
+                      onClick={() => setGroupVisible(g.ids, !on)}
+                      className={`text-[11px] font-bold px-2 py-1 rounded-full border ${on ? 'bg-slate-800 border-slate-800 text-white' : shown ? 'bg-slate-100 border-slate-300 text-slate-700' : 'bg-white border-slate-300 text-slate-500'}`}>
+                      {g.label} · {shown}/{g.ids.length}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex gap-2 text-[11px] font-semibold">
+                <button type="button" className="text-primary hover:underline" onClick={() => setHiddenIds(new Set())}>Todos</button>
+                <button type="button" className="text-primary hover:underline" onClick={() => setHiddenIds(new Set(frentes.map(f => f.id)))}>Ninguno</button>
+              </div>
+              <input
+                type="search"
+                value={filterQuery}
+                onChange={e => setFilterQuery(e.target.value)}
+                placeholder="Buscar frente, CIV o vía"
+                aria-label="Buscar frente"
+                className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-primary"
+              />
+            </div>
+            <ul className="overflow-y-auto p-1.5 text-xs">
+              {frentes
+                .filter(f => {
+                  const q = filterQuery.trim().toLowerCase();
+                  return !q || `frente ${f.frente} ${f.civ} ${f.eje} ${f.desde} ${f.hasta}`.toLowerCase().includes(q);
+                })
+                .map(f => (
+                  <li key={f.id}>
+                    <label className="flex items-center gap-2 px-1.5 py-1 rounded hover:bg-slate-50 cursor-pointer">
+                      <input type="checkbox" checked={!hiddenIds.has(f.id)} onChange={() => toggleFrente(f.id)} />
+                      <span className="font-bold w-9 shrink-0">{f.frente}</span>
+                      <span className="truncate text-slate-600">{f.eje}{f.desde ? ` · ${f.desde}` : ''}</span>
+                      {f.adicion && <span className="ml-auto text-[9px] font-black text-violet-600">ADIC.</span>}
+                    </label>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        )}
 
         {/* Floating Quick Navigation Card for Active Frente */}
         {activeFrenteObj && activeFrenteObj.latitude && activeFrenteObj.longitude && (

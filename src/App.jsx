@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import Sidebar from './components/Sidebar';
 import { BrandName, BrandEmblem } from './components/BrandName';
-import { initializeWeeklyReports, initialWeekForProject, calculateConsolidatedMetrics } from './data/reportsWeekly';
+import { initializeWeeklyReports, initialWeekForProject, calculateConsolidatedMetrics, addMissingFrentes } from './data/reportsWeekly';
 import { diffReports } from './data/reportsMerge';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { storageKey, apiPath, isDefaultProject } from './data/projectSession';
@@ -11,7 +11,7 @@ import { useProject } from './context/ProjectContext';
 // Contratos generados desde la configuración del proyecto, conservando lo editado en este
 // navegador (estado, cumplimiento, fotos de galería...) y actualizando los datos del proyecto
 // (CIV, eje, tramo, coordenadas, nombres).
-const CONFIG_FRENTE_FIELDS = ['frente', 'alias', 'civ', 'eje', 'desde', 'hasta', 'barrio', 'tipoIntervencion', 'prioridad', 'name', 'latitude', 'longitude'];
+const CONFIG_FRENTE_FIELDS = ['frente', 'alias', 'civ', 'eje', 'desde', 'hasta', 'barrio', 'tipoIntervencion', 'prioridad', 'name', 'latitude', 'longitude', 'adicion', 'pk'];
 const CONFIG_CONTRACT_FIELDS = ['name', 'shortName', 'contractNo', 'contractor', 'constructionBudget', 'interventoriaBudget', 'duration', 'description', 'frentePrefix'];
 function mergeProjectsWithConfig(saved, config) {
   const fresh = configToProjects(config);
@@ -189,6 +189,32 @@ export default function App() {
     }
     const loadedProjects = mergeProjectsWithConfig(savedProjects, projectConfig);
     setProjects(loadedProjects);
+    // Frentes del proyecto en el formato de las semanas (para sembrar o completar semanas)
+    const allFrentes = loadedProjects.flatMap(p =>
+      (p.frentes || []).map(f => {
+        const civMatch = f.civ || (f.name?.match(/CIV\s+(\d+)/i)?.[1] || '');
+        const ejeMatch = f.eje || (f.name?.match(/\(([^)]+)\)/)?.[1] || f.name || '');
+        let frenteNum = f.frente;
+        if (!frenteNum && f.id) {
+          const parts = f.id.split('_');
+          if (parts.length >= 3) {
+            const num = parseInt(parts[2]);
+            if (parts[1] === 'mv') frenteNum = num;
+            else if (parts[1] === 'ep') frenteNum = num + 100;
+          }
+        }
+        return {
+          ...f,
+          frente: frenteNum || '',
+          civ: civMatch,
+          eje: ejeMatch,
+          projectName: p.name,
+          contractNo: p.contractNo
+        };
+      })
+    );
+    const viewParam = new URLSearchParams(window.location.search);
+    const isReadOnlyView = ['contractor', 'landing', 'dashboard', 'landing-only', 'map', 'map-only'].includes(viewParam.get('mode') || viewParam.get('view') || viewParam.get('share') || '');
     try {
       localStorage.setItem(storageKey('geo_interventoria_projects_v7'), JSON.stringify(loadedProjects));
     } catch { /* sin almacenamiento */ }
@@ -237,6 +263,18 @@ export default function App() {
         setSyncError('');
         setIsDataFresh(true);
         if (Array.isArray(data) && data.length > 0) {
+          // Frentes nuevos del proyecto (p. ej. una adición) entran en la semana más reciente;
+          // las siguientes semanas los heredan al clonarse
+          const latest = data.reduce((max, r) => (Number(r.numero_semana) > Number(max.numero_semana) ? r : max), data[0]);
+          const completed = addMissingFrentes(latest, allFrentes);
+          if (completed !== latest) {
+            const withNew = data.map(r => (r === latest ? calculateConsolidatedMetrics(completed.frentes, completed) : r));
+            if (!isReadOnlyView) {
+              weeklyReportsRef.current = data; // los cambios se calculan contra lo que hay en la nube
+              handleUpdateWeeklyReports(withNew).catch(() => {});
+            }
+            data = withNew;
+          }
           setWeeklyReports(data);
           saveWeeklyReportsToStorage(data);
 
@@ -247,29 +285,6 @@ export default function App() {
             return updated;
           });
         } else if (!localWeekly) {
-          const allFrentes = loadedProjects.flatMap(p => 
-            (p.frentes || []).map(f => {
-              const civMatch = f.civ || (f.name?.match(/CIV\s+(\d+)/i)?.[1] || '');
-              const ejeMatch = f.eje || (f.name?.match(/\(([^)]+)\)/)?.[1] || f.name || '');
-              let frenteNum = f.frente;
-              if (!frenteNum && f.id) {
-                const parts = f.id.split('_');
-                if (parts.length >= 3) {
-                  const num = parseInt(parts[2]);
-                  if (parts[1] === 'mv') frenteNum = num;
-                  else if (parts[1] === 'ep') frenteNum = num + 100;
-                }
-              }
-              return {
-                ...f,
-                frente: frenteNum || '',
-                civ: civMatch,
-                eje: ejeMatch,
-                projectName: p.name,
-                contractNo: p.contractNo
-              };
-            })
-          );
           // Usaquén conserva su semana base histórica; un proyecto nuevo arranca en la semana de hoy
           const seededWeekly = isDefaultProject
             ? initializeWeeklyReports(allFrentes)
@@ -797,17 +812,6 @@ export default function App() {
                     {projectConfig.nombre}: {projects.reduce((n, p) => n + (p.frentes?.length || 0), 0)} frentes georreferenciados
                   </p>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href="/?mode=landing"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors no-underline cursor-pointer"
-                  title="Volver al tablero de frentes"
-                >
-                  <span className="material-symbols-outlined text-sm">view_agenda</span>
-                  <span className="hidden sm:inline">Ver Tablero de Frentes</span>
-                  <span className="sm:hidden">Frentes</span>
-                </a>
               </div>
             </header>
             <MapView 

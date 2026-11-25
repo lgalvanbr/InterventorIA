@@ -355,11 +355,18 @@ export default function ProjectDetail({
           <div>
             <span className="text-slate-400 font-bold block uppercase tracking-wider text-[9px] mb-0.5">Avance Físico Promedio</span>
             <span className="text-slate-800 font-bold text-sm flex items-center gap-1">
-              {project.frentes?.length > 0 
-                ? `${Math.round(project.frentes.reduce((acc, curr) => acc + curr.progress, 0) / project.frentes.length)}%` 
-                : '0%'
-              }
-              <span className="font-medium text-slate-400">({project.frentes?.length || 0} frentes)</span>
+              {(() => {
+                // Avance del contrato original; los segmentos de adición se cuentan aparte
+                const base = (project.frentes || []).filter(f => !f.adicion);
+                const extra = (project.frentes || []).length - base.length;
+                const avg = base.length > 0 ? Math.round(base.reduce((acc, curr) => acc + (curr.progress || 0), 0) / base.length) : 0;
+                return (
+                  <>
+                    {avg}%
+                    <span className="font-medium text-slate-400">({base.length} frentes{extra > 0 ? ` + ${extra} de adición` : ''})</span>
+                  </>
+                );
+              })()}
             </span>
           </div>
         </div>

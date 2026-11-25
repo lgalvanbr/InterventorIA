@@ -531,7 +531,9 @@ export default function Dashboard({ projects = [], onSelectProject, onAddProject
     count: frentes.filter(f => String(f.id).startsWith(`${c.prefijo}_`)).length,
     style: CONTRACT_STYLES[i % CONTRACT_STYLES.length]
   }));
-  const avgProgress = totalCount > 0 ? Math.round(frentes.reduce((acc, f) => acc + (f.progress || 0), 0) / totalCount) : 0;
+  // Avance del contrato original: los segmentos de adición se siguen aparte
+  const baseFrentes = frentes.filter(f => !f.adicion);
+  const avgProgress = baseFrentes.length > 0 ? Math.round(baseFrentes.reduce((acc, f) => acc + (f.progress || 0), 0) / baseFrentes.length) : 0;
 
   const hasActiveFilters = (
     searchTerm.trim() !== '' ||
