@@ -24,6 +24,9 @@ const GoogleMapsLogo = ({ size = 16 }) => (
   </svg>
 );
 
+// Frente cerrado: terminado (100 % de avance) y que no es de la adición
+const isClosed = (f) => !f.adicion && (Number(f.progress) || 0) >= 100;
+
 export default function MapView({ 
   frentes = [], 
   activeFrenteId = null, 
@@ -43,18 +46,22 @@ export default function MapView({
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterQuery, setFilterQuery] = useState('');
 
-  // Grupos para prender/apagar: un grupo por contrato (prefijo del id) y uno para la adición
-  const groups = useMemo(() => {
-    const map = new Map();
+  // Grupos para prender/apagar: por estado (cerrados, en ejecución, adición) y por contrato
+  const { statusGroups, contractGroups } = useMemo(() => {
+    const status = [
+      { key: 'cerrados', label: 'Cerrados', ids: [] },
+      { key: 'ejecucion', label: 'En ejecución', ids: [] },
+      { key: 'adicion', label: 'Adición', ids: [] }
+    ];
+    const contracts = new Map();
     frentes.forEach(f => {
-      const key = f.adicion ? 'adicion' : String(f.id).split('_').slice(0, 2).join('_');
-      if (!map.has(key)) {
-        const label = f.adicion ? 'Adición' : (String(f.name || '').split(' - CIV')[0] || key);
-        map.set(key, { key, label, ids: [] });
-      }
-      map.get(key).ids.push(f.id);
+      const st = f.adicion ? 2 : isClosed(f) ? 0 : 1;
+      status[st].ids.push(f.id);
+      const key = String(f.id).split('_').slice(0, 2).join('_');
+      if (!contracts.has(key)) contracts.set(key, { key, label: String(f.name || '').split(' - CIV')[0] || key, ids: [] });
+      contracts.get(key).ids.push(f.id);
     });
-    return [...map.values()].sort((a, b) => (a.key === 'adicion') - (b.key === 'adicion'));
+    return { statusGroups: status.filter(g => g.ids.length), contractGroups: [...contracts.values()] };
   }, [frentes]);
 
   const visibleFrentes = useMemo(
@@ -203,7 +210,8 @@ export default function MapView({
         // Distinguish type (Malla Vial vs Espacio Público)
         const isMallaVial = f.id.includes('mv') || f.name.toLowerCase().includes('vial');
         const typeClass = isMallaVial ? 'type-vial' : 'type-espacio';
-        const iconName = isMallaVial ? 'route' : 'park';
+        const closed = isClosed(f);
+        const iconName = closed ? 'check' : isMallaVial ? 'route' : 'park';
 
         // Distinguish compliance status (Inner Dot)
         let statusClass = 'status-al-dia';
@@ -240,7 +248,7 @@ export default function MapView({
               <span style="font-size: 8px; font-weight: 800; text-transform: uppercase; color: ${isMallaVial ? '#1e3a8a' : '#d97706'}; background-color: ${isMallaVial ? '#eff6ff' : '#fffbeb'}; border: 1px solid ${isMallaVial ? '#bfdbfe' : '#fef3c7'}; padding: 1px 4px; border-radius: 3px;">
                 ${isMallaVial ? 'Malla Vial' : 'Espacio Público'}
               </span>
-              <span style="font-size: 9px; font-weight: 700; color: #64748b;">${f.adicion ? '<b style="color:#7c3aed">ADICIÓN</b> · ' : ''}CIV ${f.civ || ''}</span>
+              <span style="font-size: 9px; font-weight: 700; color: #64748b;">${f.adicion ? '<b style="color:#7c3aed">ADICIÓN</b> · ' : closed ? '<b style="color:#059669">CERRADO</b> · ' : ''}CIV ${f.civ || ''}</span>
             </div>
             <h4 style="margin: 6px 0 4px 0; font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; color: #1e293b;">Frente ${f.frente} - ${f.name}</h4>
             <p style="margin: 0 0 6px 0; font-size: 10px; color: #64748b; line-height: 1.3;">${f.description || 'Sin descripción'}</p>
@@ -475,19 +483,24 @@ export default function MapView({
                 <span className="text-xs font-extrabold">Mostrar en el mapa</span>
                 <span className="text-[11px] text-slate-500">{visibleFrentes.length} de {frentes.length}</span>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {groups.map(g => {
-                  const shown = g.ids.filter(id => !hiddenIds.has(id)).length;
-                  const on = shown === g.ids.length;
-                  return (
-                    <button key={g.key} type="button" aria-pressed={on}
-                      onClick={() => setGroupVisible(g.ids, !on)}
-                      className={`text-[11px] font-bold px-2 py-1 rounded-full border ${on ? 'bg-slate-800 border-slate-800 text-white' : shown ? 'bg-slate-100 border-slate-300 text-slate-700' : 'bg-white border-slate-300 text-slate-500'}`}>
-                      {g.label} · {shown}/{g.ids.length}
-                    </button>
-                  );
-                })}
-              </div>
+              {[['Estado', statusGroups], ['Contrato', contractGroups]].map(([title, list]) => (
+                <div key={title}>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">{title}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {list.map(g => {
+                      const shown = g.ids.filter(id => !hiddenIds.has(id)).length;
+                      const on = shown === g.ids.length;
+                      return (
+                        <button key={g.key} type="button" aria-pressed={on}
+                          onClick={() => setGroupVisible(g.ids, !on)}
+                          className={`text-[11px] font-bold px-2 py-1 rounded-full border ${on ? 'bg-slate-800 border-slate-800 text-white' : shown ? 'bg-slate-100 border-slate-300 text-slate-700' : 'bg-white border-slate-300 text-slate-500'}`}>
+                          {g.label} · {shown}/{g.ids.length}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
               <div className="flex gap-2 text-[11px] font-semibold">
                 <button type="button" className="text-primary hover:underline" onClick={() => setHiddenIds(new Set())}>Todos</button>
                 <button type="button" className="text-primary hover:underline" onClick={() => setHiddenIds(new Set(frentes.map(f => f.id)))}>Ninguno</button>
@@ -514,6 +527,7 @@ export default function MapView({
                       <span className="font-bold w-9 shrink-0">{f.frente}</span>
                       <span className="truncate text-slate-600">{f.eje}{f.desde ? ` · ${f.desde}` : ''}</span>
                       {f.adicion && <span className="ml-auto text-[9px] font-black text-violet-600">ADIC.</span>}
+                      {isClosed(f) && <span className="ml-auto text-[9px] font-black text-emerald-600">CERRADO</span>}
                     </label>
                   </li>
                 ))}
