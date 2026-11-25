@@ -281,6 +281,58 @@ export default function MapView({
   // Active frente object for quick navigation banner
   const activeFrenteObj = frentes.find(f => f.id === activeFrenteId);
 
+  // ---------- Navegador: recorrer los frentes visibles, ver todos y mi ubicación ----------
+  const [navId, setNavId] = useState('');
+  const [locating, setLocating] = useState(false);
+  const userMarkerRef = useRef(null);
+  const navList = useMemo(() => [...visibleFrentes]
+    .filter(f => !isNaN(parseFloat(f.latitude)) && !isNaN(parseFloat(f.longitude)))
+    .sort((a, b) => (parseInt(a.frente, 10) || 0) - (parseInt(b.frente, 10) || 0)), [visibleFrentes]);
+  const navIndex = navList.findIndex(f => f.id === navId);
+
+  const focusFrente = (f) => {
+    const map = mapInstanceRef.current;
+    if (!map || !f) return;
+    setNavId(f.id);
+    const marker = markersRef.current[f.id];
+    const target = marker ? marker.getLatLng() : [parseFloat(f.latitude), parseFloat(f.longitude)];
+    map.setView(target, 17, { animate: true });
+    if (marker) setTimeout(() => marker.openPopup(), 350);
+  };
+  const stepFrente = (delta) => {
+    if (navList.length === 0) return;
+    const i = navIndex < 0 ? (delta > 0 ? 0 : navList.length - 1) : (navIndex + delta + navList.length) % navList.length;
+    focusFrente(navList[i]);
+  };
+  const showAll = () => {
+    const map = mapInstanceRef.current;
+    const points = Object.values(markersRef.current).map(m => m.getLatLng());
+    if (!map || points.length === 0) return;
+    setNavId('');
+    map.closePopup();
+    map.fitBounds(points, { padding: [40, 40] });
+  };
+  const locateMe = () => {
+    const map = mapInstanceRef.current;
+    if (!map || !navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setLocating(false);
+        const here = [coords.latitude, coords.longitude];
+        if (userMarkerRef.current) userMarkerRef.current.setLatLng(here);
+        else {
+          userMarkerRef.current = L.circleMarker(here, { radius: 8, color: '#ffffff', weight: 3, fillColor: '#2563eb', fillOpacity: 1 })
+            .addTo(map)
+            .bindTooltip('Tu ubicación');
+        }
+        map.setView(here, 16, { animate: true });
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   // Center on active frente
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -378,6 +430,42 @@ export default function MapView({
       </div>
       <div className="map-wrapper relative">
         <div ref={mapContainerRef} style={{ height: '100%', width: '100%' }}></div>
+
+        {/* Navegador sencillo */}
+        {!isAddingMode && navList.length > 0 && (
+          <div className="absolute top-3 left-14 z-[1000] flex items-center gap-1 bg-white/95 backdrop-blur border border-slate-200 rounded-xl shadow-lg p-1 max-w-[calc(100%-4.5rem)]">
+            <button type="button" onClick={() => stepFrente(-1)} title="Frente anterior" aria-label="Frente anterior"
+              className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[20px]">chevron_left</span>
+            </button>
+            <select
+              value={navIndex >= 0 ? navId : ''}
+              onChange={e => focusFrente(navList.find(f => f.id === e.target.value))}
+              aria-label="Ir a un frente"
+              className="min-w-0 w-40 sm:w-56 text-xs font-semibold text-slate-800 bg-transparent border-0 focus:outline-none cursor-pointer"
+            >
+              <option value="" disabled>Ir a un frente… ({navList.length})</option>
+              {navList.map(f => (
+                <option key={f.id} value={f.id}>Frente {f.frente} · {f.eje}{f.adicion ? ' (adición)' : ''}</option>
+              ))}
+            </select>
+            <button type="button" onClick={() => stepFrente(1)} title="Frente siguiente" aria-label="Frente siguiente"
+              className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[20px]">chevron_right</span>
+            </button>
+            <span className="w-px h-6 bg-slate-200 mx-0.5 shrink-0" />
+            <button type="button" onClick={showAll} title="Ver todos los frentes" aria-label="Ver todos los frentes"
+              className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-[18px]">zoom_out_map</span>
+            </button>
+            {typeof navigator !== 'undefined' && navigator.geolocation && (
+              <button type="button" onClick={locateMe} disabled={locating} title="Mi ubicación" aria-label="Mi ubicación"
+                className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-700 flex items-center justify-center shrink-0 disabled:opacity-50">
+                <span className={`material-symbols-outlined text-[18px] ${locating ? 'animate-pulse' : ''}`}>my_location</span>
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Panel para prender y apagar frentes */}
         {filterOpen && (
