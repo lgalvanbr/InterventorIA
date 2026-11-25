@@ -213,7 +213,7 @@ export default function App() {
       })
     );
     const viewParam = new URLSearchParams(window.location.search);
-    const isReadOnlyView = ['contractor', 'landing', 'dashboard', 'landing-only'].includes(viewParam.get('mode') || viewParam.get('view') || viewParam.get('share') || '');
+    const isReadOnlyView = ['contractor', 'landing', 'dashboard', 'landing-only', 'map', 'map-only'].includes(viewParam.get('mode') || viewParam.get('view') || viewParam.get('share') || '');
     try {
       localStorage.setItem(storageKey('geo_interventoria_projects_v7'), JSON.stringify(loadedProjects));
     } catch { /* sin almacenamiento */ }
@@ -805,17 +805,6 @@ export default function App() {
                     {projectConfig.nombre}: {projects.reduce((n, p) => n + (p.frentes?.length || 0), 0)} frentes georreferenciados
                   </p>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <a
-                  href="/?mode=landing"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors no-underline cursor-pointer"
-                  title="Volver al tablero de frentes"
-                >
-                  <span className="material-symbols-outlined text-sm">view_agenda</span>
-                  <span className="hidden sm:inline">Ver Tablero de Frentes</span>
-                  <span className="sm:hidden">Frentes</span>
-                </a>
               </div>
             </header>
             <MapView 

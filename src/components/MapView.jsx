@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import { storageKey } from '../data/projectSession';
 
@@ -38,6 +38,40 @@ export default function MapView({
   const markersRef = useRef({});
   const clickMarkerRef = useRef(null);
   const [isFullScreen, setIsFullScreen] = useState(false);
+  // Filtro: frentes ocultos (por id) y panel abierto/cerrado
+  const [hiddenIds, setHiddenIds] = useState(() => new Set());
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterQuery, setFilterQuery] = useState('');
+
+  // Grupos para prender/apagar: un grupo por contrato (prefijo del id) y uno para la adición
+  const groups = useMemo(() => {
+    const map = new Map();
+    frentes.forEach(f => {
+      const key = f.adicion ? 'adicion' : String(f.id).split('_').slice(0, 2).join('_');
+      if (!map.has(key)) {
+        const label = f.adicion ? 'Adición' : (String(f.name || '').split(' - CIV')[0] || key);
+        map.set(key, { key, label, ids: [] });
+      }
+      map.get(key).ids.push(f.id);
+    });
+    return [...map.values()].sort((a, b) => (a.key === 'adicion') - (b.key === 'adicion'));
+  }, [frentes]);
+
+  const visibleFrentes = useMemo(
+    () => (hiddenIds.size ? frentes.filter(f => !hiddenIds.has(f.id)) : frentes),
+    [frentes, hiddenIds]
+  );
+
+  const setGroupVisible = (ids, visible) => setHiddenIds(prev => {
+    const next = new Set(prev);
+    ids.forEach(id => (visible ? next.delete(id) : next.add(id)));
+    return next;
+  });
+  const toggleFrente = (id) => setHiddenIds(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   // Bogotá coordinate defaults
   const DEFAULT_CENTER = [4.6097, -74.0817];
@@ -120,7 +154,7 @@ export default function MapView({
     Object.values(markersRef.current).forEach(marker => marker.remove());
     markersRef.current = {};
 
-    if (frentes.length === 0) return;
+    if (visibleFrentes.length === 0) return;
 
     // Get custom colors from localStorage
     let customColors = {};
@@ -136,7 +170,7 @@ export default function MapView({
 
     // Group frentes by rounded coordinates to detect stacking/overlap
     const coordGroups = {};
-    frentes.forEach(f => {
+    visibleFrentes.forEach(f => {
       const lat = parseFloat(f.latitude);
       const lng = parseFloat(f.longitude);
       if (isNaN(lat) || isNaN(lng)) return;
@@ -206,7 +240,7 @@ export default function MapView({
               <span style="font-size: 8px; font-weight: 800; text-transform: uppercase; color: ${isMallaVial ? '#1e3a8a' : '#d97706'}; background-color: ${isMallaVial ? '#eff6ff' : '#fffbeb'}; border: 1px solid ${isMallaVial ? '#bfdbfe' : '#fef3c7'}; padding: 1px 4px; border-radius: 3px;">
                 ${isMallaVial ? 'Malla Vial' : 'Espacio Público'}
               </span>
-              <span style="font-size: 9px; font-weight: 700; color: #64748b;">CIV ${f.civ || ''}</span>
+              <span style="font-size: 9px; font-weight: 700; color: #64748b;">${f.adicion ? '<b style="color:#7c3aed">ADICIÓN</b> · ' : ''}CIV ${f.civ || ''}</span>
             </div>
             <h4 style="margin: 6px 0 4px 0; font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700; color: #1e293b;">Frente ${f.frente} - ${f.name}</h4>
             <p style="margin: 0 0 6px 0; font-size: 10px; color: #64748b; line-height: 1.3;">${f.description || 'Sin descripción'}</p>
@@ -242,7 +276,7 @@ export default function MapView({
     if (bounds.length > 0 && !isAddingMode && !activeFrenteId) {
       map.fitBounds(bounds, { padding: [40, 40] });
     }
-  }, [frentes, activeFrenteId, isAddingMode]);
+  }, [visibleFrentes, activeFrenteId, isAddingMode]);
 
   // Active frente object for quick navigation banner
   const activeFrenteObj = frentes.find(f => f.id === activeFrenteId);
@@ -311,6 +345,18 @@ export default function MapView({
             </button>
           )}
           
+          {!isAddingMode && frentes.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setFilterOpen(o => !o)}
+              aria-expanded={filterOpen}
+              className={`border font-bold text-xs px-3 py-1.5 rounded flex items-center gap-1.5 shadow-sm transition-all ${filterOpen ? 'bg-slate-800 border-slate-800 text-white' : 'bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-700'}`}
+            >
+              <span className="material-symbols-outlined text-[16px]">filter_list</span>
+              Frentes {hiddenIds.size > 0 ? `(${visibleFrentes.length}/${frentes.length})` : ''}
+            </button>
+          )}
+
           <button 
             type="button"
             onClick={() => {
@@ -332,6 +378,60 @@ export default function MapView({
       </div>
       <div className="map-wrapper relative">
         <div ref={mapContainerRef} style={{ height: '100%', width: '100%' }}></div>
+
+        {/* Panel para prender y apagar frentes */}
+        {filterOpen && (
+          <div className="absolute top-3 right-3 z-[1000] w-72 max-w-[calc(100%-1.5rem)] max-h-[calc(100%-1.5rem)] flex flex-col bg-white/95 backdrop-blur border border-slate-200 rounded-xl shadow-xl text-slate-800">
+            <div className="p-3 border-b border-slate-100 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold">Mostrar en el mapa</span>
+                <span className="text-[11px] text-slate-500">{visibleFrentes.length} de {frentes.length}</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {groups.map(g => {
+                  const shown = g.ids.filter(id => !hiddenIds.has(id)).length;
+                  const on = shown === g.ids.length;
+                  return (
+                    <button key={g.key} type="button" aria-pressed={on}
+                      onClick={() => setGroupVisible(g.ids, !on)}
+                      className={`text-[11px] font-bold px-2 py-1 rounded-full border ${on ? 'bg-slate-800 border-slate-800 text-white' : shown ? 'bg-slate-100 border-slate-300 text-slate-700' : 'bg-white border-slate-300 text-slate-500'}`}>
+                      {g.label} · {shown}/{g.ids.length}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex gap-2 text-[11px] font-semibold">
+                <button type="button" className="text-primary hover:underline" onClick={() => setHiddenIds(new Set())}>Todos</button>
+                <button type="button" className="text-primary hover:underline" onClick={() => setHiddenIds(new Set(frentes.map(f => f.id)))}>Ninguno</button>
+              </div>
+              <input
+                type="search"
+                value={filterQuery}
+                onChange={e => setFilterQuery(e.target.value)}
+                placeholder="Buscar frente, CIV o vía"
+                aria-label="Buscar frente"
+                className="w-full text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-primary"
+              />
+            </div>
+            <ul className="overflow-y-auto p-1.5 text-xs">
+              {frentes
+                .filter(f => {
+                  const q = filterQuery.trim().toLowerCase();
+                  return !q || `frente ${f.frente} ${f.civ} ${f.eje} ${f.desde} ${f.hasta}`.toLowerCase().includes(q);
+                })
+                .map(f => (
+                  <li key={f.id}>
+                    <label className="flex items-center gap-2 px-1.5 py-1 rounded hover:bg-slate-50 cursor-pointer">
+                      <input type="checkbox" checked={!hiddenIds.has(f.id)} onChange={() => toggleFrente(f.id)} />
+                      <span className="font-bold w-9 shrink-0">{f.frente}</span>
+                      <span className="truncate text-slate-600">{f.eje}{f.desde ? ` · ${f.desde}` : ''}</span>
+                      {f.adicion && <span className="ml-auto text-[9px] font-black text-violet-600">ADIC.</span>}
+                    </label>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        )}
 
         {/* Floating Quick Navigation Card for Active Frente */}
         {activeFrenteObj && activeFrenteObj.latitude && activeFrenteObj.longitude && (
