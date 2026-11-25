@@ -1,7 +1,7 @@
 // Proyecto 1: Usaquén (INCOLTA S.A.S.). Datos que antes estaban fijos en App.jsx.
 // Sus semanas se guardan en las filas semana_<N> (formato original), por compatibilidad.
 
-// 22 Geolocalizados Frentes de Obra for Malla Vial
+// Frentes de Malla Vial: 22 del contrato + 4 calzadas de la adición (301-304)
 const MALLA_VIAL_FRENTES_RAW = [
   { civ: '1002332', eje: 'KR 7F', desde: 'AC 161', hasta: 'CL 161A', type: 'Local', area: 335.4, lat: '4.736779', lng: '-74.025494', status: 'al-dia', progress: 23, plannedProgress: 11, supervisor: 'Ing. Carolina Rojas', totalBudget: 313155084, executedBudget: 37578610, description: 'Tramo: AC 161 hasta CL 161A - Área: 335.4 m² - Malla: Local | Acta inicio: 18/06/2026 | Real: 02/07/2026 | Vence: 24/09/2026' },
   { civ: '1000067', eje: 'CL 192', desde: 'KR 7B', hasta: 'KR 8', type: 'Local', area: 194.94, lat: '4.769023', lng: '-74.028627', status: 'al-dia', progress: 33, plannedProgress: 27, supervisor: 'Ing. Juan Mendoza', totalBudget: 253799700, executedBudget: 83753901, description: 'Tramo: KR 7B hasta KR 8 - Área: 194.94 m² - Malla: Local | Real Inicio: 09/06/2026 | Plazo: 20/04/2026 al 20/11/2026' },
@@ -24,10 +24,15 @@ const MALLA_VIAL_FRENTES_RAW = [
   { civ: '1005704', eje: 'KR 11B', desde: 'CL 103A', hasta: 'CL 104A', type: 'Local', area: 735.2, lat: '4.686872', lng: '-74.042882', status: 'al-dia', progress: 90, plannedProgress: 67, supervisor: 'Ing. Diana Guerrero' },
   { civ: '1005491', eje: 'CL 106ª', desde: 'KR 13A', hasta: 'KR 14', type: 'Local', area: 53.73, lat: '4.689826', lng: '-74.045197', status: 'al-dia', progress: 100, plannedProgress: 100, supervisor: 'Ing. Carlos Ortiz' },
   { civ: '1005808', eje: 'KR 12', desde: 'CL 101', hasta: 'CL 101A', type: 'Local', area: 530.35, lat: '4.684540', lng: '-74.045465', status: 'al-dia', progress: 100, plannedProgress: 100, supervisor: 'Ing. Carlos Ortiz' },
-  { civ: '1008209', eje: 'Carrera 8C', desde: 'CL 167D', hasta: 'CL 168', type: 'Intermedia', area: 544.83, lat: '4.745266', lng: '-74.026888', status: 'al-dia', progress: 100, plannedProgress: 100, supervisor: 'Ing. Diana Guerrero' }
+  { civ: '1008209', eje: 'Carrera 8C', desde: 'CL 167D', hasta: 'CL 168', type: 'Intermedia', area: 544.83, lat: '4.745266', lng: '-74.026888', status: 'al-dia', progress: 100, plannedProgress: 100, supervisor: 'Ing. Diana Guerrero' },
+  // Adición: calzadas (CIVS contractuales, hoja CCTV)
+  { civ: '1008292', pk: '91010798', eje: 'Carrera 17B', desde: 'Calle 180 Bis', hasta: 'Calle 180A', longitud: 64.3, area: 0, lat: '4.757391', lng: '-74.038870', status: 'al-dia', progress: 0, plannedProgress: 0, supervisor: '', tipoIntervencion: 'Calzada', frenteNumber: 301, alias: 'Frente 301 (adición)', adicion: true, totalBudget: 0, executedBudget: 0, description: 'Tramo: Calle 180 Bis hasta Calle 180A - Longitud: 64.3 m | Adición: Parqueadero buses' },
+  { civ: '1007132', pk: '91019385', eje: 'Carrera 17B', desde: 'Calle 180A', hasta: 'Calle 181', longitud: 28.22, area: 0, lat: '4.757818', lng: '-74.038851', status: 'al-dia', progress: 0, plannedProgress: 0, supervisor: '', tipoIntervencion: 'Calzada', frenteNumber: 302, alias: 'Frente 302 (adición)', adicion: true, totalBudget: 0, executedBudget: 0, description: 'Tramo: Calle 180A hasta Calle 181 - Longitud: 28.22 m | Adición: Parqueadero buses' },
+  { civ: '1003125', pk: '138050', eje: 'Calle 182B', desde: 'Carrera 7C', hasta: 'Cerrada', longitud: 110, area: 0, lat: '4.731051', lng: '-74.043943', status: 'al-dia', progress: 0, plannedProgress: 0, supervisor: '', tipoIntervencion: 'Calzada', frenteNumber: 303, alias: 'Frente 303 (adición)', adicion: true, totalBudget: 0, executedBudget: 0, description: 'Tramo: Carrera 7C hasta Cerrada - Longitud: 110 m | Adición: Margaritas 2' },
+  { civ: '1001715', pk: '140541', eje: 'Calle 162', desde: 'Carrera 21', hasta: 'Carrera 20', longitud: 116.35, area: 0, lat: '4.742513', lng: '-74.044820', status: 'al-dia', progress: 0, plannedProgress: 0, supervisor: '', tipoIntervencion: 'Calzada', frenteNumber: 304, alias: 'Frente 304 (adición)', adicion: true, totalBudget: 0, executedBudget: 0, description: 'Tramo: Carrera 21 hasta Carrera 20 - Longitud: 116.35 m | Adición: Iglesia' }
 ];
 
-// 20 Geolocalizados Frentes de Obra for Espacio Público
+// Frentes de Espacio Público: 20 del contrato, 201 (emergencia) y 5 de la adición (401-405)
 const ESPACIO_PUBLICO_FRENTES_RAW = [
   { civ: '1001048', pk: '3000', eje: 'Carrera 7 a', desde: 'Calle 182', hasta: 'Calle 182ª', area: 154.04, lat: '4.759100', lng: '-74.027433', status: 'al-dia', progress: 40, plannedProgress: 40, supervisor: 'Ing. Diana Guerrero' },
   { civ: '1007343', pk: '92073803', eje: 'Carrera 13', desde: 'Calle 187', hasta: 'Calle 187ª', area: 32.01, lat: '4.764420', lng: '-74.036999', status: 'al-dia', progress: 90, plannedProgress: 90, supervisor: 'Ing. Andrés Castro' },
@@ -70,7 +75,13 @@ const ESPACIO_PUBLICO_FRENTES_RAW = [
     totalBudget: 44759461,
     executedBudget: 11189865,
     description: 'Tramo: calle 109 hasta calle 108 - Área: 91.5 m² - Andén Concreto MR-40 | Aprobado COI 33 del 13/08/2026 | Emergencia'
-  }
+  },
+  // Adición: espacio público (CIVS contractuales, hoja CCTV)
+  { civ: '1003764', pk: '92052601', eje: 'Calle 137', desde: 'Carrera 19', hasta: 'Carrera 18A', longitud: 61.06, area: 0, lat: '4.721301', lng: '-74.046066', status: 'al-dia', progress: 0, plannedProgress: 0, supervisor: '', tipoIntervencion: 'Andén', frenteNumber: 401, alias: 'Frente 401 (adición)', adicion: true, totalBudget: 0, executedBudget: 0, description: 'Tramo: Carrera 19 hasta Carrera 18A - Longitud: 61.06 m | Adición: Banco Caja Social' },
+  { civ: '1002087', pk: '1538', eje: 'Carrera 8B Bis', desde: 'Calle 163', hasta: 'Calle 163A', longitud: 52.63, area: 0, lat: '4.739126', lng: '-74.027654', status: 'al-dia', progress: 0, plannedProgress: 0, supervisor: '', tipoIntervencion: 'Andén', frenteNumber: 402, alias: 'Frente 402 (adición)', adicion: true, totalBudget: 0, executedBudget: 0, description: 'Tramo: Calle 163 hasta Calle 163A - Longitud: 52.63 m | Adición: Andén La Suiza' },
+  { civ: '1000209', pk: '2962', eje: 'Carrera 6', desde: 'Calle 190', hasta: 'Calle 190A', longitud: 86.7, area: 0, lat: '4.767490', lng: '-74.026672', status: 'al-dia', progress: 0, plannedProgress: 0, supervisor: '', tipoIntervencion: 'Rampa', frenteNumber: 403, alias: 'Frente 403 (adición)', adicion: true, totalBudget: 0, executedBudget: 0, description: 'Tramo: Calle 190 hasta Calle 190A - Longitud: 86.7 m | Adición: Rampa zona verde' },
+  { civ: '1000250', pk: '92093833', eje: 'Calle 189B', desde: 'Carrera 5B', hasta: 'Carrera 5A Bis', longitud: 19.53, area: 0, lat: '4.767490', lng: '-74.026672', status: 'al-dia', progress: 0, plannedProgress: 0, supervisor: '', tipoIntervencion: 'Escaleras', frenteNumber: 404, alias: 'Frente 404 (adición)', adicion: true, totalBudget: 0, executedBudget: 0, description: 'Tramo: Carrera 5B hasta Carrera 5A Bis - Longitud: 19.53 m | Adición: Escaleras 2 El Codito' },
+  { civ: '1002332', pk: '1461', eje: 'Carrera 7F', desde: 'Calle 161', hasta: 'Calle 161A', longitud: 50.73, area: 0, lat: '4.736671', lng: '-74.025488', status: 'al-dia', progress: 0, plannedProgress: 0, supervisor: '', tipoIntervencion: 'Andén', frenteNumber: 405, alias: 'Frente 405 (adición)', adicion: true, totalBudget: 0, executedBudget: 0, description: 'Tramo: Calle 161 hasta Calle 161A - Longitud: 50.73 m | Adición: Andén frente 1' }
 ];
 
 

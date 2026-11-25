@@ -48,6 +48,37 @@ export function initializeWeeklyReports(allFrentes) {
   return [reportSemana20];
 }
 
+// Frente de una semana, en blanco, a partir del frente del proyecto
+export const weekFrenteFromProject = (f) => ({
+  id: f.id,
+  frente: f.frente,
+  civ: f.civ,
+  eje: f.eje,
+  desde: f.desde,
+  hasta: f.hasta,
+  projectName: f.projectName,
+  ...(f.adicion ? { adicion: true } : {}),
+  porcentaje_avance_semana: f.progress || 0,
+  ejecucion_presupuestal_semana: 0,
+  actividades_ejecutadas_hitos: '',
+  pmt_estado: '',
+  fotos: [],
+  photos: [],
+  bitacora_notas: [],
+  bitacora_notes: []
+});
+
+/**
+ * Agrega a la semana los frentes del proyecto que todavía no tiene (por ejemplo, los de una
+ * adición al contrato). Devuelve la misma semana si no falta ninguno.
+ */
+export function addMissingFrentes(report, allFrentes) {
+  const ids = new Set((report?.frentes || []).map(f => f.id));
+  const missing = allFrentes.filter(f => f.id && !ids.has(f.id));
+  if (!report || missing.length === 0) return report;
+  return { ...report, frentes: [...report.frentes, ...missing.map(weekFrenteFromProject)] };
+}
+
 // Primera semana de un proyecto nuevo: la que contiene hoy según su calendario (sábado a viernes
 // por defecto), con los frentes en blanco. Sin datos de ejemplo.
 export function initialWeekForProject(allFrentes, calendario = {}, todayIso = null) {
@@ -60,23 +91,7 @@ export function initialWeekForProject(allFrentes, calendario = {}, todayIso = nu
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekStart.getDate() + 6);
 
-  const frentes = allFrentes.map(f => ({
-    id: f.id,
-    frente: f.frente,
-    civ: f.civ,
-    eje: f.eje,
-    desde: f.desde,
-    hasta: f.hasta,
-    projectName: f.projectName,
-    porcentaje_avance_semana: f.progress || 0,
-    ejecucion_presupuestal_semana: 0,
-    actividades_ejecutadas_hitos: '',
-    pmt_estado: '',
-    fotos: [],
-    photos: [],
-    bitacora_notas: [],
-    bitacora_notes: []
-  }));
+  const frentes = allFrentes.map(weekFrenteFromProject);
 
   return calculateConsolidatedMetrics(frentes, {
     id_informe: Date.now(),
@@ -90,8 +105,9 @@ export function initialWeekForProject(allFrentes, calendario = {}, todayIso = nu
 }
 
 export function calculateConsolidatedMetrics(frentesList, currentReport) {
-  const mvFrentes = frentesList.filter(f => f.id.startsWith('f_mv'));
-  const epFrentes = frentesList.filter(f => f.id.startsWith('f_ep'));
+  // Los segmentos de adición no entran en la calibración del contrato original
+  const mvFrentes = frentesList.filter(f => f.id.startsWith('f_mv') && !f.adicion);
+  const epFrentes = frentesList.filter(f => f.id.startsWith('f_ep') && !f.adicion);
 
   const mvAvg = mvFrentes.length > 0 
     ? mvFrentes.reduce((acc, f) => acc + (parseFloat(f.porcentaje_avance_semana) || 0), 0) / mvFrentes.length

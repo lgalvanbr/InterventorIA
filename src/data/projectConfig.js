@@ -129,6 +129,8 @@ export const generateFrentes = (rawList, isMallaVial, prefijo = isMallaVial ? 'f
       barrio: f.barrio || '',
       tipoIntervencion: f.tipoIntervencion || '',
       prioridad: f.prioridad || 'Normal',
+      adicion: !!f.adicion,
+      pk: f.pk || '',
       name: `${etiqueta} - CIV ${f.civ} (${f.eje})`,
       description: f.description || `Tramo: ${f.desde} hasta ${f.hasta} - Área: ${f.area} m2 - Malla: ${f.type || 'N/A'}`,
       latitude: f.lat,
